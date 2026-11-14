@@ -4,13 +4,13 @@
     <li>
       <span class="doc-nome"><%= tipiDoc[t] %></span>
       <span class="badge doc-<%= r.stato.codice %>"><%= r.stato.testo %></span>
-      <small class="muto">
-        <% if (r.doc) { %>
-          <% if (r.doc.numero) { %><%= t === 'patente' ? 'Codice' : 'N.' %> <%= r.doc.numero %> · <% } %>
-          <% if (r.doc.rilascio) { %>del <%= data(r.doc.rilascio) %><% } %>
-          <% if (r.doc.scadenza) { %> · <%= t === 'visura' ? 'da aggiornare dal' : 'valido fino al' %> <%= data(r.doc.scadenza) %><% } %>
-        <% } %>
-      </small>
+      <% const parti = [];
+         if (r.doc) {
+           if (r.doc.numero) parti.push((t === 'patente' ? 'Codice ' : 'N. ') + r.doc.numero);
+           if (r.doc.rilascio) parti.push('del ' + data(r.doc.rilascio));
+           if (r.doc.scadenza) parti.push((t === 'visura' ? 'da aggiornare dal ' : 'valido fino al ') + data(r.doc.scadenza));
+         } %>
+      <small class="muto doc-dettagli"><%= parti.join(' · ') %></small>
       <% if (url) { %><a class="doc-apri" href="<%= url %>" target="_blank" rel="noopener">Apri</a><% } %>
     </li>
   <% }) %>

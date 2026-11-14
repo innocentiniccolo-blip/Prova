@@ -12,11 +12,24 @@
  * Restituisce { tipo, stato, data (AAAA-MM-GG), protocollo } oppure null.
  */
 const fs = require('node:fs');
-const pdfParse = require('pdf-parse/lib/pdf-parse.js');
 
+let pdfjs;
+/** Estrae il testo delle prime tre pagine con pdf.js (Mozilla), riga per riga. */
 async function testoPdf(abs) {
-  const dati = await pdfParse(fs.readFileSync(abs), { max: 3 });
-  return dati.text || '';
+  pdfjs = pdfjs || await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const data = new Uint8Array(await fs.promises.readFile(abs));
+  const doc = await pdfjs.getDocument({ data, isEvalSupported: false, disableFontFace: true, useSystemFonts: false, verbosity: 0 }).promise;
+  try {
+    let testo = '';
+    for (let i = 1; i <= Math.min(3, doc.numPages); i++) {
+      const pagina = await doc.getPage(i);
+      const contenuto = await pagina.getTextContent();
+      testo += contenuto.items.map((it) => (it.str || '') + (it.hasEOL ? '\n' : ' ')).join('') + '\n';
+    }
+    return testo;
+  } finally {
+    await doc.destroy();
+  }
 }
 
 /** dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy oppure yyyy-mm-dd → yyyy-mm-dd */

@@ -242,6 +242,7 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .doc-impresa li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; padding: .45rem 0; border-bottom: 1px dashed var(--bordo); }
 .doc-impresa li:last-child { border-bottom: 0; }
 .doc-nome { font-weight: 600; min-width: 9.5rem; }
+.doc-dettagli { flex: 1 1 14rem; }
 .doc-apri { margin-left: auto; font-weight: 600; text-decoration: none; }
 .doc-ok { background: #ecf8f1; color: var(--verde); }
 .doc-in-scadenza { background: #fff4e0; color: var(--ambra); }

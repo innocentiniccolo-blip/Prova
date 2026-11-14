@@ -1,0 +1,21 @@
+<form method="post" action="<%= azione %>" class="modulo">
+  <input type="hidden" name="_csrf" value="<%= csrf %>">
+  <% if (typeof lavoroId !== 'undefined' && lavoroId) { %><input type="hidden" name="lavoro" value="<%= lavoroId %>"><% } %>
+  <div class="riga-campi">
+    <label>Ragione sociale <input name="ragione_sociale" required maxlength="200" value="<%= impresa.ragione_sociale || '' %>"></label>
+    <label>Partita IVA <input name="piva" maxlength="20" value="<%= impresa.piva || '' %>"></label>
+  </div>
+  <div class="riga-campi">
+    <label>Sede <input name="sede" maxlength="300" value="<%= impresa.sede || '' %>"></label>
+    <label>PEC <input type="email" name="pec" maxlength="160" value="<%= impresa.pec || '' %>"></label>
+    <label>Telefono <input name="telefono" maxlength="40" value="<%= impresa.telefono || '' %>"></label>
+  </div>
+  <% if (typeof lavoroId !== 'undefined' && lavoroId) { %>
+    <label>Ruolo in questo cantiere <input name="ruolo" maxlength="100" placeholder="es. Impresa affidataria, Impianto elettrico…"></label>
+  <% } %>
+  <label>Note interne <small>(non visibili al cliente)</small> <textarea name="nota" rows="2" maxlength="2000"><%= impresa.nota || '' %></textarea></label>
+  <div class="azioni">
+    <label class="scelta"><input type="checkbox" name="autonomo" value="1" <%= impresa.autonomo ? 'checked' : '' %>> Lavoratore autonomo</label>
+    <button class="pulsante"><%= pulsante %></button>
+  </div>
+</form>

@@ -42,6 +42,21 @@
             <% } %>
           </article>
         <% }) %>
+        <% if (impreseCantiere.length) { %>
+          <h2 class="titolo-sezione" id="sicurezza">Sicurezza in cantiere</h2>
+          <div class="carta">
+            <p class="muto">Le imprese che lavorano nel tuo cantiere e i loro documenti: visura camerale, regolarità contributiva (DURC) e patente a crediti per la sicurezza.</p>
+            <% impreseCantiere.forEach(i => { %>
+              <div class="impresa-cantiere">
+                <div class="pratica-testa">
+                  <span class="pratica-titolo"><strong><%= i.ragione_sociale %></strong>
+                    <small class="muto"><%= i.ruolo || (i.autonomo ? 'Lavoratore autonomo' : 'Impresa') %><% if (i.piva) { %> · P.IVA <%= i.piva %><% } %></small></span>
+                </div>
+                <%- include('../partials/riepilogo-impresa', { i, tipiDoc, linkDoc: (d) => `/area/lavori/${lavoro.id}/imprese/${i.id}/documenti/${d.id}` }) %>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
       </div>
       <aside>
         <div class="carta">

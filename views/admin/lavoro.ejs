@@ -123,6 +123,45 @@
           </details>
         <% }) %>
 
+        <div class="carta" id="sicurezza">
+          <h2>Sicurezza cantiere</h2>
+          <p class="muto">Imprese e lavoratori autonomi presenti in cantiere, con visura camerale, DURC e patente a crediti. I documenti si gestiscono dalla scheda dell'impresa.</p>
+          <% impreseCantiere.forEach(i => { %>
+            <div class="impresa-cantiere">
+              <div class="pratica-testa">
+                <span class="pratica-titolo"><strong><a href="/studio/imprese/<%= i.id %>"><%= i.ragione_sociale %></a></strong>
+                  <small class="muto"><%= i.ruolo || (i.autonomo ? 'Lavoratore autonomo' : 'Impresa') %><% if (i.piva) { %> · P.IVA <%= i.piva %><% } %></small></span>
+                <span class="badge <%= i.visibile ? 'visibile' : 'privata' %>"><%= i.visibile ? 'Visibile al cliente' : 'Privata' %></span>
+              </div>
+              <%- include('../partials/riepilogo-impresa', { i, tipiDoc, linkDoc: (d) => `/studio/imprese/${i.id}/documenti/${d.id}` }) %>
+              <form method="post" action="/studio/lavori/<%= lavoro.id %>/imprese/<%= i.id %>" class="carica">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <input name="ruolo" maxlength="100" value="<%= i.ruolo || '' %>" placeholder="Ruolo (es. impresa affidataria)" aria-label="Ruolo in cantiere">
+                <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= i.visibile ? 'checked' : '' %>> Visibile al cliente</label>
+                <button class="pulsante piccolo" name="azione" value="salva">Salva</button>
+                <button class="link pericolo" name="azione" value="togli">Togli dal cantiere</button>
+              </form>
+            </div>
+          <% }) %>
+          <% if (!impreseCantiere.length) { %><p class="vuoto">Nessuna impresa in questo cantiere.</p><% } %>
+          <% const disponibili = tutteImprese.filter(t => !impreseCantiere.some(i => i.id === t.id)); %>
+          <% if (disponibili.length) { %>
+            <form method="post" action="/studio/lavori/<%= lavoro.id %>/imprese" class="carica">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <select name="impresa" aria-label="Impresa da aggiungere">
+                <% disponibili.forEach(t => { %><option value="<%= t.id %>"><%= t.ragione_sociale %></option><% }) %>
+              </select>
+              <input name="ruolo" maxlength="100" placeholder="Ruolo in cantiere" aria-label="Ruolo in cantiere">
+              <label class="scelta"><input type="checkbox" name="visibile" value="1" checked> Visibile al cliente</label>
+              <button class="pulsante">Aggiungi</button>
+            </form>
+          <% } %>
+          <details>
+            <summary>+ Nuova impresa per questo cantiere</summary>
+            <%- include('../partials/form-impresa', { impresa: {}, azione: '/studio/imprese', pulsante: 'Crea e aggiungi', lavoroId: lavoro.id }) %>
+          </details>
+        </div>
+
         <div class="carta" id="aggiornamenti">
           <h2>Aggiornamenti per il cliente</h2>
           <form method="post" action="/studio/lavori/<%= lavoro.id %>/aggiornamenti" class="modulo">

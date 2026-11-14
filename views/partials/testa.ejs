@@ -24,6 +24,7 @@
       <% } else if (utente.ruolo === 'admin') { %>
         <a href="/studio" class="<%= percorso === '/studio' || percorso.startsWith('/studio/lavori') ? 'attivo' : '' %>">Lavori</a>
         <a href="/studio/clienti" class="<%= percorso.startsWith('/studio/clienti') ? 'attivo' : '' %>">Clienti</a>
+        <a href="/studio/imprese" class="<%= percorso.startsWith('/studio/imprese') ? 'attivo' : '' %>">Imprese</a>
         <form method="post" action="/esci" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Esci</button></form>
       <% } else { %>
         <a href="/area" class="<%= percorso.startsWith('/area/lavori') || percorso === '/area' ? 'attivo' : '' %>">I miei lavori</a>

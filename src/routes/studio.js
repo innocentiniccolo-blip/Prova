@@ -9,6 +9,7 @@ const auth = require('../auth');
 const archivio = require('../archivio');
 const pratiche = require('../pratiche');
 const automazioni = require('../automazioni');
+const imprese = require('../imprese');
 const posta = require('../posta');
 const { inviaBenvenuto, avvisaClienti } = require('../notifiche');
 const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
@@ -42,6 +43,7 @@ router.get('/', async (req, res, next) => {
   res.render('admin/cruscotto', {
     titolo: 'Studio', lavori, perStato, nClienti: clienti.length,
     proposteLavori: automazioni.proposteLavori(), proposteStato: automazioni.proposteStato(),
+    avvisiImprese: imprese.avvisiScadenze(),
   });
 });
 
@@ -157,6 +159,9 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       aggiornamenti: Aggiornamenti.perLavoro.all(lavoro.id),
       accessi: Accessi.perLavoro.all(lavoro.id),
       anteprimaPossibile,
+      impreseCantiere: imprese.impreseDelLavoro(lavoro.id),
+      tutteImprese: imprese.Q.tutte.all(),
+      tipiDoc: imprese.TIPI,
     });
   } catch (e) { next(e); }
 });
@@ -427,6 +432,111 @@ router.post('/clienti/:id/elimina', auth.verificaCsrf, (req, res) => {
   Utenti.elimina.run(Number(req.params.id));
   flash(req, 'ok', 'Cliente eliminato.');
   res.redirect('/studio/clienti');
+});
+
+// ---------- Sicurezza cantiere: imprese e loro documenti ----------
+const datiImpresa = (b) => ({
+  ragione_sociale: testo(b.ragione_sociale, 200), piva: testo(b.piva, 20) || null, sede: testo(b.sede, 300) || null,
+  pec: testo(b.pec, 160) || null, telefono: testo(b.telefono, 40) || null, autonomo: b.autonomo ? 1 : 0,
+  nota: testo(b.nota, 2000) || null,
+});
+function trovaImpresa(req, res, next) {
+  const i = imprese.Q.perId.get(Number(req.params.iid));
+  if (!i) return res.status(404).render('errore', { titolo: 'Impresa non trovata', messaggio: '' });
+  req.impresa = i;
+  next();
+}
+
+router.get('/imprese', (req, res) => {
+  const elenco = imprese.Q.tutte.all().map((i) => ({ ...i, riepilogo: imprese.riepilogo(i.id) }));
+  res.render('admin/imprese', { titolo: 'Imprese', imprese: elenco, tipiDoc: imprese.TIPI });
+});
+
+router.post('/imprese', auth.verificaCsrf, (req, res) => {
+  const d = datiImpresa(req.body);
+  if (!d.ragione_sociale) { flash(req, 'errore', 'Indica la ragione sociale.'); return res.redirect('/studio/imprese'); }
+  const id = Number(imprese.Q.inserisci.run(d).lastInsertRowid);
+  const lavoroId = Number(req.body.lavoro) || 0;
+  if (lavoroId && Lavori.perId.get(lavoroId)) {
+    imprese.Q.collega.run(lavoroId, id, testo(req.body.ruolo, 100) || null, 1);
+    flash(req, 'ok', `Impresa «${d.ragione_sociale}» creata e aggiunta al cantiere. Carica ora i suoi documenti.`);
+  } else flash(req, 'ok', `Impresa «${d.ragione_sociale}» creata. Carica ora i suoi documenti.`);
+  res.redirect(`/studio/imprese/${id}`);
+});
+
+router.get('/imprese/:iid', trovaImpresa, (req, res) => {
+  res.render('admin/impresa', {
+    titolo: req.impresa.ragione_sociale, impresa: req.impresa, tipiDoc: imprese.TIPI,
+    documenti: imprese.Q.documenti.all(req.impresa.id).map((d) => ({ ...d, stato: imprese.statoDocumento(d) })),
+    riepilogo: imprese.riepilogo(req.impresa.id), lavori: imprese.Q.lavoriImpresa.all(req.impresa.id),
+    creditiMinimi: imprese.CREDITI_MINIMI,
+  });
+});
+
+router.post('/imprese/:iid', trovaImpresa, auth.verificaCsrf, (req, res) => {
+  const d = datiImpresa(req.body);
+  if (!d.ragione_sociale) d.ragione_sociale = req.impresa.ragione_sociale;
+  imprese.Q.aggiorna.run({ ...d, id: req.impresa.id });
+  flash(req, 'ok', 'Dati dell\'impresa salvati.');
+  res.redirect(`/studio/imprese/${req.impresa.id}`);
+});
+
+router.post('/imprese/:iid/elimina', trovaImpresa, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    await imprese.eliminaImpresa(req.impresa.id);
+    flash(req, 'ok', 'Impresa eliminata con i suoi documenti.');
+    res.redirect('/studio/imprese');
+  } catch (e) { next(e); }
+});
+
+router.post('/imprese/:iid/documenti', trovaImpresa, pulisciTmp, upload.array('file', 1), auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const f = (req.files || [])[0];
+    const b = req.body;
+    const crediti = b.crediti === '' || b.crediti == null ? null : Number.parseInt(b.crediti, 10);
+    if (!f && b.tipo !== 'patente') { flash(req, 'errore', 'Seleziona il file da caricare.'); return res.redirect(`/studio/imprese/${req.impresa.id}`); }
+    await imprese.salvaDocumento(req.impresa.id, {
+      tipo: b.tipo, descrizione: testo(b.descrizione, 200), rilascio: dataONull(b.rilascio), scadenza: dataONull(b.scadenza),
+      numero: testo(b.numero, 100), crediti: Number.isInteger(crediti) && crediti >= 0 && crediti <= 200 ? crediti : null,
+    }, f && f.path, f && Buffer.from(f.originalname, 'latin1').toString('utf8'));
+    flash(req, 'ok', `${imprese.TIPI[b.tipo] || 'Documento'} registrato.`);
+    res.redirect(`/studio/imprese/${req.impresa.id}`);
+  } catch (e) { next(e); }
+});
+
+router.get('/imprese/:iid/documenti/:did', trovaImpresa, (req, res) => {
+  const abs = imprese.percorsoFile(imprese.Q.documento.get(Number(req.params.did), req.impresa.id));
+  if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: '' });
+  inviaFile(res, abs, { scarica: req.query.scarica === '1' });
+});
+
+router.post('/imprese/:iid/documenti/:did/elimina', trovaImpresa, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const ok = await imprese.eliminaDocumento(req.impresa.id, Number(req.params.did));
+    flash(req, ok ? 'ok' : 'errore', ok ? 'Documento eliminato.' : 'Documento non trovato.');
+    res.redirect(`/studio/imprese/${req.impresa.id}`);
+  } catch (e) { next(e); }
+});
+
+// Imprese presenti nel cantiere di un lavoro
+router.post('/lavori/:id/imprese', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const i = imprese.Q.perId.get(Number(req.body.impresa));
+  if (!i) flash(req, 'errore', 'Scegli un\'impresa dall\'elenco.');
+  else {
+    imprese.Q.collega.run(req.lavoro.id, i.id, testo(req.body.ruolo, 100) || null, req.body.visibile ? 1 : 0);
+    flash(req, 'ok', `«${i.ragione_sociale}» aggiunta al cantiere.`);
+  }
+  res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`);
+});
+
+router.post('/lavori/:id/imprese/:iid', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const iid = Number(req.params.iid);
+  if (imprese.Q.collegamento.get(req.lavoro.id, iid)) {
+    if (req.body.azione === 'togli') imprese.Q.scollega.run(req.lavoro.id, iid);
+    else imprese.Q.collega.run(req.lavoro.id, iid, testo(req.body.ruolo, 100) || null, req.body.visibile ? 1 : 0);
+    flash(req, 'ok', req.body.azione === 'togli' ? 'Impresa tolta dal cantiere.' : 'Impresa aggiornata.');
+  }
+  res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`);
 });
 
 module.exports = router;

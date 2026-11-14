@@ -1,0 +1,24 @@
+<%# Riepilogo dei documenti principali di un'impresa. Parametri: i (impresa con riepilogo), tipiDoc, linkDoc(doc) → url o null %>
+<ul class="doc-impresa">
+  <% ['visura', 'durc', 'patente'].forEach(t => { const r = i.riepilogo[t]; const url = r.doc && r.doc.file ? linkDoc(r.doc) : null; %>
+    <li>
+      <span class="doc-nome"><%= tipiDoc[t] %></span>
+      <span class="badge doc-<%= r.stato.codice %>"><%= r.stato.testo %></span>
+      <small class="muto">
+        <% if (r.doc) { %>
+          <% if (r.doc.numero) { %><%= t === 'patente' ? 'Codice' : 'N.' %> <%= r.doc.numero %> · <% } %>
+          <% if (r.doc.rilascio) { %>del <%= data(r.doc.rilascio) %><% } %>
+          <% if (r.doc.scadenza) { %> · <%= t === 'visura' ? 'da aggiornare dal' : 'valido fino al' %> <%= data(r.doc.scadenza) %><% } %>
+        <% } %>
+      </small>
+      <% if (url) { %><a class="doc-apri" href="<%= url %>" target="_blank" rel="noopener">Apri</a><% } %>
+    </li>
+  <% }) %>
+  <% i.riepilogo.altri.forEach(d => { const url = d.file ? linkDoc(d) : null; %>
+    <li>
+      <span class="doc-nome"><%= d.descrizione || tipiDoc.altro %></span>
+      <% if (d.scadenza) { %><small class="muto">scade il <%= data(d.scadenza) %></small><% } %>
+      <% if (url) { %><a class="doc-apri" href="<%= url %>" target="_blank" rel="noopener">Apri</a><% } %>
+    </li>
+  <% }) %>
+</ul>

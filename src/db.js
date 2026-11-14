@@ -111,6 +111,42 @@ CREATE TABLE IF NOT EXISTS proposte_stato (
   creato_il  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Sicurezza cantiere: anagrafica delle imprese (riutilizzabile su più lavori)
+CREATE TABLE IF NOT EXISTS imprese (
+  id              INTEGER PRIMARY KEY,
+  ragione_sociale TEXT NOT NULL,
+  piva            TEXT,
+  sede            TEXT,
+  pec             TEXT,
+  telefono        TEXT,
+  autonomo        INTEGER NOT NULL DEFAULT 0,
+  nota            TEXT,
+  creato_il       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Documenti dell'impresa: visura camerale, DURC, patente a crediti, altro
+CREATE TABLE IF NOT EXISTS documenti_impresa (
+  id          INTEGER PRIMARY KEY,
+  impresa_id  INTEGER NOT NULL REFERENCES imprese(id) ON DELETE CASCADE,
+  tipo        TEXT NOT NULL CHECK (tipo IN ('visura','durc','patente','altro')),
+  descrizione TEXT,
+  file        TEXT,
+  rilascio    TEXT,
+  scadenza    TEXT,
+  numero      TEXT,
+  crediti     INTEGER,
+  caricato_il TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Imprese presenti in un cantiere
+CREATE TABLE IF NOT EXISTS lavori_imprese (
+  lavoro_id  INTEGER NOT NULL REFERENCES lavori(id) ON DELETE CASCADE,
+  impresa_id INTEGER NOT NULL REFERENCES imprese(id) ON DELETE CASCADE,
+  ruolo      TEXT,
+  visibile   INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (lavoro_id, impresa_id)
+);
+
 CREATE TABLE IF NOT EXISTS sessioni (
   sid     TEXT PRIMARY KEY,
   dati    TEXT NOT NULL,

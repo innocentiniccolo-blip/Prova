@@ -9,6 +9,16 @@
       </div>
     </div>
     <% const nomeTipo = { comune: 'Protocollo comunale', docfa: 'Catasto (DOCFA)', ape: 'APE – Regione', enea: 'ENEA', pregeo: 'Catasto (PREGEO)', altro: 'Ricevuta' }; %>
+    <% if (avvisiImprese.length) { %>
+      <div class="carta proposte">
+        <h2>Sicurezza cantiere: documenti da sistemare</h2>
+        <ul class="semplice">
+          <% avvisiImprese.forEach(a => { %>
+            <li><a href="/studio/imprese/<%= a.impresa.id %>"><%= a.impresa.ragione_sociale %></a> · <%= a.tipo %> <span class="badge doc-<%= a.stato.codice %>"><%= a.stato.testo %></span></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
     <% if (proposteLavori.length || proposteStato.length) { %>
       <div class="carta proposte">
         <h2>Da confermare</h2>

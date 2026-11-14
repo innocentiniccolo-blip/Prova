@@ -233,3 +233,17 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .proposte { border-left: 4px solid var(--azzurro); }
 .proposta { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: center; padding: .8rem 0; border-top: 1px solid var(--bordo); }
 .proposta:first-of-type { border-top: 0; }
+
+/* Sicurezza cantiere */
+.griglia-imprese { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem; margin-top: 1.25rem; }
+.impresa-cantiere { border-top: 1px solid var(--bordo); padding: 1rem 0 .5rem; }
+.impresa-cantiere:first-of-type { border-top: 0; }
+.doc-impresa { list-style: none; padding: 0; margin: .6rem 0; }
+.doc-impresa li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; padding: .45rem 0; border-bottom: 1px dashed var(--bordo); }
+.doc-impresa li:last-child { border-bottom: 0; }
+.doc-nome { font-weight: 600; min-width: 9.5rem; }
+.doc-apri { margin-left: auto; font-weight: 600; text-decoration: none; }
+.doc-ok { background: #ecf8f1; color: var(--verde); }
+.doc-in-scadenza { background: #fff4e0; color: var(--ambra); }
+.doc-scaduto, .doc-insufficiente { background: #fdecec; color: #b42318; }
+.doc-mancante { background: #f1f2f4; color: #555; }

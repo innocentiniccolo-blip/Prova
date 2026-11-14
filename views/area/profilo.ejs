@@ -1,0 +1,22 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore stretto">
+    <div class="carta">
+      <h1>Il mio profilo</h1>
+      <dl class="dati"><dt>Nome</dt><dd><%= utente.nome %></dd><dt>Email</dt><dd><%= utente.email %></dd></dl>
+    </div>
+    <div class="carta">
+      <h2>Cambia password</h2>
+      <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+      <% if (messaggio) { %><div class="avviso ok"><%= messaggio %></div><% } %>
+      <form method="post" action="/area/profilo/password" class="modulo">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label>Password attuale <input type="password" name="attuale" required autocomplete="current-password"></label>
+        <label>Nuova password <input type="password" name="nuova" required minlength="10" autocomplete="new-password"></label>
+        <label>Ripeti nuova password <input type="password" name="conferma" required minlength="10" autocomplete="new-password"></label>
+        <button class="pulsante">Aggiorna password</button>
+      </form>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

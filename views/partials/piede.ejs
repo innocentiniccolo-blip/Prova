@@ -1,0 +1,19 @@
+</main>
+<footer class="piede">
+  <div class="contenitore piede-riga">
+    <div>
+      <strong><%= studio.nome %></strong><br>
+      <%= studio.indirizzo %><br>
+      <% if (studio.piva) { %>P.IVA <%= studio.piva %><br><% } %>
+      <% if (studio.albo) { %><small><%= studio.albo %></small><% } %>
+    </div>
+    <div class="piede-destra">
+      <a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a><br>
+      <a href="mailto:<%= studio.email %>"><%= studio.email %></a>
+      <% if (studio.pec) { %><br>PEC: <%= studio.pec %><% } %>
+    </div>
+  </div>
+</footer>
+<script src="/js/app.js" defer></script>
+</body>
+</html>

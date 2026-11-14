@@ -1,0 +1,51 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore medio">
+    <a class="indietro" href="/studio/clienti">← Clienti</a>
+    <h1><%= titolo %></h1>
+    <% if (typeof credenziali !== 'undefined' && credenziali) { %>
+      <div class="avviso ok credenziali">
+        <strong>Credenziali da comunicare al cliente</strong> (visibili solo ora):
+        <pre id="cred">Indirizzo: <%= studio.nome %> – area clienti
+Email: <%= credenziali.email %>
+Password: <%= credenziali.password %></pre>
+        <button type="button" class="pulsante piccolo" data-copia="#cred">Copia</button>
+        <small>Consiglia al cliente di cambiare la password dal suo profilo al primo accesso.</small>
+      </div>
+    <% } %>
+    <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+    <form method="post" action="<%= cliente.id ? `/studio/clienti/${cliente.id}` : '/studio/clienti' %>" class="modulo carta">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Nome e cognome / Ragione sociale <input name="nome" value="<%= cliente.nome || '' %>" required maxlength="200"></label>
+      <div class="riga-campi">
+        <label>Email (usata per accedere) <input type="email" name="email" value="<%= cliente.email || '' %>" required></label>
+        <label>Telefono <input name="telefono" value="<%= cliente.telefono || '' %>"></label>
+      </div>
+      <% if (cliente.id) { %>
+        <label class="scelta"><input type="checkbox" name="attivo" value="1" <%= cliente.attivo ? 'checked' : '' %>> Accesso attivo</label>
+      <% } else { %>
+        <p class="muto">Verrà generata una password temporanea da comunicare al cliente.</p>
+      <% } %>
+      <button class="pulsante"><%= cliente.id ? 'Salva' : 'Crea cliente' %></button>
+    </form>
+
+    <% if (cliente.id) { %>
+      <div class="carta">
+        <h2>Lavori associati</h2>
+        <% if (!lavori.length) { %><p class="vuoto">Nessun lavoro. Associa il cliente dalla scheda di un lavoro.</p><% } %>
+        <ul class="semplice">
+          <% lavori.forEach(l => { %><li><a href="/studio/lavori/<%= l.id %>"><%= l.codice %> – <%= l.titolo %></a> <span class="badge <%= classeStato(l.stato) %>"><%= l.stato %></span></li><% }) %>
+        </ul>
+      </div>
+      <div class="carta azioni">
+        <form method="post" action="/studio/clienti/<%= cliente.id %>/reimposta-password" class="in-linea" data-conferma="Generare una nuova password per questo cliente?">
+          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante secondario">Genera nuova password</button>
+        </form>
+        <form method="post" action="/studio/clienti/<%= cliente.id %>/elimina" class="in-linea" data-conferma="Eliminare il cliente? Perderà l'accesso a tutti i lavori.">
+          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina cliente</button>
+        </form>
+      </div>
+    <% } %>
+  </div>
+</section>
+<%- include('../partials/piede') %>

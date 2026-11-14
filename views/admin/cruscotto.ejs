@@ -1,0 +1,41 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Lavori</h1>
+      <a class="pulsante" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
+    </div>
+    <div class="riepilogo">
+      <div class="carta numero"><strong><%= lavori.length %></strong><span>Lavori totali</span></div>
+      <% studio.stati.forEach(s => { %>
+        <div class="carta numero"><strong><%= perStato[s] || 0 %></strong><span><%= s %></span></div>
+      <% }) %>
+      <a class="carta numero" href="/studio/clienti"><strong><%= nClienti %></strong><span>Clienti</span></a>
+    </div>
+
+    <div class="carta">
+      <input type="search" class="filtro" placeholder="Cerca per codice, titolo, cliente, indirizzo…" data-filtro="#tabella-lavori tbody tr">
+      <% if (!lavori.length) { %>
+        <p class="vuoto">Nessun lavoro. Inizia creando il primo.</p>
+      <% } else { %>
+      <div class="tabella-scorri">
+      <table id="tabella-lavori" class="tabella">
+        <thead><tr><th>Codice</th><th>Lavoro</th><th>Clienti</th><th>Stato</th><th>Aggiornato</th></tr></thead>
+        <tbody>
+          <% lavori.forEach(l => { %>
+            <tr>
+              <td><a href="/studio/lavori/<%= l.id %>"><%= l.codice %></a></td>
+              <td><a href="/studio/lavori/<%= l.id %>"><%= l.titolo %></a><% if (!l.visibile) { %> <span class="badge stato-sospeso">nascosto</span><% } %><br><small class="muto"><%= l.indirizzo %></small></td>
+              <td><%= l.clienti || '—' %></td>
+              <td><span class="badge <%= classeStato(l.stato) %>"><%= l.stato %></span></td>
+              <td><%= data(l.aggiornato_il) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

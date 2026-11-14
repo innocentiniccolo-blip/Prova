@@ -1,0 +1,31 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Clienti</h1>
+      <a class="pulsante" href="/studio/clienti/nuovo">+ Nuovo cliente</a>
+    </div>
+    <div class="carta">
+      <input type="search" class="filtro" placeholder="Cerca cliente…" data-filtro="#tabella-clienti tbody tr">
+      <% if (!clienti.length) { %><p class="vuoto">Nessun cliente.</p><% } else { %>
+      <div class="tabella-scorri">
+      <table id="tabella-clienti" class="tabella">
+        <thead><tr><th>Nome</th><th>Email</th><th>Telefono</th><th>Lavori</th><th>Ultimo accesso</th></tr></thead>
+        <tbody>
+          <% clienti.forEach(c => { %>
+            <tr>
+              <td><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><% if (!c.attivo) { %> <span class="badge stato-sospeso">disattivato</span><% } %></td>
+              <td><%= c.email %></td>
+              <td><%= c.telefono || '—' %></td>
+              <td><%= c.n_lavori %></td>
+              <td><%= c.ultimo_accesso ? dataOra(c.ultimo_accesso) : 'mai' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

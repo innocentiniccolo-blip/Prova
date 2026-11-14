@@ -1,0 +1,17 @@
+# Avvio sul QNAP (Container Station → Applicazioni → Crea) oppure via SSH:
+#   docker compose up -d --build
+services:
+  studio:
+    build: .
+    container_name: studio-tecnico
+    restart: unless-stopped
+    env_file: .env
+    # Utente/gruppo con cui l'app scrive sul NAS (vedi README, sezione "Permessi")
+    user: "${PUID:-1000}:${PGID:-100}"
+    ports:
+      - "${PORTA:-3000}:3000"
+    volumes:
+      # Cartella condivisa del NAS con l'archivio lavori (quella che usi già dal PC)
+      - ${ARCHIVIO_NAS:-/share/Lavori}:/archivio
+      # Database e file interni dell'app (includila nel backup!)
+      - ${DATI_NAS:-/share/Container/studio-tecnico}:/dati

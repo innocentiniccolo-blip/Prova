@@ -1,0 +1,50 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <% if (utente.ruolo === 'admin') { %>
+      <div class="avviso info">Anteprima: stai vedendo la pagina come la vede il cliente. <a href="/studio/lavori/<%= lavoro.id %>">Torna alla gestione</a></div>
+    <% } else { %>
+      <a class="indietro" href="/area">← I miei lavori</a>
+    <% } %>
+    <div class="intestazione-lavoro">
+      <div>
+        <small class="codice"><%= lavoro.codice %></small>
+        <h1><%= lavoro.titolo %></h1>
+        <% if (lavoro.indirizzo) { %><p class="muto"><%= lavoro.indirizzo %></p><% } %>
+      </div>
+      <span class="badge grande <%= classeStato(lavoro.stato) %>"><%= lavoro.stato %></span>
+    </div>
+
+    <div class="layout-lavoro">
+      <div>
+        <% if (lavoro.descrizione) { %>
+          <div class="carta"><h2>Descrizione</h2><p class="a-capo"><%= lavoro.descrizione %></p></div>
+        <% } %>
+        <div class="carta" id="documenti">
+          <h2>Documenti</h2>
+          <%- include('../partials/documenti', { categorie, base: `/area/lavori/${lavoro.id}`, admin: false }) %>
+        </div>
+      </div>
+      <aside>
+        <div class="carta">
+          <h2>Dati del lavoro</h2>
+          <dl class="dati">
+            <dt>Stato</dt><dd><%= lavoro.stato %></dd>
+            <% if (lavoro.data_inizio) { %><dt>Inizio</dt><dd><%= data(lavoro.data_inizio) %></dd><% } %>
+            <% if (lavoro.data_fine) { %><dt>Fine prevista</dt><dd><%= data(lavoro.data_fine) %></dd><% } %>
+          </dl>
+        </div>
+        <div class="carta">
+          <h2>Aggiornamenti</h2>
+          <% if (!aggiornamenti.length) { %><p class="vuoto">Nessun aggiornamento.</p><% } %>
+          <ol class="diario">
+            <% aggiornamenti.forEach(a => { %>
+              <li><time><%= data(a.creato_il) %></time><p class="a-capo"><%= a.testo %></p></li>
+            <% }) %>
+          </ol>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

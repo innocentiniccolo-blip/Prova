@@ -1,0 +1,42 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore medio">
+    <a class="indietro" href="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio' %>">← Indietro</a>
+    <h1><%= titolo %></h1>
+    <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+    <form method="post" action="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio/lavori' %>" class="modulo carta">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="riga-campi">
+        <label class="stretto-campo">Codice <input name="codice" value="<%= lavoro.codice || '' %>" required maxlength="40"></label>
+        <label>Titolo <input name="titolo" value="<%= lavoro.titolo || '' %>" required maxlength="200" placeholder="Es. Ristrutturazione appartamento"></label>
+      </div>
+      <label>Indirizzo dell'immobile <input name="indirizzo" value="<%= lavoro.indirizzo || '' %>" maxlength="300"></label>
+      <label>Descrizione (visibile al cliente) <textarea name="descrizione" rows="4"><%= lavoro.descrizione || '' %></textarea></label>
+      <div class="riga-campi">
+        <label>Stato
+          <select name="stato">
+            <% studio.stati.forEach(s => { %><option <%= s === lavoro.stato ? 'selected' : '' %>><%= s %></option><% }) %>
+          </select>
+        </label>
+        <label>Data inizio <input type="date" name="data_inizio" value="<%= lavoro.data_inizio || '' %>"></label>
+        <label>Fine prevista <input type="date" name="data_fine" value="<%= lavoro.data_fine || '' %>"></label>
+      </div>
+      <label>Cartella sul NAS
+        <input name="cartella" value="<%= lavoro.cartella || '' %>" placeholder="Lascia vuoto per crearla automaticamente (es. 2026-001 Rossi Ristrutturazione)">
+        <small>Percorso relativo alla cartella archivio lavori. Puoi indicare anche una cartella esistente, es. <code>2025/2025-018 Bianchi</code>. Al cliente sono visibili solo le sottocartelle: <%= studio.categorie.map(c => c.cartella).join(', ') %>.</small>
+      </label>
+      <fieldset>
+        <legend>Clienti con accesso</legend>
+        <% if (!tuttiClienti.length) { %><p class="muto">Nessun cliente registrato. <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p><% } %>
+        <div class="scelte">
+          <% tuttiClienti.forEach(c => { %>
+            <label class="scelta"><input type="checkbox" name="clienti" value="<%= c.id %>" <%= clientiSel.map(Number).includes(c.id) ? 'checked' : '' %>> <%= c.nome %> <small class="muto"><%= c.email %></small></label>
+          <% }) %>
+        </div>
+      </fieldset>
+      <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= Number(lavoro.visibile) ? 'checked' : '' %>> Visibile nell'area clienti</label>
+      <button class="pulsante">Salva</button>
+    </form>
+  </div>
+</section>
+<%- include('../partials/piede') %>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= titolo ? titolo + ' · ' : '' %><%= studio.nome %></title>
+  <meta name="description" content="<%= studio.slogan %>">
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="<%= percorso.startsWith('/studio') ? 'pannello' : '' %>">
+<header class="testata">
+  <div class="contenitore testata-riga">
+    <a class="marchio" href="/">
+      <img src="/img/logo.webp" alt="" width="44" height="41">
+      <span><strong><%= studio.nomeBreve %></strong><small>Studio Tecnico</small></span>
+    </a>
+    <nav class="menu">
+      <% if (!utente) { %>
+        <a href="/#servizi">Servizi</a>
+        <a href="/#studio">Lo studio</a>
+        <a href="/#contatti">Contatti</a>
+        <a class="pulsante piccolo" href="/accedi">Area clienti</a>
+      <% } else if (utente.ruolo === 'admin') { %>
+        <a href="/studio" class="<%= percorso === '/studio' || percorso.startsWith('/studio/lavori') ? 'attivo' : '' %>">Lavori</a>
+        <a href="/studio/clienti" class="<%= percorso.startsWith('/studio/clienti') ? 'attivo' : '' %>">Clienti</a>
+        <form method="post" action="/esci" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Esci</button></form>
+      <% } else { %>
+        <a href="/area" class="<%= percorso.startsWith('/area/lavori') || percorso === '/area' ? 'attivo' : '' %>">I miei lavori</a>
+        <a href="/area/profilo" class="<%= percorso === '/area/profilo' ? 'attivo' : '' %>">Profilo</a>
+        <form method="post" action="/esci" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Esci</button></form>
+      <% } %>
+    </nav>
+  </div>
+</header>
+<main>
+<% if (flash) { %>
+  <div class="contenitore"><div class="avviso <%= flash.tipo %>"><%= flash.msg %></div></div>
+<% } %>

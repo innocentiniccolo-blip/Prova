@@ -1,0 +1,23 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <h1>Buongiorno, <%= utente.nome %></h1>
+    <p class="sottotitolo">Questi sono i lavori che lo studio sta seguendo per te.</p>
+    <% if (!lavori.length) { %>
+      <div class="carta"><p>Al momento non ci sono lavori associati al tuo account. Se pensi sia un errore, contatta lo studio.</p></div>
+    <% } else { %>
+      <div class="griglia-lavori">
+        <% lavori.forEach(l => { %>
+          <a class="carta lavoro-carta" href="/area/lavori/<%= l.id %>">
+            <span class="badge <%= classeStato(l.stato) %>"><%= l.stato %></span>
+            <small class="codice"><%= l.codice %></small>
+            <h3><%= l.titolo %></h3>
+            <% if (l.indirizzo) { %><p class="muto"><%= l.indirizzo %></p><% } %>
+            <small class="muto">Aggiornato il <%= data(l.aggiornato_il) %></small>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>
+<%- include('../partials/piede') %>

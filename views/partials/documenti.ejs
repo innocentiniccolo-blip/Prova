@@ -1,0 +1,45 @@
+<%# Parametri: categorie, base (url base del lavoro), admin (bool), anteprimaPossibile %>
+<% const totale = categorie.reduce((n, c) => n + c.file.length, 0); %>
+<div class="schede" data-schede>
+  <div class="schede-titoli" role="tablist">
+    <% categorie.forEach((c, i) => { %>
+      <button type="button" role="tab" class="<%= i === 0 ? 'attiva' : '' %>" data-scheda="<%= c.chiave %>">
+        <%= c.nome %> <span class="conta"><%= c.file.length %></span>
+      </button>
+    <% }) %>
+  </div>
+  <% categorie.forEach((c, i) => { %>
+    <div class="scheda <%= i === 0 ? 'attiva' : '' %>" data-pannello="<%= c.chiave %>" role="tabpanel">
+      <% if (!c.file.length) { %>
+        <p class="vuoto">Nessun documento in questa sezione<%= admin ? ` (cartella "${c.cartella}")` : '' %>.</p>
+      <% } else { %>
+        <ul class="file-lista">
+          <% c.file.forEach(f => {
+               const q = `cat=${encodeURIComponent(c.chiave)}&f=${encodeURIComponent(f.percorso)}`;
+               const est = (f.nome.split('.').pop() || '').toUpperCase().slice(0, 4); %>
+            <li>
+              <span class="file-tipo"><%= est %></span>
+              <span class="file-info">
+                <a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener"><%= f.nome %></a>
+                <small><% if (f.cartella) { %><%= f.cartella %> · <% } %><%= dimensione(f.dimensione) %> · <%= data(f.modificato) %></small>
+              </span>
+              <span class="file-azioni">
+                <% if (anteprimaPossibile(f.nome)) { %><a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener">Apri</a><% } %>
+                <a href="<%= base %>/file?<%= q %>&scarica=1">Scarica</a>
+                <% if (admin) { %>
+                  <form method="post" action="<%= base %>/documenti/elimina" class="in-linea" data-conferma="Eliminare definitivamente «<%= f.nome %>» dal NAS?">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>">
+                    <input type="hidden" name="cat" value="<%= c.chiave %>">
+                    <input type="hidden" name="f" value="<%= f.percorso %>">
+                    <button class="link pericolo">Elimina</button>
+                  </form>
+                <% } %>
+              </span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+  <% }) %>
+</div>
+<% if (!totale && !admin) { %><p class="nota">Lo studio caricherà qui i documenti man mano che il lavoro procede.</p><% } %>

@@ -1,0 +1,97 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <a class="indietro" href="/studio">← Tutti i lavori</a>
+    <div class="intestazione-lavoro">
+      <div>
+        <small class="codice"><%= lavoro.codice %></small>
+        <h1><%= lavoro.titolo %></h1>
+        <% if (lavoro.indirizzo) { %><p class="muto"><%= lavoro.indirizzo %></p><% } %>
+      </div>
+      <div class="azioni">
+        <span class="badge grande <%= classeStato(lavoro.stato) %>"><%= lavoro.stato %></span>
+        <a class="pulsante secondario" href="/area/lavori/<%= lavoro.id %>" target="_blank">Vedi come cliente</a>
+        <a class="pulsante" href="/studio/lavori/<%= lavoro.id %>/modifica">Modifica</a>
+      </div>
+    </div>
+    <% if (!lavoro.visibile) { %><div class="avviso info">Questo lavoro è nascosto: i clienti non lo vedono.</div><% } %>
+    <% if (!cartellaEsiste) { %>
+      <div class="avviso errore">
+        La cartella <code><%= lavoro.cartella %></code> non esiste sul NAS.
+        <form method="post" action="/studio/lavori/<%= lavoro.id %>/crea-cartelle" class="in-linea">
+          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Creala ora</button>
+        </form>
+      </div>
+    <% } %>
+
+    <div class="layout-lavoro">
+      <div>
+        <div class="carta" id="documenti">
+          <h2>Documenti</h2>
+          <p class="muto">Cartella NAS: <code><%= lavoro.cartella %></code> — puoi aggiungere file anche direttamente dalla rete dello studio; qui compaiono subito.</p>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/documenti" enctype="multipart/form-data" class="carica">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <select name="categoria" aria-label="Categoria">
+              <% categorie.forEach(c => { %><option value="<%= c.chiave %>"><%= c.nome %></option><% }) %>
+            </select>
+            <input type="file" name="file" multiple required>
+            <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label>
+            <button class="pulsante">Carica</button>
+          </form>
+          <%- include('../partials/documenti', { categorie, base: `/studio/lavori/${lavoro.id}`, admin: true }) %>
+        </div>
+
+        <div class="carta" id="aggiornamenti">
+          <h2>Aggiornamenti per il cliente</h2>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/aggiornamenti" class="modulo">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <textarea name="testo" rows="3" required placeholder="Es. Depositata la SCIA in Comune, protocollo n. …"></textarea>
+            <button class="pulsante">Pubblica aggiornamento</button>
+          </form>
+          <ol class="diario">
+            <% aggiornamenti.forEach(a => { %>
+              <li>
+                <time><%= dataOra(a.creato_il) %></time>
+                <p class="a-capo"><%= a.testo %></p>
+                <form method="post" action="/studio/lavori/<%= lavoro.id %>/aggiornamenti/<%= a.id %>/elimina" class="in-linea" data-conferma="Eliminare questo aggiornamento?">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina</button>
+                </form>
+              </li>
+            <% }) %>
+          </ol>
+        </div>
+      </div>
+
+      <aside>
+        <div class="carta">
+          <h2>Clienti con accesso</h2>
+          <% if (!clienti.length) { %><p class="vuoto">Nessun cliente associato.</p><% } %>
+          <ul class="semplice">
+            <% clienti.forEach(c => { %><li><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><br><small class="muto"><%= c.email %></small></li><% }) %>
+          </ul>
+        </div>
+        <div class="carta">
+          <h2>Dati</h2>
+          <dl class="dati">
+            <% if (lavoro.data_inizio) { %><dt>Inizio</dt><dd><%= data(lavoro.data_inizio) %></dd><% } %>
+            <% if (lavoro.data_fine) { %><dt>Fine prevista</dt><dd><%= data(lavoro.data_fine) %></dd><% } %>
+            <dt>Creato</dt><dd><%= data(lavoro.creato_il) %></dd>
+          </dl>
+          <% if (lavoro.descrizione) { %><p class="a-capo"><%= lavoro.descrizione %></p><% } %>
+        </div>
+        <div class="carta">
+          <h2>Consultazioni del cliente</h2>
+          <% if (!accessi.length) { %><p class="vuoto">Il cliente non ha ancora aperto documenti.</p><% } %>
+          <ul class="semplice piccolo">
+            <% accessi.forEach(a => { %><li><strong><%= a.nome || 'utente eliminato' %></strong> · <%= dataOra(a.creato_il) %><br><small class="muto"><%= a.file %></small></li><% }) %>
+          </ul>
+        </div>
+        <form method="post" action="/studio/lavori/<%= lavoro.id %>/elimina" data-conferma="Eliminare il lavoro dall'app? I file sul NAS resteranno intatti.">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="link pericolo">Elimina lavoro dall'app</button>
+        </form>
+      </aside>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

@@ -1,0 +1,70 @@
+<%- include('partials/testa') %>
+<section class="eroe">
+  <div class="contenitore eroe-griglia">
+    <div>
+      <p class="occhiello">Studio Tecnico</p>
+      <h1><%= studio.nomeBreve %></h1>
+      <p class="sottotitolo"><%= studio.slogan %></p>
+      <div class="azioni">
+        <a class="pulsante" href="#contatti">Richiedi un appuntamento</a>
+        <a class="pulsante secondario" href="/accedi">Area clienti</a>
+      </div>
+    </div>
+    <img class="eroe-logo" src="/img/logo.svg" alt="Logo <%= studio.nomeBreve %>" width="300" height="278">
+  </div>
+</section>
+
+<section id="servizi" class="sezione">
+  <div class="contenitore">
+    <h2>Servizi</h2>
+    <div class="griglia-servizi">
+      <% studio.servizi.forEach(s => { %>
+        <article class="carta servizio">
+          <h3><%= s.titolo %></h3>
+          <p><%= s.testo %></p>
+        </article>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<section id="studio" class="sezione chiara">
+  <div class="contenitore due-colonne">
+    <div>
+      <h2>Lo studio</h2>
+      <p><%= studio.presentazione %></p>
+    </div>
+    <div class="carta evidenza">
+      <h3>La tua cartella lavoro, sempre disponibile</h3>
+      <ul class="spunte">
+        <li>Progetti ed elaborati grafici</li>
+        <li>Computi metrici e preventivi</li>
+        <li>Contratti e incarichi</li>
+        <li>Pratiche, ricevute e foto di cantiere</li>
+        <li>Aggiornamenti sullo stato del lavoro</li>
+      </ul>
+      <a class="pulsante" href="/accedi">Accedi all'area clienti</a>
+    </div>
+  </div>
+</section>
+
+<section id="contatti" class="sezione">
+  <div class="contenitore due-colonne">
+    <div>
+      <h2>Contatti</h2>
+      <dl class="contatti">
+        <dt>Indirizzo</dt><dd><%= studio.indirizzo %></dd>
+        <dt>Telefono</dt><dd><a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a></dd>
+        <dt>Email</dt><dd><a href="mailto:<%= studio.email %>"><%= studio.email %></a></dd>
+        <% if (studio.pec) { %><dt>PEC</dt><dd><%= studio.pec %></dd><% } %>
+        <dt>Orari</dt><dd><%= studio.orari %></dd>
+      </dl>
+    </div>
+    <div class="carta">
+      <h3>Scrivici</h3>
+      <p>Descrivi brevemente l'intervento: ti ricontatteremo per un primo sopralluogo.</p>
+      <a class="pulsante" href="mailto:<%= studio.email %>?subject=Richiesta%20informazioni">Invia una email</a>
+    </div>
+  </div>
+</section>
+<%- include('partials/piede') %>

@@ -3,7 +3,8 @@
 const express = require('express');
 const auth = require('../auth');
 const archivio = require('../archivio');
-const { Lavori, Aggiornamenti, Accessi, Utenti } = require('../modelli');
+const pratiche = require('../pratiche');
+const { Lavori, Pratiche, Aggiornamenti, Accessi, Utenti } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 
 const router = express.Router();
@@ -26,19 +27,20 @@ router.get('/lavori/:id', async (req, res, next) => {
   try {
     const lavoro = lavoroAccessibile(req);
     if (!lavoro) return res.status(404).render('errore', { titolo: 'Lavoro non trovato', messaggio: 'Il lavoro richiesto non esiste o non è associato al tuo account.' });
-    const categorie = await archivio.documentiLavoro(lavoro);
+    // Anche lo studio, in anteprima, vede solo ciò che vede il cliente
+    const elenco = await pratiche.conDocumenti(lavoro, { soloVisibili: true });
     const aggiornamenti = Aggiornamenti.perLavoro.all(lavoro.id);
-    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, categorie, aggiornamenti, anteprimaPossibile });
+    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato });
   } catch (e) { next(e); }
 });
 
 router.get('/lavori/:id/file', (req, res) => {
   const lavoro = lavoroAccessibile(req);
-  const cat = String(req.query.cat || '');
+  const pratica = lavoro && Pratiche.perId.get(Number(req.query.p), lavoro.id);
   const rel = String(req.query.f || '');
-  const abs = lavoro && archivio.fileDocumento(lavoro, cat, rel);
+  const abs = pratica && pratica.visibile && archivio.fileDocumento(lavoro, pratica.cartella, rel);
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
-  Accessi.registra.run(lavoro.id, req.utente.id, `${archivio.categoriaPerChiave.get(cat).cartella}/${rel}`);
+  Accessi.registra.run(lavoro.id, req.utente.id, `${pratica.cartella}/${rel}`);
   inviaFile(res, abs, { scarica: req.query.scarica === '1' });
 });
 

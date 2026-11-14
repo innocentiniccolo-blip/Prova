@@ -40,6 +40,21 @@ CREATE TABLE IF NOT EXISTS lavori_clienti (
   PRIMARY KEY (lavoro_id, utente_id)
 );
 
+-- Una pratica = una sottocartella del lavoro sul NAS (es. "CILA", "Accesso atti")
+CREATE TABLE IF NOT EXISTS pratiche (
+  id           INTEGER PRIMARY KEY,
+  lavoro_id    INTEGER NOT NULL REFERENCES lavori(id) ON DELETE CASCADE,
+  cartella     TEXT NOT NULL,
+  stato        TEXT NOT NULL,
+  data         TEXT,
+  protocollo   TEXT,
+  nota         TEXT,
+  visibile     INTEGER NOT NULL DEFAULT 0,
+  ordine       INTEGER NOT NULL DEFAULT 100,
+  aggiornato_il TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (lavoro_id, cartella)
+);
+
 CREATE TABLE IF NOT EXISTS aggiornamenti (
   id        INTEGER PRIMARY KEY,
   lavoro_id INTEGER NOT NULL REFERENCES lavori(id) ON DELETE CASCADE,

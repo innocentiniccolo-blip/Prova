@@ -105,6 +105,7 @@ legend { font-weight: 600; padding: 0 .3rem; }
 .filtro { margin-bottom: 1rem; }
 .carica { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; padding: 1rem; background: var(--azzurro-chiaro); border-radius: 8px; margin-bottom: 1.2rem; }
 .carica select { width: auto; }
+.carica input[name=altro] { flex: 1; width: auto; min-width: 180px; }
 .carica input[type=file] { flex: 1; min-width: 200px; background: #fff; }
 
 /* Avvisi */
@@ -123,6 +124,30 @@ legend { font-weight: 600; padding: 0 .3rem; }
 .stato-in-attesa-enti { background: #f3ecfb; color: #6b3fa0; }
 .stato-completato { background: #ecf8f1; color: var(--verde); }
 .stato-sospeso { background: #f1f2f4; color: #555; }
+/* Stati delle pratiche */
+.stato-da-fare { background: #f1f2f4; color: #555; }
+.stato-presentata { background: #f3ecfb; color: #6b3fa0; }
+.stato-integrazione-richiesta { background: #fff4e0; color: var(--ambra); }
+.stato-completata { background: #ecf8f1; color: var(--verde); }
+.badge.visibile { background: #ecf8f1; color: var(--verde); }
+.badge.privata { background: #f1f2f4; color: #555; }
+
+/* Pratiche */
+.titolo-sezione { margin: .4rem 0 .9rem; }
+.pratica { padding: 1.1rem 1.3rem; }
+.pratica-testa { display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.pratica-testa h3 { margin: 0; }
+summary.pratica-testa { cursor: pointer; list-style: none; }
+summary.pratica-testa::-webkit-details-marker { display: none; }
+summary.pratica-testa::before { content: "▸"; color: var(--azzurro); margin-right: -.3rem; transition: transform .15s; }
+details[open] > summary.pratica-testa::before { transform: rotate(90deg); }
+details[open] > summary.pratica-testa { margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--bordo); }
+.pratica-titolo { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
+.pratica-stato { margin: .5rem 0 0; font-size: 1.02rem; }
+.pratica-nota { margin: .7rem 0 0; padding: .7rem .9rem; background: #fff8ec; border-radius: 8px; color: #6b3d00; }
+.pratica-documenti { margin-top: .8rem; }
+.pratica-documenti > summary { cursor: pointer; font-weight: 600; color: var(--blu-medio); padding: .3rem 0; }
+.pratica-modulo { margin-bottom: 1rem; }
 
 /* Lavori */
 .griglia-lavori { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
@@ -154,7 +179,7 @@ ul.semplice li { padding: .5rem 0; border-bottom: 1px solid var(--bordo); }
 ul.semplice li:last-child { border: 0; }
 ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 
-/* Schede documenti */
+/* Contatori */
 .schede-titoli { display: flex; gap: .3rem; border-bottom: 2px solid var(--bordo); overflow-x: auto; margin-bottom: 1rem; }
 .schede-titoli button {
   background: none; border: 0; font: inherit; font-weight: 600; color: var(--muto); padding: .6rem .9rem; cursor: pointer;

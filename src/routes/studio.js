@@ -7,7 +7,8 @@ const multer = require('multer');
 const config = require('../config');
 const auth = require('../auth');
 const archivio = require('../archivio');
-const { db, Lavori, Utenti, Aggiornamenti, Accessi } = require('../modelli');
+const pratiche = require('../pratiche');
+const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 
 const router = express.Router();
@@ -90,7 +91,7 @@ router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
     salvaClienti(lastInsertRowid, clienti);
     db.exec('COMMIT');
     await archivio.creaStruttura(dati);
-    flash(req, 'ok', 'Lavoro creato. Le sottocartelle sono state preparate sul NAS.');
+    flash(req, 'ok', 'Lavoro creato. Se la cartella sul NAS esisteva già, le sue sottocartelle compaiono qui sotto come pratiche.');
     res.redirect(`/studio/lavori/${lastInsertRowid}`);
   } catch (e) {
     if (db.isTransaction) db.exec('ROLLBACK');
@@ -107,7 +108,10 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       titolo: `${lavoro.codice} – ${lavoro.titolo}`,
       lavoro,
       cartellaEsiste,
-      categorie: await archivio.documentiLavoro(lavoro),
+      pratiche: await pratiche.conDocumenti(lavoro),
+      tipiPratica: archivio.tipiPratica,
+      statiPratica: archivio.statiPratica,
+      descriviStato: pratiche.descriviStato,
       clienti: Lavori.clienti.all(lavoro.id),
       aggiornamenti: Aggiornamenti.perLavoro.all(lavoro.id),
       accessi: Accessi.perLavoro.all(lavoro.id),
@@ -142,7 +146,7 @@ router.post('/lavori/:id', trovaLavoro, auth.verificaCsrf, async (req, res, next
 router.post('/lavori/:id/crea-cartelle', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
   try {
     await archivio.creaStruttura(req.lavoro);
-    flash(req, 'ok', 'Cartelle create sul NAS.');
+    flash(req, 'ok', 'Cartella del lavoro creata sul NAS.');
     res.redirect(`/studio/lavori/${req.lavoro.id}`);
   } catch (e) { next(e); }
 });
@@ -162,41 +166,99 @@ function pulisciTmp(req, res, next) {
   next();
 }
 
+function trovaPratica(req, id) {
+  return Pratiche.perId.get(Number(id), req.lavoro.id);
+}
+
 router.post('/lavori/:id/documenti', trovaLavoro, pulisciTmp, upload.array('file'), auth.verificaCsrf, async (req, res, next) => {
   const files = req.files || [];
   try {
-    const cat = String(req.body.categoria || '');
-    if (!archivio.categoriaPerChiave.has(cat)) throw new Error('Categoria non valida');
+    const pratica = trovaPratica(req, req.body.pratica);
+    if (!pratica) throw new Error('Pratica non valida');
     const nomi = [];
     for (const f of files) {
       // multer decodifica i nomi come latin1: riconverte in UTF-8 (accenti, ecc.)
       const originale = Buffer.from(f.originalname, 'latin1').toString('utf8');
-      nomi.push(await archivio.salvaUpload(req.lavoro, cat, f.path, originale));
+      nomi.push(await archivio.salvaUpload(req.lavoro, pratica.cartella, f.path, originale));
     }
     if (nomi.length) {
       Lavori.tocca.run(req.lavoro.id);
-      if (req.body.annuncia) {
-        const nomeCat = archivio.categoriaPerChiave.get(cat).nome;
-        Aggiornamenti.inserisci.run(req.lavoro.id, `Nuovi documenti in ${nomeCat}: ${nomi.join(', ')}`);
+      if (req.body.annuncia && pratica.visibile) {
+        Aggiornamenti.inserisci.run(req.lavoro.id, `${pratica.cartella}: nuovi documenti (${nomi.join(', ')})`);
       }
     }
-    flash(req, 'ok', nomi.length ? `Caricati ${nomi.length} file.` : 'Nessun file selezionato.');
-    res.redirect(`/studio/lavori/${req.lavoro.id}#documenti`);
+    flash(req, 'ok', nomi.length ? `Caricati ${nomi.length} file in «${pratica.cartella}».` : 'Nessun file selezionato.');
+    res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
   } catch (e) { next(e); }
 });
 
 router.get('/lavori/:id/file', trovaLavoro, (req, res) => {
-  const abs = archivio.fileDocumento(req.lavoro, String(req.query.cat || ''), String(req.query.f || ''));
+  const pratica = trovaPratica(req, req.query.p);
+  const abs = pratica && archivio.fileDocumento(req.lavoro, pratica.cartella, String(req.query.f || ''));
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: '' });
   inviaFile(res, abs, { scarica: req.query.scarica === '1' });
 });
 
 router.post('/lavori/:id/documenti/elimina', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
   try {
-    const ok = await archivio.eliminaFile(req.lavoro, String(req.body.cat || ''), String(req.body.f || ''));
+    const pratica = trovaPratica(req, req.body.p);
+    const ok = Boolean(pratica) && await archivio.eliminaFile(req.lavoro, pratica.cartella, String(req.body.f || ''));
     flash(req, ok ? 'ok' : 'errore', ok ? 'File eliminato.' : 'File non trovato.');
-    res.redirect(`/studio/lavori/${req.lavoro.id}#documenti`);
+    res.redirect(`/studio/lavori/${req.lavoro.id}${pratica ? `#pratica-${pratica.id}` : ''}`);
   } catch (e) { next(e); }
+});
+
+// ---------- Pratiche (sottocartelle del lavoro) ----------
+router.post('/lavori/:id/pratiche', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const nome = testo(req.body.altro, 100) || testo(req.body.tipo, 100);
+    if (!nome) {
+      flash(req, 'errore', 'Scegli un tipo di pratica o scrivi un nome.');
+      return res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
+    }
+    const cartella = await archivio.creaCartellaPratica(req.lavoro, nome);
+    await pratiche.sincronizza(req.lavoro);
+    Lavori.tocca.run(req.lavoro.id);
+    flash(req, 'ok', `Pratica «${cartella}» aggiunta: la cartella è stata creata sul NAS.`);
+    res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
+  } catch (e) {
+    if (e.message === 'Nome pratica non valido') {
+      flash(req, 'errore', 'Nome della pratica non valido.');
+      return res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
+    }
+    next(e);
+  }
+});
+
+router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const pratica = trovaPratica(req, req.params.pid);
+  if (!pratica) return res.status(404).render('errore', { titolo: 'Pratica non trovata', messaggio: '' });
+  const nuova = {
+    id: pratica.id,
+    lavoro_id: req.lavoro.id,
+    stato: archivio.statiPratica.includes(req.body.stato) ? req.body.stato : pratica.stato,
+    data: dataONull(req.body.data),
+    protocollo: testo(req.body.protocollo, 100) || null,
+    nota: testo(req.body.nota, 2000) || null,
+    visibile: req.body.visibile ? 1 : 0,
+  };
+  Pratiche.aggiorna.run(nuova);
+  Lavori.tocca.run(req.lavoro.id);
+  const cambiata = nuova.stato !== pratica.stato || nuova.data !== pratica.data || nuova.protocollo !== pratica.protocollo;
+  if (req.body.annuncia && nuova.visibile && cambiata) {
+    let frase = `${pratica.cartella}: ${pratiche.descriviStato(nuova, req.app.locals.data).toLowerCase()}`;
+    if (nuova.protocollo) frase += `, protocollo n. ${nuova.protocollo}`;
+    Aggiornamenti.inserisci.run(req.lavoro.id, frase + '.');
+  }
+  flash(req, 'ok', `Pratica «${pratica.cartella}» aggiornata.`);
+  res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
+});
+
+router.post('/lavori/:id/pratiche/:pid/elimina', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const pratica = trovaPratica(req, req.params.pid);
+  if (pratica) Pratiche.elimina.run(pratica.id, req.lavoro.id);
+  flash(req, 'ok', 'Pratica tolta dall\'elenco. Nessun file sul NAS è stato toccato.');
+  res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
 });
 
 // ---------- Aggiornamenti (diario visibile al cliente) ----------

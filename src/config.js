@@ -16,6 +16,8 @@ const config = {
   trustProxy: process.env.TRUST_PROXY || false,
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB) || 200,
   produzione: process.env.NODE_ENV === 'production',
+  // true = niente pagina di presentazione: l'indirizzo apre subito l'accesso (es. area.geometrainnocenti.it)
+  soloArea: process.env.SOLO_AREA === 'true',
   studio: JSON.parse(fs.readFileSync(studioFile, 'utf8')),
 };
 

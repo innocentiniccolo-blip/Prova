@@ -26,20 +26,74 @@
 
     <div class="layout-lavoro">
       <div>
-        <div class="carta" id="documenti">
-          <h2>Documenti</h2>
-          <p class="muto">Cartella NAS: <code><%= lavoro.cartella %></code> — puoi aggiungere file anche direttamente dalla rete dello studio; qui compaiono subito.</p>
-          <form method="post" action="/studio/lavori/<%= lavoro.id %>/documenti" enctype="multipart/form-data" class="carica">
+        <div class="carta" id="pratiche">
+          <h2>Pratiche</h2>
+          <p class="muto">Ogni sottocartella di <code><%= lavoro.cartella %></code> è una pratica. Puoi crearle anche dal PC sul NAS: compaiono qui da sole.</p>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche" class="carica">
             <input type="hidden" name="_csrf" value="<%= csrf %>">
-            <select name="categoria" aria-label="Categoria">
-              <% categorie.forEach(c => { %><option value="<%= c.chiave %>"><%= c.nome %></option><% }) %>
+            <select name="tipo" aria-label="Tipo di pratica">
+              <% tipiPratica.forEach(t => { %><option><%= t %></option><% }) %>
             </select>
-            <input type="file" name="file" multiple required>
-            <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label>
-            <button class="pulsante">Carica</button>
+            <input name="altro" maxlength="100" placeholder="oppure scrivi un altro nome" aria-label="Altro nome di pratica">
+            <button class="pulsante">Aggiungi pratica</button>
           </form>
-          <%- include('../partials/documenti', { categorie, base: `/studio/lavori/${lavoro.id}`, admin: true }) %>
+          <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } %>
         </div>
+
+        <% pratiche.forEach(p => { const base = `/studio/lavori/${lavoro.id}`; %>
+          <details class="carta pratica" id="pratica-<%= p.id %>">
+            <summary class="pratica-testa">
+              <span class="pratica-titolo">
+                <strong><%= p.cartella %></strong>
+                <small class="muto"><%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. <%= p.protocollo %><% } %> · <%= p.file.length %> file</small>
+              </span>
+              <span class="azioni">
+                <% if (!p.esiste) { %><span class="badge stato-sospeso">Cartella non trovata</span><% } %>
+                <span class="badge <%= p.visibile ? 'visibile' : 'privata' %>"><%= p.visibile ? 'Visibile al cliente' : 'Privata' %></span>
+                <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+              </span>
+            </summary>
+
+            <form method="post" action="<%= base %>/pratiche/<%= p.id %>" class="modulo pratica-modulo">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <div class="riga-campi">
+                <label>Stato
+                  <select name="stato">
+                    <% statiPratica.forEach(s => { %><option <%= s === p.stato ? 'selected' : '' %>><%= s %></option><% }) %>
+                  </select>
+                </label>
+                <label>Data <input type="date" name="data" value="<%= p.data || '' %>"></label>
+                <label>N. protocollo <input name="protocollo" maxlength="100" value="<%= p.protocollo || '' %>"></label>
+              </div>
+              <label>Nota per il cliente <small>(es. cosa serve da lui)</small>
+                <textarea name="nota" rows="2" maxlength="2000"><%= p.nota || '' %></textarea>
+              </label>
+              <div class="azioni">
+                <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= p.visibile ? 'checked' : '' %>> Visibile al cliente</label>
+                <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label>
+                <button class="pulsante">Salva</button>
+              </div>
+            </form>
+
+            <% if (p.esiste) { %>
+              <form method="post" action="<%= base %>/documenti" enctype="multipart/form-data" class="carica">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <input type="hidden" name="pratica" value="<%= p.id %>">
+                <input type="file" name="file" multiple required aria-label="File da caricare in <%= p.cartella %>">
+                <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Annuncia</label>
+                <button class="pulsante">Carica</button>
+              </form>
+              <%- include('../partials/file-pratica', { p, base, admin: true }) %>
+            <% } else { %>
+              <div class="avviso errore">
+                La cartella «<%= p.cartella %>» non c'è più sul NAS (forse è stata rinominata).
+                <form method="post" action="<%= base %>/pratiche/<%= p.id %>/elimina" class="in-linea" data-conferma="Togliere la pratica dall'elenco? I file sul NAS non vengono toccati.">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Toglila dall'elenco</button>
+                </form>
+              </div>
+            <% } %>
+          </details>
+        <% }) %>
 
         <div class="carta" id="aggiornamenti">
           <h2>Aggiornamenti per il cliente</h2>

@@ -2,7 +2,7 @@
   "nome": "Studio Tecnico Geom. Niccolò Innocenti",
   "nomeBreve": "Geom. Niccolò Innocenti",
   "slogan": "Progettazione, pratiche edilizie e direzione lavori",
-  "presentazione": "Lo studio segue privati e imprese in ogni fase dell'intervento: dal rilievo e dal progetto alle pratiche edilizie e catastali, fino alla direzione lavori e alla contabilità di cantiere. Ogni cliente ha accesso a un'area riservata dove consultare in qualsiasi momento progetti, computi e contratti del proprio lavoro.",
+  "presentazione": "Lo studio segue privati e imprese in ogni fase dell'intervento: dal rilievo e dall'accesso agli atti alle pratiche edilizie e catastali, fino alla fine lavori e all'agibilità. Ogni cliente ha un'area riservata dove vedere in qualsiasi momento a che punto è ogni pratica, con date, protocolli e documenti.",
   "indirizzo": "Via Pio La Torre, 13 – Castelfranco Piandiscò (AR)",
   "telefono": "+39 339 856 1221",
   "email": "",
@@ -36,38 +36,35 @@
       "testo": "Perizie di stima, successioni, due diligence immobiliare e APE."
     }
   ],
-  "categorie": [
-    {
-      "chiave": "progetti",
-      "nome": "Progetti",
-      "cartella": "Progetti"
-    },
-    {
-      "chiave": "computi",
-      "nome": "Computi",
-      "cartella": "Computi"
-    },
-    {
-      "chiave": "contratti",
-      "nome": "Contratti",
-      "cartella": "Contratti"
-    },
-    {
-      "chiave": "pratiche",
-      "nome": "Pratiche",
-      "cartella": "Pratiche"
-    },
-    {
-      "chiave": "foto",
-      "nome": "Foto cantiere",
-      "cartella": "Foto"
-    }
-  ],
   "stati": [
     "Preventivo",
     "In corso",
     "In attesa enti",
     "Completato",
     "Sospeso"
-  ]
+  ],
+  "pratiche": {
+    "tipi": [
+      "Accesso atti",
+      "Rilievo",
+      "Progetto",
+      "CILA",
+      "SCIA",
+      "Permesso di costruire",
+      "Sanatoria",
+      "Catasto",
+      "APE",
+      "Inizio lavori",
+      "Fine lavori",
+      "Agibilità"
+    ],
+    "visibiliDiDefault": true,
+    "stati": [
+      "Da fare",
+      "In corso",
+      "Presentata",
+      "Integrazione richiesta",
+      "Completata"
+    ]
+  }
 }

@@ -1,11 +1,15 @@
 'use strict';
 const express = require('express');
+const config = require('../config');
 const { Utenti } = require('../modelli');
 const auth = require('../auth');
 
 const router = express.Router();
 
-router.get('/', (req, res) => res.render('home', { titolo: null }));
+router.get('/', (req, res) => {
+  if (config.soloArea) return res.redirect(req.utente ? '/area' : '/accedi');
+  res.render('home', { titolo: null });
+});
 
 router.get('/accedi', (req, res) => {
   if (req.utente) return res.redirect(req.utente.ruolo === 'admin' ? '/studio' : '/area');

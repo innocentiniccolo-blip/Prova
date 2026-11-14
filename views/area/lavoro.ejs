@@ -20,10 +20,28 @@
         <% if (lavoro.descrizione) { %>
           <div class="carta"><h2>Descrizione</h2><p class="a-capo"><%= lavoro.descrizione %></p></div>
         <% } %>
-        <div class="carta" id="documenti">
-          <h2>Documenti</h2>
-          <%- include('../partials/documenti', { categorie, base: `/area/lavori/${lavoro.id}`, admin: false }) %>
-        </div>
+        <h2 class="titolo-sezione" id="pratiche">Le pratiche</h2>
+        <% if (!pratiche.length) { %>
+          <div class="carta"><p class="vuoto">Lo studio aggiungerà qui le pratiche man mano che il lavoro procede.</p></div>
+        <% } %>
+        <% pratiche.forEach(p => { %>
+          <article class="carta pratica" id="pratica-<%= p.id %>">
+            <div class="pratica-testa">
+              <h3><%= p.cartella %></h3>
+              <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+            </div>
+            <p class="pratica-stato">
+              <%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. n. <strong><%= p.protocollo %></strong><% } %>
+            </p>
+            <% if (p.nota) { %><p class="pratica-nota a-capo"><%= p.nota %></p><% } %>
+            <% if (p.file.length) { %>
+              <details class="pratica-documenti">
+                <summary>Documenti <span class="conta"><%= p.file.length %></span></summary>
+                <%- include('../partials/file-pratica', { p, base: `/area/lavori/${lavoro.id}`, admin: false }) %>
+              </details>
+            <% } %>
+          </article>
+        <% }) %>
       </div>
       <aside>
         <div class="carta">

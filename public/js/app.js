@@ -1,17 +1,6 @@
-// Schede delle categorie documenti
-document.querySelectorAll('[data-schede]').forEach((box) => {
-  const titoli = box.querySelectorAll('[data-scheda]');
-  const mostra = (chiave) => {
-    titoli.forEach((t) => t.classList.toggle('attiva', t.dataset.scheda === chiave));
-    box.querySelectorAll('[data-pannello]').forEach((p) => p.classList.toggle('attiva', p.dataset.pannello === chiave));
-  };
-  titoli.forEach((t) => t.addEventListener('click', () => {
-    mostra(t.dataset.scheda);
-    history.replaceState(null, '', '#' + t.dataset.scheda);
-  }));
-  const h = location.hash.slice(1);
-  if (h && box.querySelector(`[data-scheda="${CSS.escape(h)}"]`)) mostra(h);
-});
+// Apre la pratica indicata nell'indirizzo (es. dopo un salvataggio)
+const daAprire = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+if (daAprire && daAprire.tagName === 'DETAILS') daAprire.open = true;
 
 // Conferma prima di azioni distruttive
 document.addEventListener('submit', (e) => {

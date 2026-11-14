@@ -51,6 +51,18 @@ const Utenti = {
   terminaSessioni: db.prepare("DELETE FROM sessioni WHERE json_extract(dati, '$.utenteId') = ?"),
 };
 
+const Pratiche = {
+  perLavoro: db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?'),
+  perId: db.prepare('SELECT * FROM pratiche WHERE id = ? AND lavoro_id = ?'),
+  inserisci: db.prepare(`
+    INSERT OR IGNORE INTO pratiche (lavoro_id, cartella, stato, visibile, ordine)
+    VALUES (?, ?, ?, ?, ?)`),
+  aggiorna: db.prepare(`
+    UPDATE pratiche SET stato = :stato, data = :data, protocollo = :protocollo, nota = :nota,
+      visibile = :visibile, aggiornato_il = datetime('now') WHERE id = :id AND lavoro_id = :lavoro_id`),
+  elimina: db.prepare('DELETE FROM pratiche WHERE id = ? AND lavoro_id = ?'),
+};
+
 const Aggiornamenti = {
   perLavoro: db.prepare('SELECT * FROM aggiornamenti WHERE lavoro_id = ? ORDER BY creato_il DESC, id DESC'),
   inserisci: db.prepare('INSERT INTO aggiornamenti (lavoro_id, testo) VALUES (?, ?)'),
@@ -65,4 +77,4 @@ const Accessi = {
     ORDER BY a.creato_il DESC LIMIT 50`),
 };
 
-module.exports = { db, Lavori, Utenti, Aggiornamenti, Accessi };
+module.exports = { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi };

@@ -1,0 +1,30 @@
+<%# Parametri: p (pratica con .file), base (url base del lavoro), admin (bool), anteprimaPossibile %>
+<% if (!p.file.length) { %>
+  <p class="vuoto"><%= admin ? `Nessun file nella cartella «${p.cartella}».` : 'Nessun documento per ora.' %></p>
+<% } else { %>
+  <ul class="file-lista">
+    <% p.file.forEach(f => {
+         const q = `p=${p.id}&f=${encodeURIComponent(f.percorso)}`;
+         const est = (f.nome.split('.').pop() || '').toUpperCase().slice(0, 4); %>
+      <li>
+        <span class="file-tipo"><%= est %></span>
+        <span class="file-info">
+          <a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener"><%= f.nome %></a>
+          <small><% if (f.cartella) { %><%= f.cartella %> · <% } %><%= dimensione(f.dimensione) %> · <%= data(f.modificato) %></small>
+        </span>
+        <span class="file-azioni">
+          <% if (anteprimaPossibile(f.nome)) { %><a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener">Apri</a><% } %>
+          <a href="<%= base %>/file?<%= q %>&scarica=1">Scarica</a>
+          <% if (admin) { %>
+            <form method="post" action="<%= base %>/documenti/elimina" class="in-linea" data-conferma="Eliminare definitivamente «<%= f.nome %>» dal NAS?">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <input type="hidden" name="p" value="<%= p.id %>">
+              <input type="hidden" name="f" value="<%= f.percorso %>">
+              <button class="link pericolo">Elimina</button>
+            </form>
+          <% } %>
+        </span>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>

@@ -9,39 +9,79 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-test-'));
 process.env.ARCHIVIO_DIR = path.join(tmp, 'lavori');
 process.env.DATI_DIR = path.join(tmp, 'app');
 const archivio = require('../src/archivio');
+const pratiche = require('../src/pratiche');
+const { Lavori, Pratiche } = require('../src/modelli');
 
-const lavoro = { cartella: '2026-001 Prova' };
+const lavoro = { cartella: 'Ristrutturazione Mario Rossi' };
+const base = path.join(process.env.ARCHIVIO_DIR, lavoro.cartella);
 
-test('crea la struttura e mostra solo le categorie autorizzate', async () => {
+test('ogni sottocartella è una pratica; i file nascosti restano nascosti', async () => {
   await archivio.creaStruttura(lavoro);
-  const base = path.join(process.env.ARCHIVIO_DIR, lavoro.cartella);
-  fs.writeFileSync(path.join(base, 'Progetti', 'tavola.pdf'), 'x');
-  fs.mkdirSync(path.join(base, 'Progetti', 'Variante'));
-  fs.writeFileSync(path.join(base, 'Progetti', 'Variante', 'v1.pdf'), 'x');
-  fs.writeFileSync(path.join(base, 'Progetti', '_bozza.pdf'), 'x');
-  fs.mkdirSync(path.join(base, 'Interno'));
-  fs.writeFileSync(path.join(base, 'Interno', 'parcella.pdf'), 'x');
+  for (const d of ['Accesso atti', 'CILA', 'CILA/Variante', 'Parcelle', '_Bozze']) fs.mkdirSync(path.join(base, d), { recursive: true });
+  fs.writeFileSync(path.join(base, 'CILA', 'cila.pdf'), 'x');
+  fs.writeFileSync(path.join(base, 'CILA', 'Variante', 'v1.pdf'), 'x');
+  fs.writeFileSync(path.join(base, 'CILA', '_bozza.pdf'), 'x');
+  fs.writeFileSync(path.join(base, 'appunti.txt'), 'x'); // file nella radice: non è una pratica
 
-  const cats = await archivio.documentiLavoro(lavoro);
-  const progetti = cats.find((c) => c.chiave === 'progetti');
-  assert.deepStrictEqual(progetti.file.map((f) => f.percorso), ['tavola.pdf', 'Variante/v1.pdf']);
-  const tutti = cats.flatMap((c) => c.file.map((f) => f.nome));
-  assert.ok(!tutti.includes('parcella.pdf'));
-  assert.ok(!tutti.includes('_bozza.pdf'));
+  assert.deepStrictEqual(await archivio.sottocartelle(lavoro), ['Accesso atti', 'CILA', 'Parcelle']);
+  const file = await archivio.documentiPratica(lavoro, 'CILA');
+  assert.deepStrictEqual(file.map((f) => f.percorso), ['cila.pdf', 'Variante/v1.pdf']);
 });
 
-test('blocca i percorsi fuori dalla categoria', () => {
-  assert.ok(archivio.fileDocumento(lavoro, 'progetti', 'tavola.pdf'));
-  for (const f of ['../Interno/parcella.pdf', '../../x', '/etc/passwd', '_bozza.pdf', '', '.']) {
-    assert.strictEqual(archivio.fileDocumento(lavoro, 'progetti', f), null, f);
+test('riconosce i tipi di pratica nel nome della cartella', () => {
+  assert.ok(archivio.indiceTipo('CILA') >= 0);
+  assert.ok(archivio.indiceTipo('02 - Accesso agli atti') < 0); // nome diverso: privata finché non la rendi visibile
+  assert.ok(archivio.indiceTipo('02 - accesso atti') >= 0);
+  assert.ok(archivio.indiceTipo('Agibilita') >= 0); // accenti ignorati
+  assert.strictEqual(archivio.indiceTipo('Parcelle'), -1);
+  assert.strictEqual(archivio.indiceTipo('CILAS'), -1);
+});
+
+test('sincronizza: tipi noti visibili, cartelle sconosciute private', async () => {
+  const { lastInsertRowid } = Lavori.inserisci.run({
+    codice: '2026-001', titolo: 'Ristrutturazione', descrizione: null, indirizzo: null, stato: 'In corso',
+    cartella: lavoro.cartella, data_inizio: null, data_fine: null, visibile: 1,
+  });
+  const l = { ...lavoro, id: Number(lastInsertRowid) };
+  const elenco = await pratiche.sincronizza(l);
+  assert.deepStrictEqual(elenco.map((p) => [p.cartella, p.visibile]), [['Accesso atti', 1], ['CILA', 1], ['Parcelle', 0]]);
+
+  const perCliente = await pratiche.conDocumenti(l, { soloVisibili: true });
+  assert.deepStrictEqual(perCliente.map((p) => p.cartella), ['Accesso atti', 'CILA']);
+
+  // Una cartella rinominata sul NAS sparisce dalla vista del cliente
+  fs.renameSync(path.join(base, 'Accesso atti'), path.join(base, 'Accesso atti 2026'));
+  const dopo = await pratiche.conDocumenti(l, { soloVisibili: true });
+  assert.ok(!dopo.some((p) => p.cartella === 'Accesso atti'));
+  assert.strictEqual(Pratiche.perLavoro.all(l.id).length, 4);
+});
+
+test('descrive lo stato con la data', () => {
+  const f = (d) => d.split('-').reverse().join('/');
+  assert.strictEqual(pratiche.descriviStato({ stato: 'Presentata', data: '2026-10-28' }, f), 'Presentata il 28/10/2026');
+  assert.strictEqual(pratiche.descriviStato({ stato: 'Da fare', data: null }, f), 'Da fare');
+});
+
+test('blocca i percorsi fuori dalla pratica', () => {
+  assert.ok(archivio.fileDocumento(lavoro, 'CILA', 'cila.pdf'));
+  for (const f of ['../appunti.txt', '../../x', '/etc/passwd', '_bozza.pdf', '', '.']) {
+    assert.strictEqual(archivio.fileDocumento(lavoro, 'CILA', f), null, f);
   }
-  assert.strictEqual(archivio.fileDocumento(lavoro, 'inesistente', 'tavola.pdf'), null);
+  for (const p of ['../CILA', 'CILA/Variante', '_Bozze', '', '..']) {
+    assert.strictEqual(archivio.cartellaPratica(lavoro, p), null, p);
+  }
 });
 
 test('blocca i link simbolici che escono dall\'archivio', () => {
-  const base = path.join(process.env.ARCHIVIO_DIR, lavoro.cartella, 'Progetti');
-  fs.symlinkSync('/etc', path.join(base, 'fuga'));
-  assert.strictEqual(archivio.fileDocumento(lavoro, 'progetti', 'fuga/hostname'), null);
+  fs.symlinkSync('/etc', path.join(base, 'CILA', 'fuga'));
+  assert.strictEqual(archivio.fileDocumento(lavoro, 'CILA', 'fuga/hostname'), null);
+});
+
+test('crea la cartella di una nuova pratica con un nome sicuro', async () => {
+  assert.strictEqual(await archivio.creaCartellaPratica(lavoro, 'Fine lavori'), 'Fine lavori');
+  assert.ok(fs.statSync(path.join(base, 'Fine lavori')).isDirectory());
+  assert.strictEqual(await archivio.creaCartellaPratica(lavoro, '../../fuori'), 'fuori');
+  assert.ok(!fs.existsSync(path.join(process.env.ARCHIVIO_DIR, 'fuori')));
 });
 
 test('normalizza le cartelle dei lavori', () => {

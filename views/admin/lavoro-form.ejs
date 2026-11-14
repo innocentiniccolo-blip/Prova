@@ -23,7 +23,7 @@
       </div>
       <label>Cartella sul NAS
         <input name="cartella" value="<%= lavoro.cartella || '' %>" placeholder="Lascia vuoto per crearla automaticamente (es. 2026-001 Rossi Ristrutturazione)">
-        <small>Percorso relativo alla cartella archivio lavori. Puoi indicare anche una cartella esistente, es. <code>2025/2025-018 Bianchi</code>. Al cliente sono visibili solo le sottocartelle: <%= studio.categorie.map(c => c.cartella).join(', ') %>.</small>
+        <small>Percorso relativo alla cartella archivio lavori. Puoi indicare anche una cartella esistente, es. <code>2025/2025-018 Bianchi</code>. Ogni sottocartella (es. <code>Accesso atti</code>, <code>CILA</code>) diventa una pratica. Quelle con un nome riconosciuto sono visibili al cliente; le altre restano private finché non le rendi visibili.</small>
       </label>
       <fieldset>
         <legend>Clienti con accesso</legend>

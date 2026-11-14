@@ -56,6 +56,13 @@ test('sincronizza: tipi noti visibili, cartelle sconosciute private', async () =
   assert.strictEqual(Pratiche.perLavoro.all(l.id).length, 4);
 });
 
+test('nome visibile senza numerazione', () => {
+  assert.strictEqual(pratiche.nomeVisibile('006 - SCIA prot.18325 del 24-07-2025'), 'SCIA prot.18325 del 24-07-2025');
+  assert.strictEqual(pratiche.nomeVisibile('015-APE'), 'APE');
+  assert.strictEqual(pratiche.nomeVisibile('CILA'), 'CILA');
+  assert.strictEqual(pratiche.nomeVisibile('2026'), '2026');
+});
+
 test('descrive lo stato con la data', () => {
   const f = (d) => d.split('-').reverse().join('/');
   assert.strictEqual(pratiche.descriviStato({ stato: 'Presentata', data: '2026-10-28' }, f), 'Presentata il 28/10/2026');

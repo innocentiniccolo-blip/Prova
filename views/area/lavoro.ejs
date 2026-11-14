@@ -27,7 +27,7 @@
         <% pratiche.forEach(p => { %>
           <article class="carta pratica" id="pratica-<%= p.id %>">
             <div class="pratica-testa">
-              <h3><%= p.cartella %></h3>
+              <h3><%= p.nome %></h3>
               <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
             </div>
             <p class="pratica-stato">

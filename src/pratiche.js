@@ -14,6 +14,11 @@ const { Pratiche } = require('./modelli');
 
 const opzioni = config.studio.pratiche;
 
+/** Nome mostrato al cliente: senza la numerazione iniziale ("006 - SCIA" → "SCIA"). */
+function nomeVisibile(cartella) {
+  return cartella.replace(/^\s*\d+\s*[-–._)]\s*/, '').trim() || cartella;
+}
+
 /** Allinea il database alle sottocartelle presenti sul NAS e restituisce le pratiche ordinate. */
 async function sincronizza(lavoro) {
   const cartelle = await archivio.sottocartelle(lavoro);
@@ -27,7 +32,9 @@ async function sincronizza(lavoro) {
   const presenti = new Set(cartelle);
   return Pratiche.perLavoro.all(lavoro.id)
     .map((p) => ({ ...p, esiste: presenti.has(p.cartella) }))
-    .sort((a, b) => a.ordine - b.ordine || a.cartella.localeCompare(b.cartella, 'it', { numeric: true }));
+    // Ordine delle cartelle sul NAS (rispetta la numerazione dello studio, es. "001 - Rilievo")
+    .sort((a, b) => a.cartella.localeCompare(b.cartella, 'it', { numeric: true }))
+    .map((p) => ({ ...p, nome: nomeVisibile(p.cartella) }));
 }
 
 /** Pratiche con l'elenco dei documenti. Per il cliente solo quelle visibili ed esistenti. */
@@ -43,4 +50,4 @@ function descriviStato(p, formattaData) {
   return p.data ? `${p.stato} il ${formattaData(p.data)}` : p.stato;
 }
 
-module.exports = { sincronizza, conDocumenti, descriviStato };
+module.exports = { sincronizza, conDocumenti, descriviStato, nomeVisibile };

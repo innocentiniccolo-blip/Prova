@@ -186,7 +186,7 @@ router.post('/lavori/:id/documenti', trovaLavoro, pulisciTmp, upload.array('file
     if (nomi.length) {
       Lavori.tocca.run(req.lavoro.id);
       if (req.body.annuncia && pratica.visibile) {
-        Aggiornamenti.inserisci.run(req.lavoro.id, `${pratica.cartella}: nuovi documenti (${nomi.join(', ')})`);
+        Aggiornamenti.inserisci.run(req.lavoro.id, `${pratiche.nomeVisibile(pratica.cartella)}: nuovi documenti (${nomi.join(', ')})`);
       }
     }
     flash(req, 'ok', nomi.length ? `Caricati ${nomi.length} file in «${pratica.cartella}».` : 'Nessun file selezionato.');
@@ -248,7 +248,7 @@ router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, (req, r
   Lavori.tocca.run(req.lavoro.id);
   const cambiata = nuova.stato !== pratica.stato || nuova.data !== pratica.data || nuova.protocollo !== pratica.protocollo;
   if (req.body.annuncia && nuova.visibile && cambiata) {
-    let frase = `${pratica.cartella}: ${pratiche.descriviStato(nuova, req.app.locals.data).toLowerCase()}`;
+    let frase = `${pratiche.nomeVisibile(pratica.cartella)}: ${pratiche.descriviStato(nuova, req.app.locals.data).toLowerCase()}`;
     if (nuova.protocollo) frase += `, protocollo n. ${nuova.protocollo}`;
     Aggiornamenti.inserisci.run(req.lavoro.id, frase + '.');
   }

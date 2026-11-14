@@ -18,6 +18,16 @@ const config = {
   produzione: process.env.NODE_ENV === 'production',
   // true = niente pagina di presentazione: l'indirizzo apre subito l'accesso (es. area.geometrainnocenti.it)
   soloArea: process.env.SOLO_AREA === 'true',
+  // Indirizzo pubblico dell'app, usato nei link delle email (es. https://area.geometrainnocenti.it)
+  urlPubblico: String(process.env.URL_PUBBLICO || '').replace(/\/+$/, ''),
+  // Invio email (password dimenticata, benvenuto). Se SMTP_HOST è vuoto le email sono disattivate.
+  posta: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT) || 465,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    mittente: process.env.MAIL_FROM || process.env.SMTP_USER || '',
+  },
   studio: JSON.parse(fs.readFileSync(studioFile, 'utf8')),
 };
 

@@ -55,7 +55,7 @@ Requisiti: **Container Station** installato dall'App Center.
    ```sh
    docker exec -it studio-tecnico node --disable-warning=ExperimentalWarning scripts/crea-admin.js tua@email.it "Niccolò Innocenti"
    ```
-6. Apri `http://IP-DEL-NAS:3000`, accedi e vai su **Clienti → Nuovo cliente**. L'app genera una password temporanea da comunicare al cliente, che potrà cambiarla dal suo profilo.
+6. Apri `http://IP-DEL-NAS:3000`, accedi e vai su **Clienti → Nuovo cliente**. Se le email sono configurate (vedi sotto), il cliente riceve un'email di benvenuto con il link per scegliere la sua password. In ogni caso l'app genera anche una password temporanea, da comunicare a voce se l'email non arriva.
 
 ### Permessi
 
@@ -84,6 +84,28 @@ I clienti devono raggiungere l'app da fuori: **usa sempre HTTPS** e non esporre 
 4. Nel `.env` imposta `COOKIE_SECURE=true` e `TRUST_PROXY=true`.
 
 In entrambi i casi tieni QTS e Container Station aggiornati e attiva la verifica in due passaggi sull'account admin del NAS.
+
+## Email (password dimenticata e benvenuto)
+
+L'app può inviare email dalla casella dello studio **info@geometrainnocenti.it**:
+
+- **Password dimenticata?** nella pagina di accesso: il cliente riceve un link valido 1 ora per sceglierne una nuova.
+- **Email di benvenuto** quando crei un cliente (o con il pulsante nella sua scheda): link valido 7 giorni per scegliere la password, così non devi dettargliela.
+
+I link si usano una sola volta e si annullano se ne viene creato uno nuovo o se il cliente è disattivato.
+
+Nel `.env` compila:
+
+```sh
+URL_PUBBLICO=https://area.geometrainnocenti.it
+SMTP_HOST=          # server SMTP del provider della casella (es. Aruba: smtps.aruba.it)
+SMTP_PORT=465
+SMTP_USER=info@geometrainnocenti.it
+SMTP_PASS=          # password della casella email
+MAIL_FROM=info@geometrainnocenti.it
+```
+
+I dati SMTP sono nel pannello del provider dove hai la casella. Se `SMTP_HOST` è vuoto le email sono disattivate e la pagina di accesso invita a contattare lo studio.
 
 ## Backup
 

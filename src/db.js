@@ -70,6 +70,15 @@ CREATE TABLE IF NOT EXISTS accessi_file (
   creato_il TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Link monouso per impostare o reimpostare la password (si salva solo l'impronta del token)
+CREATE TABLE IF NOT EXISTS link_password (
+  id         INTEGER PRIMARY KEY,
+  utente_id  INTEGER NOT NULL REFERENCES utenti(id) ON DELETE CASCADE,
+  impronta   TEXT NOT NULL UNIQUE,
+  scade      INTEGER NOT NULL,
+  usato      INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS sessioni (
   sid     TEXT PRIMARY KEY,
   dati    TEXT NOT NULL,

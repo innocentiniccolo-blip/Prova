@@ -8,6 +8,8 @@ const config = require('../config');
 const auth = require('../auth');
 const archivio = require('../archivio');
 const pratiche = require('../pratiche');
+const posta = require('../posta');
+const linkPassword = require('../link-password');
 const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 
@@ -282,22 +284,59 @@ router.get('/clienti', (req, res) => {
 });
 
 router.get('/clienti/nuovo', (req, res) => {
-  res.render('admin/cliente-form', { titolo: 'Nuovo cliente', cliente: { attivo: 1 }, errore: null, lavori: [] });
+  res.render('admin/cliente-form', { postaAttiva: posta.attiva, titolo: 'Nuovo cliente', cliente: { attivo: 1 }, errore: null, lavori: [] });
 });
+
+/** Email di benvenuto con il link per scegliere la password (valido 7 giorni). */
+async function inviaBenvenuto(req, cliente) {
+  const link = linkPassword.crea(cliente.id, 24 * 7, req);
+  const sito = config.urlPubblico || link.split('/imposta-password/')[0];
+  return posta.invia({
+    a: cliente.email,
+    oggetto: `Il tuo accesso all'area clienti – ${config.studio.nomeBreve}`,
+    testo: `Gentile ${cliente.nome},\n\nda oggi puoi seguire online le tue pratiche: a che punto sono, date di presentazione, numeri di protocollo e documenti.\n\nPer iniziare scegli la tua password da questo link (valido 7 giorni):\n${link}\n\nPoi accedi quando vuoi da ${sito} con questa email (${cliente.email}).\n\nPer qualsiasi dubbio sono a disposizione.`,
+  });
+}
 
 function emailValida(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
 
 router.post('/clienti', auth.verificaCsrf, async (req, res, next) => {
   const cliente = { nome: testo(req.body.nome, 200), email: testo(req.body.email, 200).toLowerCase(), telefono: testo(req.body.telefono, 50), attivo: 1 };
-  const errore = (msg) => res.status(400).render('admin/cliente-form', { titolo: 'Nuovo cliente', cliente, errore: msg, lavori: [] });
+  const errore = (msg) => res.status(400).render('admin/cliente-form', { postaAttiva: posta.attiva, titolo: 'Nuovo cliente', cliente, errore: msg, lavori: [] });
   if (!cliente.nome || !emailValida(cliente.email)) return errore('Nome ed email valida sono obbligatori.');
   if (Utenti.perEmail.get(cliente.email)) return errore('Esiste già un utente con questa email.');
   try {
     const pw = auth.passwordTemporanea();
     const { lastInsertRowid } = Utenti.inserisci.run(cliente.email, await auth.hashPassword(pw), cliente.nome, cliente.telefono, 'cliente');
     req.session.credenziali = { email: cliente.email, password: pw };
+    if (req.body.benvenuto && posta.attiva) {
+      try {
+        await inviaBenvenuto(req, { id: Number(lastInsertRowid), ...cliente });
+        flash(req, 'ok', `Email di benvenuto inviata a ${cliente.email}.`);
+      } catch (err) {
+        console.error(err);
+        flash(req, 'errore', 'Cliente creato, ma l\'email non è partita: controlla le impostazioni SMTP. Comunica a voce le credenziali qui sotto.');
+      }
+    }
     res.redirect(`/studio/clienti/${lastInsertRowid}`);
   } catch (e) { next(e); }
+});
+
+router.post('/clienti/:id/invia-benvenuto', auth.verificaCsrf, async (req, res) => {
+  const cliente = Utenti.perId.get(Number(req.params.id));
+  if (!cliente || cliente.ruolo !== 'cliente') return res.redirect('/studio/clienti');
+  if (!posta.attiva) {
+    flash(req, 'errore', 'L\'invio delle email non è configurato.');
+  } else {
+    try {
+      await inviaBenvenuto(req, cliente);
+      flash(req, 'ok', `Email con il link per la password inviata a ${cliente.email}.`);
+    } catch (err) {
+      console.error(err);
+      flash(req, 'errore', 'L\'email non è partita: controlla le impostazioni SMTP.');
+    }
+  }
+  res.redirect(`/studio/clienti/${cliente.id}`);
 });
 
 router.get('/clienti/:id', (req, res) => {
@@ -305,7 +344,7 @@ router.get('/clienti/:id', (req, res) => {
   if (!cliente || cliente.ruolo !== 'cliente') return res.status(404).render('errore', { titolo: 'Cliente non trovato', messaggio: '' });
   const credenziali = req.session.credenziali;
   delete req.session.credenziali; // mostrate una sola volta
-  res.render('admin/cliente-form', { titolo: cliente.nome, cliente, errore: null, credenziali, lavori: Utenti.lavori.all(cliente.id) });
+  res.render('admin/cliente-form', { postaAttiva: posta.attiva, titolo: cliente.nome, cliente, errore: null, credenziali, lavori: Utenti.lavori.all(cliente.id) });
 });
 
 router.post('/clienti/:id', auth.verificaCsrf, (req, res) => {
@@ -316,7 +355,7 @@ router.post('/clienti/:id', auth.verificaCsrf, (req, res) => {
   let errore = null;
   if (!nuovo.nome || !emailValida(nuovo.email)) errore = 'Nome ed email valida sono obbligatori.';
   else if (altro && altro.id !== cliente.id) errore = 'Esiste già un utente con questa email.';
-  if (errore) return res.status(400).render('admin/cliente-form', { titolo: cliente.nome, cliente: nuovo, errore, lavori: Utenti.lavori.all(cliente.id) });
+  if (errore) return res.status(400).render('admin/cliente-form', { postaAttiva: posta.attiva, titolo: cliente.nome, cliente: nuovo, errore, lavori: Utenti.lavori.all(cliente.id) });
   Utenti.aggiorna.run(nuovo.email, nuovo.nome, nuovo.telefono, nuovo.attivo, cliente.id);
   if (!nuovo.attivo) Utenti.terminaSessioni.run(cliente.id);
   flash(req, 'ok', 'Cliente aggiornato.');

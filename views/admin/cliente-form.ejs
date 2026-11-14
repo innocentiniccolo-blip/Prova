@@ -24,7 +24,12 @@ Password: <%= credenziali.password %></pre>
       <% if (cliente.id) { %>
         <label class="scelta"><input type="checkbox" name="attivo" value="1" <%= cliente.attivo ? 'checked' : '' %>> Accesso attivo</label>
       <% } else { %>
-        <p class="muto">Verrà generata una password temporanea da comunicare al cliente.</p>
+        <% if (postaAttiva) { %>
+          <label class="scelta"><input type="checkbox" name="benvenuto" value="1" checked> Invia al cliente un'email di benvenuto con il link per scegliere la password</label>
+          <p class="muto">Viene comunque generata una password temporanea, da usare se l'email non arriva.</p>
+        <% } else { %>
+          <p class="muto">Verrà generata una password temporanea da comunicare al cliente.</p>
+        <% } %>
       <% } %>
       <button class="pulsante"><%= cliente.id ? 'Salva' : 'Crea cliente' %></button>
     </form>
@@ -38,6 +43,11 @@ Password: <%= credenziali.password %></pre>
         </ul>
       </div>
       <div class="carta azioni">
+        <% if (postaAttiva) { %>
+          <form method="post" action="/studio/clienti/<%= cliente.id %>/invia-benvenuto" class="in-linea">
+            <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante">Invia link per la password via email</button>
+          </form>
+        <% } %>
         <form method="post" action="/studio/clienti/<%= cliente.id %>/reimposta-password" class="in-linea" data-conferma="Generare una nuova password per questo cliente?">
           <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante secondario">Genera nuova password</button>
         </form>

@@ -42,6 +42,7 @@ const Utenti = {
     WHERE u.ruolo = 'cliente' GROUP BY u.id ORDER BY u.nome`),
   perId: db.prepare('SELECT * FROM utenti WHERE id = ?'),
   perEmail: db.prepare('SELECT * FROM utenti WHERE email = ?'),
+  contaAdmin: db.prepare("SELECT COUNT(*) AS n FROM utenti WHERE ruolo = 'admin'"),
   inserisci: db.prepare('INSERT INTO utenti (email, password_hash, nome, telefono, ruolo) VALUES (?, ?, ?, ?, ?)'),
   aggiorna: db.prepare('UPDATE utenti SET email = ?, nome = ?, telefono = ?, attivo = ? WHERE id = ?'),
   impostaPassword: db.prepare('UPDATE utenti SET password_hash = ? WHERE id = ?'),

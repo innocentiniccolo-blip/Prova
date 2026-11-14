@@ -1,0 +1,22 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore stretto">
+    <div class="carta">
+      <h1>Primo avvio</h1>
+      <p>Crea l'account dello studio: è quello con cui gestirai clienti e pratiche.</p>
+      <p class="nota">Il codice di configurazione si trova nel registro (log) del container, alla riga «PRIMO AVVIO».</p>
+      <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+      <form method="post" action="/configura" class="modulo">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <label>Codice di configurazione <input name="codice" required autocomplete="off" maxlength="20"></label>
+        <label>Nome <input name="nome" required maxlength="200" value="<%= dati.nome || '' %>"></label>
+        <label>Email <input type="email" name="email" required autocomplete="username" value="<%= dati.email || '' %>"></label>
+        <label>Password <small>almeno 12 caratteri</small>
+          <input type="password" name="password" required minlength="12" autocomplete="new-password"></label>
+        <label>Ripeti la password <input type="password" name="conferma" required minlength="12" autocomplete="new-password"></label>
+        <button class="pulsante pieno">Crea l'account dello studio</button>
+      </form>
+    </div>
+  </div>
+</section>
+<%- include('partials/piede') %>

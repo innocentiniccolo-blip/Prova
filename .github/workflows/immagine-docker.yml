@@ -1,0 +1,31 @@
+# Costruisce l'immagine Docker dell'app e la pubblica su GitHub (ghcr.io),
+# così il QNAP può scaricarla con Container Station senza copiare file a mano.
+name: Immagine Docker
+
+on:
+  push:
+    branches: [claude/studio-tecnico-app-zr5j5g, pratiche-per-sottocartella]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/innocentiniccolo-blip/prova:latest

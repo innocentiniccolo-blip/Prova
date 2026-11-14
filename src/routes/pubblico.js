@@ -1,4 +1,5 @@
 'use strict';
+const crypto = require('node:crypto');
 const express = require('express');
 const config = require('../config');
 const { Utenti } = require('../modelli');
@@ -7,6 +8,57 @@ const posta = require('../posta');
 const linkPassword = require('../link-password');
 
 const router = express.Router();
+
+// ---------- Primo avvio: creazione dell'account dello studio dal browser ----------
+// Attiva solo finché non esiste nessun account studio. Serve un codice monouso che
+// l'app scrive nel registro (log) del container all'avvio: chi non vede il NAS non può usarla.
+let codiceConfigurazione = null;
+function serveConfigurazione() {
+  const serve = Utenti.contaAdmin.get().n === 0;
+  if (serve && !codiceConfigurazione) {
+    codiceConfigurazione = crypto.randomBytes(4).toString('hex').toUpperCase();
+    console.log(`\n=== PRIMO AVVIO ===\nApri /configura nel browser e usa questo codice: ${codiceConfigurazione}\n`);
+  }
+  if (!serve) codiceConfigurazione = null;
+  return serve;
+}
+setImmediate(serveConfigurazione);
+
+router.use((req, res, next) => {
+  if (req.path !== '/configura' && !req.path.startsWith('/css') && !req.path.startsWith('/img') && serveConfigurazione()) {
+    return res.redirect('/configura');
+  }
+  next();
+});
+
+router.get('/configura', (req, res) => {
+  if (!serveConfigurazione()) return res.redirect('/accedi');
+  res.render('configura', { titolo: 'Primo avvio', errore: null, dati: {} });
+});
+
+router.post('/configura', auth.verificaCsrf, async (req, res, next) => {
+  try {
+    if (!serveConfigurazione()) return res.redirect('/accedi');
+    const dati = { nome: String(req.body.nome || '').trim().slice(0, 200), email: String(req.body.email || '').trim().toLowerCase() };
+    const render = (errore) => res.status(400).render('configura', { titolo: 'Primo avvio', errore, dati });
+    if (auth.loginBloccato(req, 'configura')) return render('Troppi tentativi. Riprova tra 15 minuti.');
+    const codice = String(req.body.codice || '').trim().toUpperCase();
+    if (codice.length !== codiceConfigurazione.length ||
+        !crypto.timingSafeEqual(Buffer.from(codice), Buffer.from(codiceConfigurazione))) {
+      auth.registraErrore(req, 'configura');
+      return render('Codice non corretto. Lo trovi nel registro (log) del container.');
+    }
+    if (!dati.nome || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dati.email)) return render('Inserisci nome ed email validi.');
+    const pw = String(req.body.password || '');
+    if (pw.length < 12) return render('La password deve avere almeno 12 caratteri.');
+    if (pw !== String(req.body.conferma || '')) return render('Le due password non coincidono.');
+    Utenti.inserisci.run(dati.email, await auth.hashPassword(pw), dati.nome, null, 'admin');
+    codiceConfigurazione = null;
+    console.log(`Account studio creato dal primo avvio: ${dati.email}`);
+    req.session.flash = { tipo: 'ok', msg: 'Account dello studio creato. Ora accedi.' };
+    res.redirect('/accedi');
+  } catch (e) { next(e); }
+});
 
 router.get('/', (req, res) => {
   if (config.soloArea) return res.redirect(req.utente ? '/area' : '/accedi');

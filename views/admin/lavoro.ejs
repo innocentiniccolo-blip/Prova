@@ -26,6 +26,32 @@
 
     <div class="layout-lavoro">
       <div>
+        <% if (proposteStato.length) { %>
+          <div class="carta proposte">
+            <h2>Aggiornamenti letti dalle ricevute</h2>
+            <% proposteStato.forEach(p => { %>
+              <div class="proposta">
+                <div>
+                  <strong><%= p.cartella %></strong>: <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+                  <% if (p.data) { %> il <%= data(p.data) %><% } %><% if (p.protocollo) { %> · prot. n. <strong><%= p.protocollo %></strong><% } %><br>
+                  <small class="muto">letto da «<%= p.file %>»</small>
+                </div>
+                <div class="azioni">
+                  <form method="post" action="/studio/proposte-stato/<%= p.id %>/applica" class="in-linea">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="torna" value="lavoro"><input type="hidden" name="lavoro" value="<%= lavoro.id %>">
+                    <label class="scelta"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente</label>
+                    <button class="pulsante piccolo">Conferma</button>
+                  </form>
+                  <form method="post" action="/studio/proposte-stato/<%= p.id %>/scarta" class="in-linea">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="torna" value="lavoro"><input type="hidden" name="lavoro" value="<%= lavoro.id %>">
+                    <button class="link">Scarta</button>
+                  </form>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+
         <div class="carta" id="pratiche">
           <h2>Pratiche</h2>
           <p class="muto">Ogni sottocartella di <code><%= lavoro.cartella %></code> è una pratica. Puoi crearle anche dal PC sul NAS: compaiono qui da sole.</p>

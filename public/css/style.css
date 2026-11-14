@@ -228,3 +228,8 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
   .file-lista li { flex-wrap: wrap; }
   .file-azioni { width: 100%; justify-content: flex-start; padding-left: 3.9rem; }
 }
+
+/* Proposte automatiche */
+.proposte { border-left: 4px solid var(--azzurro); }
+.proposta { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: center; padding: .8rem 0; border-top: 1px solid var(--bordo); }
+.proposta:first-of-type { border-top: 0; }

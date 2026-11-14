@@ -79,6 +79,38 @@ CREATE TABLE IF NOT EXISTS link_password (
   usato      INTEGER NOT NULL DEFAULT 0
 );
 
+-- Lavori trovati sul NAS grazie al file _cliente.txt, in attesa di conferma
+CREATE TABLE IF NOT EXISTS proposte_lavori (
+  id        INTEGER PRIMARY KEY,
+  cartella  TEXT NOT NULL UNIQUE,
+  nome      TEXT NOT NULL,
+  email     TEXT NOT NULL,
+  telefono  TEXT,
+  stato     TEXT NOT NULL DEFAULT 'nuova' CHECK (stato IN ('nuova','confermata','scartata')),
+  creato_il TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- File delle pratiche già esaminati dalla lettura automatica delle ricevute
+CREATE TABLE IF NOT EXISTS file_letti (
+  pratica_id INTEGER NOT NULL REFERENCES pratiche(id) ON DELETE CASCADE,
+  percorso   TEXT NOT NULL,
+  modificato INTEGER NOT NULL,
+  PRIMARY KEY (pratica_id, percorso)
+);
+
+-- Aggiornamenti di stato proposti leggendo una ricevuta, in attesa di conferma
+CREATE TABLE IF NOT EXISTS proposte_stato (
+  id         INTEGER PRIMARY KEY,
+  pratica_id INTEGER NOT NULL REFERENCES pratiche(id) ON DELETE CASCADE,
+  file       TEXT NOT NULL,
+  tipo       TEXT NOT NULL,
+  stato      TEXT NOT NULL,
+  data       TEXT,
+  protocollo TEXT,
+  stato_proposta TEXT NOT NULL DEFAULT 'nuova' CHECK (stato_proposta IN ('nuova','applicata','scartata')),
+  creato_il  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessioni (
   sid     TEXT PRIMARY KEY,
   dati    TEXT NOT NULL,

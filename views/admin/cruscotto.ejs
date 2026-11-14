@@ -3,8 +3,49 @@
   <div class="contenitore">
     <div class="barra-titolo">
       <h1>Lavori</h1>
-      <a class="pulsante" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
+      <div class="azioni">
+        <form method="post" action="/studio/automazioni/esegui" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante secondario">Controlla NAS ora</button></form>
+        <a class="pulsante" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
+      </div>
     </div>
+    <% const nomeTipo = { comune: 'Protocollo comunale', docfa: 'Catasto (DOCFA)', ape: 'APE – Regione', enea: 'ENEA', pregeo: 'Catasto (PREGEO)', altro: 'Ricevuta' }; %>
+    <% if (proposteLavori.length || proposteStato.length) { %>
+      <div class="carta proposte">
+        <h2>Da confermare</h2>
+        <% proposteLavori.forEach(p => { %>
+          <div class="proposta">
+            <div>
+              <strong>Nuovo lavoro trovato sul NAS</strong><br>
+              <span class="muto"><%= p.cartella %></span><br>
+              Cliente: <%= p.nome %> · <%= p.email %><% if (p.telefono) { %> · <%= p.telefono %><% } %>
+            </div>
+            <div class="azioni">
+              <form method="post" action="/studio/proposte-lavori/<%= p.id %>/conferma" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante piccolo">Conferma</button></form>
+              <form method="post" action="/studio/proposte-lavori/<%= p.id %>/scarta" class="in-linea" data-conferma="Scartare? La cartella non verrà più proposta."><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Scarta</button></form>
+            </div>
+          </div>
+        <% }) %>
+        <% proposteStato.forEach(p => { %>
+          <div class="proposta">
+            <div>
+              <strong><%= p.codice %> – <%= p.titolo %></strong> · <%= p.cartella %><br>
+              Proposta: <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+              <% if (p.data) { %> il <%= data(p.data) %><% } %><% if (p.protocollo) { %> · prot. n. <strong><%= p.protocollo %></strong><% } %><br>
+              <small class="muto"><%= nomeTipo[p.tipo] || p.tipo %> · letto da «<%= p.file %>»</small>
+            </div>
+            <div class="azioni">
+              <form method="post" action="/studio/proposte-stato/<%= p.id %>/applica" class="in-linea">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <label class="scelta"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente</label>
+                <button class="pulsante piccolo">Conferma</button>
+              </form>
+              <a class="link" href="/studio/lavori/<%= p.lavoro_id %>#pratica-<%= p.pratica_id %>">Modifica</a>
+              <form method="post" action="/studio/proposte-stato/<%= p.id %>/scarta" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Scarta</button></form>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
     <div class="riepilogo">
       <div class="carta numero"><strong><%= lavori.length %></strong><span>Lavori totali</span></div>
       <% studio.stati.forEach(s => { %>

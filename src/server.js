@@ -80,6 +80,7 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
+  require('./automazioni').avvia();
   app.listen(config.port, () => {
     console.log(`Studio tecnico in ascolto su http://localhost:${config.port}`);
     console.log(`Archivio lavori: ${config.archivioDir}`);

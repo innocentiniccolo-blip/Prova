@@ -8,8 +8,9 @@ const config = require('../config');
 const auth = require('../auth');
 const archivio = require('../archivio');
 const pratiche = require('../pratiche');
+const automazioni = require('../automazioni');
 const posta = require('../posta');
-const linkPassword = require('../link-password');
+const { inviaBenvenuto, avvisaClienti } = require('../notifiche');
 const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 
@@ -32,12 +33,48 @@ function trovaLavoro(req, res, next) {
 }
 
 // ---------- Cruscotto ----------
-router.get('/', (req, res) => {
+router.get('/', async (req, res, next) => {
+  try { await automazioni.scansionaNuoviLavori(); } catch (e) { console.error(e); }
   const lavori = Lavori.tutti.all();
   const perStato = {};
   for (const l of lavori) perStato[l.stato] = (perStato[l.stato] || 0) + 1;
   const clienti = Utenti.clienti.all();
-  res.render('admin/cruscotto', { titolo: 'Studio', lavori, perStato, nClienti: clienti.length });
+  res.render('admin/cruscotto', {
+    titolo: 'Studio', lavori, perStato, nClienti: clienti.length,
+    proposteLavori: automazioni.proposteLavori(), proposteStato: automazioni.proposteStato(),
+  });
+});
+
+// ---------- Automazioni: proposte da confermare ----------
+router.post('/proposte-lavori/:id/conferma', auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const r = await automazioni.confermaLavoro(Number(req.params.id), req);
+    flash(req, 'ok', 'Lavoro creato' + (r.clienteNuovo ? (r.emailInviata ? ' e email di benvenuto inviata al cliente.' : '. Cliente creato: comunica tu le credenziali (email non inviata).') : ' e collegato al cliente già esistente.'));
+    res.redirect(`/studio/lavori/${r.lavoroId}`);
+  } catch (e) { flash(req, 'errore', e.message); res.redirect('/studio'); }
+});
+router.post('/proposte-lavori/:id/scarta', auth.verificaCsrf, (req, res) => {
+  automazioni.scartaLavoro(Number(req.params.id));
+  flash(req, 'ok', 'Proposta scartata: la cartella non verrà più proposta.');
+  res.redirect('/studio');
+});
+router.post('/proposte-stato/:id/applica', auth.verificaCsrf, async (req, res) => {
+  try {
+    const esito = await automazioni.applicaStato(Number(req.params.id), req, { email: Boolean(req.body.email) });
+    flash(req, esito.falliti ? 'errore' : 'ok', 'Stato aggiornato.' + fraseEsito(esito));
+  } catch (e) { flash(req, 'errore', e.message); }
+  res.redirect(req.body.torna === 'lavoro' && req.body.lavoro ? `/studio/lavori/${Number(req.body.lavoro)}` : '/studio');
+});
+router.post('/proposte-stato/:id/scarta', auth.verificaCsrf, (req, res) => {
+  automazioni.scartaStato(Number(req.params.id));
+  flash(req, 'ok', 'Proposta scartata.');
+  res.redirect(req.body.torna === 'lavoro' && req.body.lavoro ? `/studio/lavori/${Number(req.body.lavoro)}` : '/studio');
+});
+router.post('/automazioni/esegui', auth.verificaCsrf, async (req, res) => {
+  const n1 = await automazioni.scansionaNuoviLavori();
+  const n2 = await automazioni.scansionaRicevute();
+  flash(req, 'ok', `Controllo completato: ${n1} nuovi lavori, ${n2} nuove proposte di stato.`);
+  res.redirect('/studio');
 });
 
 // ---------- Lavori ----------
@@ -115,6 +152,7 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       statiPratica: archivio.statiPratica,
       descriviStato: pratiche.descriviStato,
       postaAttiva: posta.attiva,
+      proposteStato: automazioni.proposteStatoLavoro(lavoro.id),
       clienti: Lavori.clienti.all(lavoro.id),
       aggiornamenti: Aggiornamenti.perLavoro.all(lavoro.id),
       accessi: Accessi.perLavoro.all(lavoro.id),
@@ -167,30 +205,6 @@ function pulisciTmp(req, res, next) {
     for (const f of req.files || []) fs.rm(f.path, { force: true }, () => {});
   });
   next();
-}
-
-/**
- * Avvisa via email i clienti attivi del lavoro. Non blocca mai il salvataggio:
- * restituisce quanti avvisi sono partiti e quanti sono falliti.
- */
-async function avvisaClienti(req, lavoro, oggetto, corpo) {
-  const esito = { inviati: 0, falliti: 0 };
-  if (!posta.attiva || !lavoro.visibile) return esito;
-  const base = config.urlPubblico || `${req.protocol}://${req.get('host')}`;
-  for (const c of Lavori.clienti.all(lavoro.id).filter((x) => x.attivo)) {
-    try {
-      await posta.invia({
-        a: c.email,
-        oggetto,
-        testo: `Gentile ${c.nome},\n\n${corpo}\n\nPuoi vedere i dettagli e i documenti nella tua area clienti:\n${base}/area/lavori/${lavoro.id}\n\nQuesta è un'email automatica: per domande rispondi pure o contattami.`,
-      });
-      esito.inviati++;
-    } catch (err) {
-      console.error(`Avviso email non inviato a ${c.email}:`, err.message);
-      esito.falliti++;
-    }
-  }
-  return esito;
 }
 
 function fraseEsito(esito) {
@@ -331,17 +345,6 @@ router.get('/clienti', (req, res) => {
 router.get('/clienti/nuovo', (req, res) => {
   res.render('admin/cliente-form', { postaAttiva: posta.attiva, titolo: 'Nuovo cliente', cliente: { attivo: 1 }, errore: null, lavori: [] });
 });
-
-/** Email di benvenuto con il link per scegliere la password (valido 7 giorni). */
-async function inviaBenvenuto(req, cliente) {
-  const link = linkPassword.crea(cliente.id, 24 * 7, req);
-  const sito = config.urlPubblico || link.split('/imposta-password/')[0];
-  return posta.invia({
-    a: cliente.email,
-    oggetto: `Il tuo accesso all'area clienti – ${config.studio.nomeBreve}`,
-    testo: `Gentile ${cliente.nome},\n\nda oggi puoi seguire online le tue pratiche: a che punto sono, date di presentazione, numeri di protocollo e documenti.\n\nPer iniziare scegli la tua password da questo link (valido 7 giorni):\n${link}\n\nPoi accedi quando vuoi da ${sito} con questa email (${cliente.email}).\n\nPer qualsiasi dubbio sono a disposizione.`,
-  });
-}
 
 function emailValida(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
 

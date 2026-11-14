@@ -54,16 +54,20 @@
       <h2>Contatti</h2>
       <dl class="contatti">
         <dt>Indirizzo</dt><dd><%= studio.indirizzo %></dd>
-        <dt>Telefono</dt><dd><a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a></dd>
-        <dt>Email</dt><dd><a href="mailto:<%= studio.email %>"><%= studio.email %></a></dd>
-        <% if (studio.pec) { %><dt>PEC</dt><dd><%= studio.pec %></dd><% } %>
+        <dt>Cellulare</dt><dd><a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a></dd>
+        <% if (studio.email) { %><dt>Email</dt><dd><a href="mailto:<%= studio.email %>"><%= studio.email %></a></dd><% } %>
+        <% if (studio.pec) { %><dt>PEC</dt><dd><a href="mailto:<%= studio.pec %>"><%= studio.pec %></a></dd><% } %>
+        <% if (studio.piva) { %><dt>P. IVA</dt><dd><%= studio.piva %></dd><% } %>
         <dt>Orari</dt><dd><%= studio.orari %></dd>
       </dl>
     </div>
     <div class="carta">
-      <h3>Scrivici</h3>
+      <h3>Contattaci</h3>
       <p>Descrivi brevemente l'intervento: ti ricontatteremo per un primo sopralluogo.</p>
-      <a class="pulsante" href="mailto:<%= studio.email %>?subject=Richiesta%20informazioni">Invia una email</a>
+      <div class="azioni">
+        <a class="pulsante" href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>">Chiama <%= studio.telefono %></a>
+        <% if (studio.email) { %><a class="pulsante secondario" href="mailto:<%= studio.email %>?subject=Richiesta%20informazioni">Invia una email</a><% } %>
+      </div>
     </div>
   </div>
 </section>

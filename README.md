@@ -90,7 +90,7 @@ Includi nei backup del NAS (Hybrid Backup Sync):
 
 ## Personalizzazione
 
-Tutti i testi dello studio sono in **`config/studio.json`**: nome, indirizzo, telefono, email, PEC, P.IVA, iscrizione all'albo, servizi, categorie di documenti e stati dei lavori. **Compila i campi lasciati con `____`** prima di pubblicare il sito. Dopo ogni modifica riavvia il container (`docker compose restart`).
+Tutti i testi dello studio sono in **`config/studio.json`**: nome, indirizzo, telefono, email, PEC, P.IVA, iscrizione all'albo, servizi, categorie di documenti e stati dei lavori. Il campo `email` è facoltativo: se lo lasci vuoto, il sito mostra solo cellulare e PEC. Dopo ogni modifica riavvia il container (`docker compose restart`).
 
 Il logo è in `public/img/logo.webp`. Esiste anche una versione vettoriale, `public/img/logo.svg`, usata per l'icona del browser e la home.
 

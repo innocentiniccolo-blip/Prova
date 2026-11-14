@@ -8,9 +8,9 @@
       <% if (studio.albo) { %><small><%= studio.albo %></small><% } %>
     </div>
     <div class="piede-destra">
-      <a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a><br>
-      <a href="mailto:<%= studio.email %>"><%= studio.email %></a>
-      <% if (studio.pec) { %><br>PEC: <%= studio.pec %><% } %>
+      Cell. <a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a>
+      <% if (studio.email) { %><br><a href="mailto:<%= studio.email %>"><%= studio.email %></a><% } %>
+      <% if (studio.pec) { %><br>PEC: <a href="mailto:<%= studio.pec %>"><%= studio.pec %></a><% } %>
     </div>
   </div>
 </footer>

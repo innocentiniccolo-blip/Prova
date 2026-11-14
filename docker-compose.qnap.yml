@@ -1,24 +1,23 @@
 # Da incollare in Container Station → Applicazioni → Crea.
-# Sostituisci i valori tra < > prima di creare l'applicazione.
+# Prova: legge in SOLA LETTURA la cartella dei lavori cartacei 2026.
 services:
   studio:
     image: ghcr.io/innocentiniccolo-blip/prova:latest
-    container_name: studio-tecnico
+    container_name: area-clienti
     restart: unless-stopped
-    user: "<PUID>:<PGID>"
     ports:
       - "3000:3000"
     environment:
-      SESSION_SECRET: "<stringa casuale lunga>"
+      SOLO_AREA: "true"
+      URL_PUBBLICO: "http://192.168.1.10:3000"
       COOKIE_SECURE: "false"
       TRUST_PROXY: "false"
-      SOLO_AREA: "true"
-      URL_PUBBLICO: "https://area.geometrainnocenti.it"
-      SMTP_HOST: "smtps.aruba.it"
+      # Email: da attivare dopo la prova inserendo la password della casella
+      SMTP_HOST: ""
       SMTP_PORT: "465"
       SMTP_USER: "info@geometrainnocenti.it"
-      SMTP_PASS: "<password della casella info@geometrainnocenti.it>"
+      SMTP_PASS: ""
       MAIL_FROM: "info@geometrainnocenti.it"
     volumes:
-      - /share/Lavori:/archivio
-      - /share/Container/studio-tecnico:/dati
+      - "/share/Niccolo/Archivio Lavori/LAVORI CONCLUSI/2026/Cartacee:/archivio:ro"
+      - "/share/Container/area-clienti:/dati"

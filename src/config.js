@@ -31,14 +31,19 @@ const config = {
   studio: JSON.parse(fs.readFileSync(studioFile, 'utf8')),
 };
 
-if (!config.sessionSecret) {
-  if (config.produzione) {
-    throw new Error('SESSION_SECRET mancante: impostalo nel file .env');
-  }
-  config.sessionSecret = 'solo-sviluppo-non-usare-in-produzione';
-}
-
-fs.mkdirSync(config.archivioDir, { recursive: true });
 fs.mkdirSync(config.datiDir, { recursive: true });
+try { fs.mkdirSync(config.archivioDir, { recursive: true }); } catch { /* archivio montato in sola lettura */ }
+
+// Chiave delle sessioni: se non è impostata nel .env, l'app ne crea una casuale
+// al primo avvio e la conserva nella cartella dati (che resta privata sul NAS).
+if (!config.sessionSecret) {
+  const file = path.join(config.datiDir, 'chiave-sessioni');
+  try {
+    config.sessionSecret = fs.readFileSync(file, 'utf8').trim();
+  } catch {
+    config.sessionSecret = require('node:crypto').randomBytes(32).toString('hex');
+    fs.writeFileSync(file, config.sessionSecret, { mode: 0o600 });
+  }
+}
 
 module.exports = config;

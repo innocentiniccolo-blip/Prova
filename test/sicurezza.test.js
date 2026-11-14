@@ -1,0 +1,262 @@
+'use strict';
+/**
+ * Prove di sicurezza e robustezza sull'app completa (server avviato in memoria):
+ * accessi non autorizzati, CSRF, percorsi malevoli, XSS, input anomali, limiti di accesso.
+ */
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-sicurezza-'));
+process.env.ARCHIVIO_DIR = path.join(tmp, 'lavori');
+process.env.DATI_DIR = path.join(tmp, 'app');
+fs.mkdirSync(process.env.ARCHIVIO_DIR, { recursive: true });
+
+const app = require('../src/server');
+const auth = require('../src/auth');
+const imprese = require('../src/imprese');
+const { Utenti, Lavori, db } = require('../src/modelli');
+
+let base;
+let server;
+
+function browser() {
+  let cookie = '';
+  return {
+    async go(p, opt = {}) {
+      const r = await fetch(base + p, { redirect: 'manual', ...opt, headers: { ...(opt.headers || {}), cookie } });
+      const sc = r.headers.getSetCookie();
+      if (sc.length) cookie = sc.map((s) => s.split(';')[0]).join('; ');
+      return { status: r.status, loc: r.headers.get('location'), headers: r.headers, text: await r.text() };
+    },
+    async csrf(p = '/accedi') {
+      const t = (await this.go(p)).text;
+      const m = t.match(/name="_csrf" value="([^"]+)"/);
+      return m ? m[1] : '';
+    },
+    async post(p, dati, { da, senzaCsrf = false } = {}) {
+      const tok = senzaCsrf ? '' : await this.csrf(da || '/accedi');
+      const body = dati instanceof FormData ? dati : new URLSearchParams(Object.entries(dati));
+      if (!senzaCsrf) body.append('_csrf', tok);
+      return this.go(p, { method: 'POST', body });
+    },
+    async accedi(email, password) {
+      return this.post('/accedi', { email, password });
+    },
+  };
+}
+
+const PW = 'PasswordSicura123';
+let lavoroA; let lavoroB; let impresaId; let docId; let verbaleId;
+
+test.before(async () => {
+  const h = await auth.hashPassword(PW);
+  Utenti.inserisci.run('studio@esempio.it', h, 'Studio', null, 'admin');
+  const a = Number(Utenti.inserisci.run('anna@esempio.it', h, 'Anna <b>Cliente</b>', null, 'cliente').lastInsertRowid);
+  const b = Number(Utenti.inserisci.run('bruno@esempio.it', h, 'Bruno', null, 'cliente').lastInsertRowid);
+  const mk = (codice, titolo, cartella) => Number(Lavori.inserisci.run({ codice, titolo, descrizione: null, indirizzo: null, stato: 'In corso', cartella, data_inizio: null, data_fine: null, visibile: 1 }).lastInsertRowid);
+  lavoroA = mk('A-1', 'Lavoro di Anna <script>alert(1)</script>', 'A-1 Anna');
+  lavoroB = mk('B-1', 'Lavoro di Bruno', 'B-1 Bruno');
+  Lavori.aggiungiCliente.run(lavoroA, a);
+  Lavori.aggiungiCliente.run(lavoroB, b);
+  // Cartelle sul "NAS": una pratica visibile, un file nascosto e un file fuori archivio
+  const dirA = path.join(process.env.ARCHIVIO_DIR, 'A-1 Anna', 'CILA');
+  fs.mkdirSync(dirA, { recursive: true });
+  fs.writeFileSync(path.join(dirA, 'tavola.pdf'), '%PDF-1.4 finto');
+  fs.writeFileSync(path.join(dirA, '_bozza.pdf'), 'segreto');
+  fs.writeFileSync(path.join(dirA, 'rotto.pdf'), 'non è un pdf');
+  fs.mkdirSync(path.join(process.env.ARCHIVIO_DIR, 'B-1 Bruno', 'SCIA'), { recursive: true });
+  fs.writeFileSync(path.join(process.env.ARCHIVIO_DIR, 'B-1 Bruno', 'SCIA', 'privato.pdf'), 'di Bruno');
+  fs.writeFileSync(path.join(tmp, 'segreto.txt'), 'fuori archivio');
+  await require('../src/pratiche').sincronizza(Lavori.perId.get(lavoroA));
+  await require('../src/pratiche').sincronizza(Lavori.perId.get(lavoroB));
+  db.prepare('UPDATE pratiche SET visibile = 1').run();
+  // Sicurezza cantiere su A: impresa con un documento e un verbale
+  imprese.Q.impostaSicurezza.run(1, lavoroA);
+  impresaId = Number(imprese.Q.inserisci.run({ ragione_sociale: 'Edile <img src=x onerror=alert(1)>', piva: null, sede: null, pec: null, telefono: null, autonomo: 0, nota: 'nota interna riservata' }).lastInsertRowid);
+  imprese.Q.collega.run(lavoroA, impresaId, 'Affidataria', 1);
+  const f = path.join(tmp, 'durc.pdf'); fs.writeFileSync(f, '%PDF-1.4 durc');
+  docId = await imprese.salvaDocumento(impresaId, { tipo: 'durc', rilascio: '2026-11-01' }, f, '../../durc.pdf');
+  verbaleId = await imprese.salvaVerbale(lavoroA, { data: '2026-11-10', tipo: 'Sopralluogo del CSE', note: null, visibile: 1 }, f, 'verbale.pdf');
+
+  await new Promise((r) => { server = app.listen(0, '127.0.0.1', r); });
+  base = `http://127.0.0.1:${server.address().port}`;
+});
+
+test.after(() => server && server.close());
+
+const pratica = (lavoro) => db.prepare('SELECT id FROM pratiche WHERE lavoro_id = ?').get(lavoro).id;
+
+test('senza accesso: tutte le aree riservate rimandano al login', async () => {
+  const b = browser();
+  for (const p of ['/area', `/area/lavori/${lavoroA}`, '/studio', '/studio/imprese', `/studio/lavori/${lavoroA}`, `/area/lavori/${lavoroA}/file?p=1&f=tavola.pdf`]) {
+    const r = await b.go(p);
+    assert.strictEqual(r.status, 302, p);
+    assert.strictEqual(r.loc, '/accedi', p);
+  }
+});
+
+test('intestazioni di sicurezza presenti', async () => {
+  const r = await browser().go('/accedi');
+  assert.match(r.headers.get('content-security-policy') || '', /default-src 'self'/);
+  assert.strictEqual(r.headers.get('x-frame-options'), 'SAMEORIGIN');
+  assert.strictEqual(r.headers.get('x-content-type-options'), 'nosniff');
+  assert.strictEqual(r.headers.get('x-powered-by'), null);
+  const sc = (await browser().go('/accedi')).headers.getSetCookie().join(';');
+  assert.match(sc, /HttpOnly/i);
+  assert.match(sc, /SameSite=Lax/i);
+});
+
+test('login: password errata, utente inesistente e campi enormi non entrano', async () => {
+  const b = browser();
+  assert.strictEqual((await b.accedi('anna@esempio.it', 'sbagliata')).status, 401);
+  assert.strictEqual((await b.accedi('nessuno@esempio.it', PW)).status, 401);
+  assert.strictEqual((await b.accedi('x'.repeat(5000), 'y'.repeat(5000))).status, 401);
+  assert.strictEqual((await b.accedi("' OR 1=1 --", "' OR '1'='1")).status, 401);
+});
+
+test('CSRF: le richieste senza token vengono rifiutate', async () => {
+  const b = browser();
+  await b.accedi('studio@esempio.it', PW);
+  const r = await b.post('/studio/imprese', { ragione_sociale: 'Intrusa' }, { senzaCsrf: true });
+  assert.strictEqual(r.status, 403);
+  const r2 = await b.post(`/studio/lavori/${lavoroA}/elimina`, {}, { senzaCsrf: true });
+  assert.strictEqual(r2.status, 403);
+  assert.ok(Lavori.perId.get(lavoroA), 'il lavoro non deve essere eliminato');
+  const r3 = await b.go('/studio/imprese', { method: 'POST', body: new URLSearchParams({ ragione_sociale: 'X', _csrf: 'a'.repeat(48) }) });
+  assert.strictEqual(r3.status, 403);
+});
+
+test('cliente: non vede il pannello dello studio né i lavori di altri', async () => {
+  const b = browser();
+  const r = await b.accedi('anna@esempio.it', PW);
+  assert.strictEqual(r.loc, '/area');
+  assert.strictEqual((await b.go('/studio')).status, 403);
+  assert.strictEqual((await b.go('/studio/imprese')).status, 403);
+  assert.strictEqual((await b.go(`/studio/imprese/${impresaId}/documenti/${docId}`)).status, 403);
+  assert.strictEqual((await b.post('/studio/imprese', { ragione_sociale: 'X' }, { da: '/area' })).status, 403);
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroB}`)).status, 404);
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroB}/file?p=${pratica(lavoroB)}&f=privato.pdf`)).status, 404);
+  // Pratica di Bruno chiesta passando dal lavoro di Anna
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroA}/file?p=${pratica(lavoroB)}&f=privato.pdf`)).status, 404);
+});
+
+test('percorsi malevoli e file nascosti non sono raggiungibili', async () => {
+  const b = browser();
+  await b.accedi('anna@esempio.it', PW);
+  const p = pratica(lavoroA);
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroA}/file?p=${p}&f=tavola.pdf`)).status, 200);
+  const cattivi = ['../../segreto.txt', '..%2F..%2Fsegreto.txt', '/etc/passwd', '_bozza.pdf', '..\\..\\segreto.txt',
+    '../../B-1 Bruno/SCIA/privato.pdf', 'tavola.pdf\0.txt', '%00', '.', '', 'x'.repeat(5000)];
+  for (const f of cattivi) {
+    const r = await b.go(`/area/lavori/${lavoroA}/file?p=${p}&f=${encodeURIComponent(f)}`);
+    assert.notStrictEqual(r.status, 200, f);
+    assert.ok(r.status < 500, `${f} → ${r.status}`);
+    assert.ok(!r.text.includes('fuori archivio') && !r.text.includes('segreto') && !r.text.includes('di Bruno'), f);
+  }
+});
+
+test('XSS: nomi e titoli inseriti vengono mostrati come testo', async () => {
+  const b = browser();
+  await b.accedi('anna@esempio.it', PW);
+  const t = (await b.go(`/area/lavori/${lavoroA}`)).text;
+  assert.ok(!t.includes('<script>alert(1)</script>'));
+  assert.ok(t.includes('&lt;script&gt;'));
+  assert.ok(!t.includes('<img src=x'));
+  assert.ok(!t.includes('nota interna riservata'), 'le note interne sull\'impresa non vanno al cliente');
+});
+
+test('sicurezza cantiere: visibile solo se attiva, file solo se collegati e visibili', async () => {
+  const b = browser();
+  await b.accedi('anna@esempio.it', PW);
+  const doc = `/area/lavori/${lavoroA}/imprese/${impresaId}/documenti/${docId}`;
+  const verb = `/area/lavori/${lavoroA}/verbali/${verbaleId}`;
+  let t = (await b.go(`/area/lavori/${lavoroA}`)).text;
+  assert.ok(t.includes('Sicurezza in cantiere') && t.includes('Sopralluogo del CSE'));
+  assert.strictEqual((await b.go(doc)).status, 200);
+  assert.strictEqual((await b.go(verb)).status, 200);
+  // Stessi documenti chiesti dal lavoro di Bruno o con id sbagliati
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroB}/imprese/${impresaId}/documenti/${docId}`)).status, 404);
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroA}/imprese/${impresaId}/documenti/9999`)).status, 404);
+  // Verbale privato
+  imprese.Q.visibilitaVerbale.run(0, verbaleId, lavoroA);
+  assert.strictEqual((await b.go(verb)).status, 404);
+  imprese.Q.visibilitaVerbale.run(1, verbaleId, lavoroA);
+  // Sezione disattivata: sparisce tutto, anche i link diretti
+  imprese.Q.impostaSicurezza.run(0, lavoroA);
+  t = (await b.go(`/area/lavori/${lavoroA}`)).text;
+  assert.ok(!t.includes('Sicurezza in cantiere'));
+  assert.strictEqual((await b.go(doc)).status, 404);
+  assert.strictEqual((await b.go(verb)).status, 404);
+  imprese.Q.impostaSicurezza.run(1, lavoroA);
+});
+
+test('il nome del file caricato non può uscire dalla cartella', () => {
+  const d = imprese.Q.documento.get(docId, impresaId);
+  assert.ok(!d.file.includes('/') && !d.file.includes('..'));
+  assert.ok(imprese.percorsoFile(d).startsWith(path.join(process.env.DATI_DIR, 'imprese')));
+});
+
+test('input anomali non causano errori del server', async () => {
+  const b = browser();
+  await b.accedi('studio@esempio.it', PW);
+  const percorsi = ['/studio/lavori/abc', '/studio/lavori/-1', '/studio/lavori/1e309', '/studio/lavori/99999999999999999999',
+    '/studio/imprese/abc', '/studio/imprese/0/documenti/xyz', '/studio/clienti/abc', `/studio/lavori/${lavoroA}/verbali/abc`,
+    `/studio/lavori/${lavoroA}/file?p=abc&f=`, '/area/lavori/%E0%A4%A', '/%2e%2e/%2e%2e/etc/passwd', '/css/../../package.json'];
+  for (const p of percorsi) {
+    const r = await b.go(p);
+    assert.ok(r.status < 500, `${p} → ${r.status}`);
+    assert.ok(!r.text.includes('"dependencies"'), p);
+  }
+  const tok = await b.csrf('/studio');
+  const post = async (p, dati) => (await b.go(p, { method: 'POST', body: new URLSearchParams({ ...dati, _csrf: tok }) })).status;
+  assert.ok(await post(`/studio/lavori/${lavoroA}/pratiche/abc`, { stato: 'X'.repeat(10000) }) < 500);
+  assert.ok(await post(`/studio/lavori/${lavoroA}/verbali`, { data: '2026-99-99', tipo: '' }) < 500);
+  assert.ok(await post(`/studio/lavori/${lavoroA}/imprese`, { impresa: "1; DROP TABLE imprese" }) < 500);
+  assert.ok(await post(`/studio/imprese/${impresaId}/documenti`, { tipo: 'patente', crediti: '-5' }) < 500);
+  assert.ok(await post('/studio/imprese', { ragione_sociale: 'Z'.repeat(100000) }) < 500);
+  assert.ok(imprese.Q.tutte.all().length >= 1, 'la tabella esiste ancora');
+  // Multipart rotto
+  const r = await b.go(`/studio/imprese/${impresaId}/documenti`, { method: 'POST', headers: { 'content-type': 'multipart/form-data; boundary=xxx' }, body: '--xxx\r\nrotto' });
+  assert.ok(r.status < 500, `multipart → ${r.status}`);
+  // Il server risponde ancora
+  assert.strictEqual((await b.go('/studio')).status, 200);
+});
+
+test('redirect dopo il login: niente rimandi verso altri siti', async () => {
+  for (const dopo of ['//evil.example', '/\\evil.example', '/%5Cevil.example']) {
+    const b = browser();
+    await b.go(`/area${dopo.slice(1) ? '' : ''}`); // crea la sessione
+    // Simula un indirizzo "dopo login" malevolo salvato in sessione
+    db.prepare("UPDATE sessioni SET dati = json_set(dati, '$.dopoLogin', ?)").run(dopo);
+    const r = await b.accedi('anna@esempio.it', PW);
+    assert.ok(r.loc === '/area' || (r.loc.startsWith('/') && !/^\/[\\/]/.test(r.loc)), `${dopo} → ${r.loc}`);
+  }
+});
+
+test('cliente disattivato: perde subito l\'accesso', async () => {
+  const b = browser();
+  await b.accedi('bruno@esempio.it', PW);
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroB}`)).status, 200);
+  const u = Utenti.perEmail.get('bruno@esempio.it');
+  Utenti.aggiorna.run(u.email, u.nome, u.telefono, 0, u.id);
+  assert.strictEqual((await b.go(`/area/lavori/${lavoroB}`)).status, 302);
+  assert.strictEqual((await browser().accedi('bruno@esempio.it', PW)).status, 401);
+  Utenti.aggiorna.run(u.email, u.nome, u.telefono, 1, u.id);
+});
+
+test('la lettura automatica non si ferma su PDF rotti', async () => {
+  const automazioni = require('../src/automazioni');
+  const n = await automazioni.scansionaRicevute();
+  assert.strictEqual(typeof n, 'number');
+});
+
+test('troppi tentativi di accesso: blocco temporaneo', async () => {
+  const b = browser();
+  for (let i = 0; i < 8; i++) await b.accedi('anna@esempio.it', 'sbagliata' + i);
+  const r = await b.accedi('anna@esempio.it', PW);
+  assert.strictEqual(r.status, 401);
+  assert.match(r.text, /Troppi tentativi/);
+});

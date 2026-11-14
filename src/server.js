@@ -18,6 +18,8 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Nessuno script esterno o in linea: tutto il codice della pagina sta in /js/app.js
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
   if (config.cookieSecure) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
   next();
 });
@@ -43,6 +45,9 @@ app.use((req, res, next) => {
   delete req.session.flash;
   next();
 });
+
+// Valori predefiniti per le viste (servono anche per gli errori che avvengono prima della sessione)
+Object.assign(app.locals, { studio: config.studio, percorso: '', flash: null, utente: null, csrf: '' });
 
 // Helper per le viste
 app.locals.dimensione = (b) => {
@@ -75,11 +80,18 @@ app.use((err, req, res, next) => {
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).render('errore', { titolo: 'File troppo grande', messaggio: `Il limite è ${config.maxUploadMb} MB per file.` });
   }
+  // Richieste malformate (indirizzo non decodificabile, corpo troppo grande, multipart rotto): errore del client
+  const stato = Number(err.status || err.statusCode) || (err.name === 'MulterError' || /Unexpected end of form|Multipart|Malformed part/i.test(err.message || '') ? 400 : 0);
+  if (stato >= 400 && stato < 500) {
+    return res.status(stato).render('errore', { titolo: 'Richiesta non valida', messaggio: 'La richiesta non è valida.' });
+  }
   console.error(err);
   res.status(500).render('errore', { titolo: 'Errore', messaggio: 'Si è verificato un errore imprevisto.' });
 });
 
 if (require.main === module) {
+  // Un errore imprevisto in un'operazione in background non deve spegnere il servizio
+  process.on('unhandledRejection', (e) => console.error('Errore non gestito:', e));
   require('./automazioni').avvia();
   app.listen(config.port, () => {
     console.log(`Studio tecnico in ascolto su http://localhost:${config.port}`);

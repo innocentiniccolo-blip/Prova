@@ -50,6 +50,7 @@ const Utenti = {
   elimina: db.prepare("DELETE FROM utenti WHERE id = ? AND ruolo = 'cliente'"),
   lavori: db.prepare('SELECT l.id, l.codice, l.titolo, l.stato FROM lavori l JOIN lavori_clienti lc ON lc.lavoro_id = l.id WHERE lc.utente_id = ? ORDER BY l.codice DESC'),
   terminaSessioni: db.prepare("DELETE FROM sessioni WHERE json_extract(dati, '$.utenteId') = ?"),
+  terminaAltreSessioni: db.prepare("DELETE FROM sessioni WHERE json_extract(dati, '$.utenteId') = ? AND sid != ?"),
 };
 
 const Pratiche = {

@@ -18,11 +18,10 @@ const TIPI = {
   altro: 'Altro documento',
 };
 const PRINCIPALI = ['visura', 'durc', 'patente'];
-const GIORNI_PREAVVISO = 15;
-const CREDITI_MINIMI = 15; // sotto questa soglia l'impresa non può operare in cantiere
-
 const dirImprese = path.join(config.datiDir, 'imprese');
 fs.mkdirSync(dirImprese, { recursive: true });
+const GIORNI_PREAVVISO = 15;
+const CREDITI_MINIMI = 15; // sotto questa soglia l'impresa non può operare in cantiere
 
 const Q = {
   tutte: db.prepare(`
@@ -52,8 +51,20 @@ const Q = {
   collegamento: db.prepare('SELECT * FROM lavori_imprese WHERE lavoro_id = ? AND impresa_id = ?'),
   inCantieriAttivi: db.prepare(`SELECT DISTINCT i.* FROM imprese i
     JOIN lavori_imprese li ON li.impresa_id = i.id JOIN lavori l ON l.id = li.lavoro_id
-    WHERE l.stato NOT IN ('Completato', 'Sospeso')`),
+    WHERE l.sicurezza = 1 AND l.stato NOT IN ('Completato', 'Sospeso')`),
+  impostaSicurezza: db.prepare('UPDATE lavori SET sicurezza = ? WHERE id = ?'),
+  verbali: db.prepare('SELECT * FROM verbali_cantiere WHERE lavoro_id = ? ORDER BY data DESC, id DESC'),
+  verbale: db.prepare('SELECT * FROM verbali_cantiere WHERE id = ? AND lavoro_id = ?'),
+  inserisciVerbale: db.prepare(`INSERT INTO verbali_cantiere (lavoro_id, data, tipo, note, visibile)
+    VALUES (:lavoro_id, :data, :tipo, :note, :visibile)`),
+  fileVerbale: db.prepare('UPDATE verbali_cantiere SET file = ? WHERE id = ?'),
+  visibilitaVerbale: db.prepare('UPDATE verbali_cantiere SET visibile = ? WHERE id = ? AND lavoro_id = ?'),
+  eliminaVerbale: db.prepare('DELETE FROM verbali_cantiere WHERE id = ? AND lavoro_id = ?'),
 };
+
+const TIPI_VERBALE = ['Sopralluogo del CSE', 'Riunione di coordinamento', 'Verifica idoneità imprese', 'Verbale di consegna lavori', 'Sospensione lavori', 'Altro'];
+const dirVerbali = path.join(config.datiDir, 'verbali');
+fs.mkdirSync(dirVerbali, { recursive: true });
 
 function oggi() {
   const d = new Date();
@@ -164,7 +175,40 @@ async function eliminaImpresa(id) {
   await fsp.rm(path.join(dirImprese, String(id)), { recursive: true, force: true });
 }
 
+function percorsoVerbale(v) {
+  if (!v || !v.file) return null;
+  const abs = path.join(dirVerbali, String(v.lavoro_id), v.file);
+  return abs.startsWith(dirVerbali + path.sep) && fs.existsSync(abs) ? abs : null;
+}
+
+async function salvaVerbale(lavoroId, dati, tmp, nomeOriginale) {
+  const id = Number(Q.inserisciVerbale.run({ lavoro_id: lavoroId, ...dati }).lastInsertRowid);
+  if (tmp) {
+    const nome = `${id}-${nomeSicuro(nomeOriginale) || 'verbale.pdf'}`;
+    const dir = path.join(dirVerbali, String(lavoroId));
+    await fsp.mkdir(dir, { recursive: true });
+    await fsp.copyFile(tmp, path.join(dir, nome));
+    Q.fileVerbale.run(nome, id);
+  }
+  return id;
+}
+
+async function eliminaVerbale(lavoroId, id) {
+  const v = Q.verbale.get(id, lavoroId);
+  if (!v) return false;
+  const abs = percorsoVerbale(v);
+  if (abs) await fsp.rm(abs, { force: true });
+  Q.eliminaVerbale.run(id, lavoroId);
+  return true;
+}
+
+/** Quando un lavoro viene eliminato dall'app: via anche i file dei suoi verbali. */
+async function eliminaFileLavoro(lavoroId) {
+  await fsp.rm(path.join(dirVerbali, String(Number(lavoroId))), { recursive: true, force: true });
+}
+
 module.exports = {
+  TIPI_VERBALE, percorsoVerbale, salvaVerbale, eliminaVerbale, eliminaFileLavoro,
   TIPI, PRINCIPALI, CREDITI_MINIMI, Q,
   scadenzaPredefinita, statoDocumento, riepilogo, impreseDelLavoro, avvisiScadenze,
   percorsoFile, salvaDocumento, eliminaDocumento, eliminaImpresa,

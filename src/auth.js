@@ -62,12 +62,19 @@ function registraErrore(req, email) {
   else t.n++;
 }
 function azzeraTentativi(req, email) { tentativi.delete(chiaveTentativo(req, email)); }
+/** Limite complessivo per indirizzo IP (chi prova molte email diverse): 30 errori in 15 minuti. */
+function ipBloccato(req) {
+  const t = tentativi.get(`ip|${req.ip}`);
+  return t && t.n >= 30 && Date.now() - t.inizio < FINESTRA;
+}
+function registraErroreIp(req) { registraErrore({ ip: 'ip' }, req.ip); }
 setInterval(() => {
   const ora = Date.now();
   for (const [k, t] of tentativi) if (ora - t.inizio > FINESTRA) tentativi.delete(k);
 }, FINESTRA).unref();
 
 const hashPassword = (pw) => bcrypt.hash(pw, 12);
+const HASH_FINTO = bcrypt.hashSync('password-inesistente-' + crypto.randomBytes(8).toString('hex'), 12);
 const verificaPassword = (pw, hash) => bcrypt.compare(pw, hash);
 
 /** Password temporanea leggibile da comunicare al cliente (es. "tavolo-7342-Monte"). */
@@ -79,6 +86,6 @@ function passwordTemporanea() {
 
 module.exports = {
   caricaUtente, richiediLogin, richiediAdmin, csrf, verificaCsrf,
-  loginBloccato, registraErrore, azzeraTentativi,
+  loginBloccato, registraErrore, azzeraTentativi, ipBloccato, registraErroreIp, HASH_FINTO,
   hashPassword, verificaPassword, passwordTemporanea,
 };

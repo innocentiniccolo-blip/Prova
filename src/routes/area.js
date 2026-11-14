@@ -31,8 +31,9 @@ router.get('/lavori/:id', async (req, res, next) => {
     // Anche lo studio, in anteprima, vede solo ciò che vede il cliente
     const elenco = await pratiche.conDocumenti(lavoro, { soloVisibili: true });
     const aggiornamenti = Aggiornamenti.perLavoro.all(lavoro.id);
-    const impreseCantiere = imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true });
-    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, tipiDoc: imprese.TIPI });
+    const impreseCantiere = lavoro.sicurezza ? imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true }) : [];
+    const verbali = lavoro.sicurezza ? imprese.Q.verbali.all(lavoro.id).filter((v) => v.visibile) : [];
+    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
   } catch (e) { next(e); }
 });
 
@@ -50,12 +51,21 @@ router.get('/lavori/:id/file', (req, res) => {
 router.get('/lavori/:id/imprese/:iid/documenti/:did', (req, res) => {
   const lavoro = lavoroAccessibile(req);
   const iid = Number(req.params.iid);
-  const link = lavoro && imprese.Q.collegamento.get(lavoro.id, iid);
+  const link = lavoro && lavoro.sicurezza && imprese.Q.collegamento.get(lavoro.id, iid);
   const doc = link && link.visibile && imprese.Q.documento.get(Number(req.params.did), iid);
   const abs = doc && imprese.percorsoFile(doc);
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
   const imp = imprese.Q.perId.get(iid);
   Accessi.registra.run(lavoro.id, req.utente.id, `Sicurezza cantiere/${imp.ragione_sociale}/${imprese.TIPI[doc.tipo]}`);
+  inviaFile(res, abs, { scarica: req.query.scarica === '1' });
+});
+
+router.get('/lavori/:id/verbali/:vid', (req, res) => {
+  const lavoro = lavoroAccessibile(req);
+  const v = lavoro && lavoro.sicurezza && imprese.Q.verbale.get(Number(req.params.vid), lavoro.id);
+  const abs = v && v.visibile && imprese.percorsoVerbale(v);
+  if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
+  Accessi.registra.run(lavoro.id, req.utente.id, `Sicurezza cantiere/Verbale ${v.tipo} del ${v.data}`);
   inviaFile(res, abs, { scarica: req.query.scarica === '1' });
 });
 
@@ -68,10 +78,16 @@ router.post('/profilo/password', auth.verificaCsrf, async (req, res, next) => {
     const { attuale = '', nuova = '', conferma = '' } = req.body;
     const u = Utenti.perId.get(req.utente.id);
     const render = (errore, messaggio = null) => res.render('area/profilo', { titolo: 'Il mio profilo', errore, messaggio });
-    if (!(await auth.verificaPassword(attuale, u.password_hash))) return render('La password attuale non è corretta.');
-    if (nuova.length < 10) return render('La nuova password deve avere almeno 10 caratteri.');
+    if (auth.loginBloccato(req, `profilo|${u.id}`)) return render('Troppi tentativi. Riprova tra 15 minuti.');
+    if (attuale.length > 200 || !(await auth.verificaPassword(attuale, u.password_hash))) {
+      auth.registraErrore(req, `profilo|${u.id}`);
+      return render('La password attuale non è corretta.');
+    }
+    if (nuova.length < 10 || nuova.length > 200) return render('La nuova password deve avere tra 10 e 200 caratteri.');
     if (nuova !== conferma) return render('Le due password non coincidono.');
     Utenti.impostaPassword.run(await auth.hashPassword(nuova), u.id);
+    // Chiude le altre sessioni aperte con la vecchia password (resta valida solo questa)
+    Utenti.terminaAltreSessioni.run(u.id, req.sessionID);
     render(null, 'Password aggiornata correttamente.');
   } catch (e) { next(e); }
 });

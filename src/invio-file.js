@@ -19,7 +19,9 @@ function inviaFile(res, abs, { scarica = false } = {}) {
   const inLinea = !scarica && Boolean(tipo);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   // Il visualizzatore PDF di Chrome non funziona con la direttiva "sandbox"
-  if (path.extname(nome).toLowerCase() !== '.pdf') {
+  if (path.extname(nome).toLowerCase() === '.pdf') {
+    res.removeHeader('Content-Security-Policy');
+  } else {
     res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox");
   }
   res.setHeader('Cache-Control', 'private, no-store');

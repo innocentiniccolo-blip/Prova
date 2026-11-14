@@ -147,11 +147,27 @@ CREATE TABLE IF NOT EXISTS lavori_imprese (
   PRIMARY KEY (lavoro_id, impresa_id)
 );
 
+-- Sicurezza cantiere: verbali (sopralluoghi CSE, riunioni di coordinamento, ecc.)
+CREATE TABLE IF NOT EXISTS verbali_cantiere (
+  id          INTEGER PRIMARY KEY,
+  lavoro_id   INTEGER NOT NULL REFERENCES lavori(id) ON DELETE CASCADE,
+  data        TEXT NOT NULL,
+  tipo        TEXT NOT NULL,
+  note        TEXT,
+  file        TEXT,
+  visibile    INTEGER NOT NULL DEFAULT 1,
+  creato_il   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessioni (
   sid     TEXT PRIMARY KEY,
   dati    TEXT NOT NULL,
   scade   INTEGER NOT NULL
 );
 `);
+
+// Migrazioni leggere per i database già esistenti
+const colonne = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+if (!colonne('lavori').includes('sicurezza')) db.exec('ALTER TABLE lavori ADD COLUMN sicurezza INTEGER NOT NULL DEFAULT 0');
 
 module.exports = db;

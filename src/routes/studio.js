@@ -160,6 +160,8 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       accessi: Accessi.perLavoro.all(lavoro.id),
       anteprimaPossibile,
       impreseCantiere: imprese.impreseDelLavoro(lavoro.id),
+      verbali: imprese.Q.verbali.all(lavoro.id),
+      tipiVerbale: imprese.TIPI_VERBALE,
       tutteImprese: imprese.Q.tutte.all(),
       tipiDoc: imprese.TIPI,
     });
@@ -197,8 +199,9 @@ router.post('/lavori/:id/crea-cartelle', trovaLavoro, auth.verificaCsrf, async (
   } catch (e) { next(e); }
 });
 
-router.post('/lavori/:id/elimina', trovaLavoro, auth.verificaCsrf, (req, res) => {
+router.post('/lavori/:id/elimina', trovaLavoro, auth.verificaCsrf, async (req, res) => {
   Lavori.elimina.run(req.lavoro.id);
+  await imprese.eliminaFileLavoro(req.lavoro.id).catch((e) => console.error(e));
   flash(req, 'ok', `Lavoro ${req.lavoro.codice} eliminato dall'app. I file sul NAS NON sono stati toccati.`);
   res.redirect('/studio');
 });
@@ -537,6 +540,48 @@ router.post('/lavori/:id/imprese/:iid', trovaLavoro, auth.verificaCsrf, (req, re
     flash(req, 'ok', req.body.azione === 'togli' ? 'Impresa tolta dal cantiere.' : 'Impresa aggiornata.');
   }
   res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`);
+});
+
+// Attiva o disattiva la sezione sicurezza per un lavoro (i dati restano salvati)
+router.post('/lavori/:id/sicurezza', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const attiva = req.body.attiva === '1' ? 1 : 0;
+  imprese.Q.impostaSicurezza.run(attiva, req.lavoro.id);
+  flash(req, 'ok', attiva ? 'Sezione sicurezza cantiere attivata per questo lavoro.' : 'Sezione sicurezza disattivata: il cliente non la vede più. I dati restano salvati.');
+  res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`);
+});
+
+// Verbali di cantiere
+router.post('/lavori/:id/verbali', trovaLavoro, pulisciTmp, upload.array('file', 1), auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const data = dataONull(req.body.data);
+    const tipo = testo(req.body.tipo, 120);
+    if (!data || !tipo) { flash(req, 'errore', 'Indica data e tipo del verbale.'); return res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`); }
+    const f = (req.files || [])[0];
+    await imprese.salvaVerbale(req.lavoro.id, { data, tipo, note: testo(req.body.note, 2000) || null, visibile: req.body.visibile ? 1 : 0 },
+      f && f.path, f && Buffer.from(f.originalname, 'latin1').toString('utf8'));
+    flash(req, 'ok', 'Verbale registrato.');
+    res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`);
+  } catch (e) { next(e); }
+});
+
+router.get('/lavori/:id/verbali/:vid', trovaLavoro, (req, res) => {
+  const abs = imprese.percorsoVerbale(imprese.Q.verbale.get(Number(req.params.vid), req.lavoro.id));
+  if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: '' });
+  inviaFile(res, abs, { scarica: req.query.scarica === '1' });
+});
+
+router.post('/lavori/:id/verbali/:vid', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const vid = Number(req.params.vid);
+    if (req.body.azione === 'elimina') {
+      const ok = await imprese.eliminaVerbale(req.lavoro.id, vid);
+      flash(req, ok ? 'ok' : 'errore', ok ? 'Verbale eliminato.' : 'Verbale non trovato.');
+    } else {
+      imprese.Q.visibilitaVerbale.run(req.body.visibile ? 1 : 0, vid, req.lavoro.id);
+      flash(req, 'ok', 'Verbale aggiornato.');
+    }
+    res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`);
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

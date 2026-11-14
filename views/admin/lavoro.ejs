@@ -124,7 +124,16 @@
         <% }) %>
 
         <div class="carta" id="sicurezza">
-          <h2>Sicurezza cantiere</h2>
+          <div class="pratica-testa">
+            <h2>Sicurezza cantiere</h2>
+            <form method="post" action="/studio/lavori/<%= lavoro.id %>/sicurezza" class="in-linea"<%- lavoro.sicurezza ? ' data-conferma="Disattivare la sezione? Il cliente non la vedrà più; i dati restano salvati."' : '' %>>
+              <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="attiva" value="<%= lavoro.sicurezza ? 0 : 1 %>">
+              <button class="<%= lavoro.sicurezza ? 'link' : 'pulsante piccolo' %>"><%= lavoro.sicurezza ? 'Disattiva' : 'Attiva per questo lavoro' %></button>
+            </form>
+          </div>
+          <% if (!lavoro.sicurezza) { %>
+            <p class="muto">Non attiva. Attivala se in questo cantiere segui tu la sicurezza (CSP/CSE): potrai registrare le imprese con visura, DURC e patente a crediti e le date dei verbali di cantiere, e decidere cosa mostrare al cliente.</p>
+          <% } else { %>
           <p class="muto">Imprese e lavoratori autonomi presenti in cantiere, con visura camerale, DURC e patente a crediti. I documenti si gestiscono dalla scheda dell'impresa.</p>
           <% impreseCantiere.forEach(i => { %>
             <div class="impresa-cantiere">
@@ -160,6 +169,46 @@
             <summary>+ Nuova impresa per questo cantiere</summary>
             <%- include('../partials/form-impresa', { impresa: {}, azione: '/studio/imprese', pulsante: 'Crea e aggiungi', lavoroId: lavoro.id }) %>
           </details>
+
+          <h3 class="sottotitolo-sezione">Verbali di cantiere</h3>
+          <% if (!verbali.length) { %><p class="vuoto">Nessun verbale registrato.</p><% } %>
+          <table class="tabella verbali">
+            <tbody>
+              <% verbali.forEach(v => { %>
+                <tr>
+                  <td class="data-verbale"><strong><%= data(v.data) %></strong></td>
+                  <td><%= v.tipo %><% if (v.note) { %><br><small class="muto a-capo"><%= v.note %></small><% } %></td>
+                  <td><span class="badge <%= v.visibile ? 'visibile' : 'privata' %>"><%= v.visibile ? 'Visibile al cliente' : 'Privato' %></span></td>
+                  <td class="azioni-verbale">
+                    <% if (v.file) { %><a href="/studio/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" target="_blank" rel="noopener">Apri</a><% } %>
+                    <form method="post" action="/studio/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" class="in-linea">
+                      <input type="hidden" name="_csrf" value="<%= csrf %>">
+                      <% if (!v.visibile) { %><input type="hidden" name="visibile" value="1"><% } %>
+                      <button class="link" name="azione" value="visibilita"><%= v.visibile ? 'Rendi privato' : 'Mostra al cliente' %></button>
+                    </form>
+                    <form method="post" action="/studio/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" class="in-linea" data-conferma="Eliminare questo verbale?">
+                      <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo" name="azione" value="elimina">Elimina</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/verbali" enctype="multipart/form-data" class="modulo carica-verbale">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="riga-campi">
+              <label>Data <input type="date" name="data" required></label>
+              <label>Tipo <input name="tipo" list="tipi-verbale" required maxlength="120" placeholder="es. Sopralluogo del CSE"></label>
+            </div>
+            <datalist id="tipi-verbale"><% tipiVerbale.forEach(t => { %><option value="<%= t %>"><% }) %></datalist>
+            <label>Note <small>(facoltative)</small> <textarea name="note" rows="2" maxlength="2000"></textarea></label>
+            <div class="azioni">
+              <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" aria-label="File del verbale (facoltativo)">
+              <label class="scelta"><input type="checkbox" name="visibile" value="1" checked> Visibile al cliente</label>
+              <button class="pulsante">Registra verbale</button>
+            </div>
+          </form>
+          <% } %>
         </div>
 
         <div class="carta" id="aggiornamenti">

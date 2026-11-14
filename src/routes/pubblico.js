@@ -50,7 +50,7 @@ router.post('/configura', auth.verificaCsrf, async (req, res, next) => {
     }
     if (!dati.nome || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dati.email)) return render('Inserisci nome ed email validi.');
     const pw = String(req.body.password || '');
-    if (pw.length < 12) return render('La password deve avere almeno 12 caratteri.');
+    if (pw.length < 12 || pw.length > 200) return render('La password deve avere tra 12 e 200 caratteri.');
     if (pw !== String(req.body.conferma || '')) return render('Le due password non coincidono.');
     Utenti.inserisci.run(dati.email, await auth.hashPassword(pw), dati.nome, null, 'admin');
     codiceConfigurazione = null;
@@ -76,11 +76,14 @@ router.post('/accedi', auth.verificaCsrf, async (req, res, next) => {
     const password = String(req.body.password || '');
     const errore = (msg) => res.status(401).render('accedi', { titolo: 'Area clienti', errore: msg, email, postaAttiva: posta.attiva });
 
-    if (auth.loginBloccato(req, email)) return errore('Troppi tentativi. Riprova tra 15 minuti.');
+    if (auth.loginBloccato(req, email) || auth.ipBloccato(req)) return errore('Troppi tentativi. Riprova tra 15 minuti.');
+    if (email.length > 200 || password.length > 200) return errore('Email o password non corretti.');
     const u = email ? Utenti.perEmail.get(email) : null;
-    const ok = u && u.attivo && (await auth.verificaPassword(password, u.password_hash));
+    // Confronto sempre eseguito, anche se l'utente non esiste: stessi tempi di risposta
+    const ok = (await auth.verificaPassword(password, u ? u.password_hash : auth.HASH_FINTO)) && u && u.attivo;
     if (!ok) {
       auth.registraErrore(req, email);
+      auth.registraErroreIp(req);
       return errore('Email o password non corretti.');
     }
     auth.azzeraTentativi(req, email);
@@ -90,7 +93,7 @@ router.post('/accedi', auth.verificaCsrf, async (req, res, next) => {
       req.session.utenteId = u.id;
       Utenti.segnaAccesso.run(u.id);
       const home = u.ruolo === 'admin' ? '/studio' : '/area';
-      const sicuro = typeof dopo === 'string' && dopo.startsWith('/') && !dopo.startsWith('//');
+      const sicuro = typeof dopo === 'string' && /^\/(?![/\\])[^\\\s]*$/.test(dopo) && dopo.length < 500;
       res.redirect(sicuro ? dopo : home);
     });
   } catch (e) { next(e); }
@@ -136,7 +139,7 @@ router.post('/imposta-password/:token', auth.verificaCsrf, async (req, res, next
     const render = (errore) => res.status(link ? 400 : 410).render('imposta-password', { titolo: 'Imposta la password', link, errore });
     if (!link) return render(null);
     const nuova = String(req.body.nuova || '');
-    if (nuova.length < 10) return render('La password deve avere almeno 10 caratteri.');
+    if (nuova.length < 10 || nuova.length > 200) return render('La password deve avere tra 10 e 200 caratteri.');
     if (nuova !== String(req.body.conferma || '')) return render('Le due password non coincidono.');
     const hash = await auth.hashPassword(nuova);
     if (!linkPassword.consuma(link.id)) return render(null);

@@ -42,8 +42,23 @@
             <% } %>
           </article>
         <% }) %>
-        <% if (impreseCantiere.length) { %>
+        <% if (impreseCantiere.length || verbali.length) { %>
           <h2 class="titolo-sezione" id="sicurezza">Sicurezza in cantiere</h2>
+          <% if (verbali.length) { %>
+            <div class="carta">
+              <h3>Verbali di cantiere</h3>
+              <table class="tabella verbali"><tbody>
+                <% verbali.forEach(v => { %>
+                  <tr>
+                    <td class="data-verbale"><strong><%= data(v.data) %></strong></td>
+                    <td><%= v.tipo %><% if (v.note) { %><br><small class="muto a-capo"><%= v.note %></small><% } %></td>
+                    <td><% if (v.file) { %><a href="/area/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" target="_blank" rel="noopener">Apri</a><% } %></td>
+                  </tr>
+                <% }) %>
+              </tbody></table>
+            </div>
+          <% } %>
+          <% if (impreseCantiere.length) { %>
           <div class="carta">
             <p class="muto">Le imprese che lavorano nel tuo cantiere e i loro documenti: visura camerale, regolarità contributiva (DURC) e patente a crediti per la sicurezza.</p>
             <% impreseCantiere.forEach(i => { %>
@@ -56,6 +71,7 @@
               </div>
             <% }) %>
           </div>
+          <% } %>
         <% } %>
       </div>
       <aside>

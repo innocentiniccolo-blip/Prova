@@ -61,6 +61,9 @@ systemctl enable --now docker >/dev/null
 
 echo "==> Cartelle"
 mkdir -p "$DIR"/{dati,documenti,backup,caddy-dati,caddy-config}
+# L'app nel container gira come utente senza privilegi (uid 1000)
+chown -R 1000:1000 "$DIR/dati" "$DIR/documenti"
+chmod 700 "$DIR/dati"
 
 # Impostazioni: create una volta sola, poi si modificano a mano (es. password email)
 if [ ! -f "$DIR/.env" ]; then

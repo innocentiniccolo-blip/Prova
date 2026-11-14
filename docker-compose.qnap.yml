@@ -14,10 +14,10 @@ services:
       TRUST_PROXY: "false"
       SOLO_AREA: "true"
       URL_PUBBLICO: "https://area.geometrainnocenti.it"
-      SMTP_HOST: ""
+      SMTP_HOST: "smtps.aruba.it"
       SMTP_PORT: "465"
       SMTP_USER: "info@geometrainnocenti.it"
-      SMTP_PASS: ""
+      SMTP_PASS: "<password della casella info@geometrainnocenti.it>"
       MAIL_FROM: "info@geometrainnocenti.it"
     volumes:
       - /share/Lavori:/archivio

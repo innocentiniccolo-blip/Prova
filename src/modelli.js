@@ -24,7 +24,7 @@ const Lavori = {
       visibile = :visibile, aggiornato_il = datetime('now') WHERE id = :id`),
   tocca: db.prepare("UPDATE lavori SET aggiornato_il = datetime('now') WHERE id = ?"),
   elimina: db.prepare('DELETE FROM lavori WHERE id = ?'),
-  clienti: db.prepare('SELECT u.id, u.nome, u.email FROM utenti u JOIN lavori_clienti lc ON lc.utente_id = u.id WHERE lc.lavoro_id = ? ORDER BY u.nome'),
+  clienti: db.prepare('SELECT u.id, u.nome, u.email, u.attivo FROM utenti u JOIN lavori_clienti lc ON lc.utente_id = u.id WHERE lc.lavoro_id = ? ORDER BY u.nome'),
   rimuoviClienti: db.prepare('DELETE FROM lavori_clienti WHERE lavoro_id = ?'),
   aggiungiCliente: db.prepare('INSERT OR IGNORE INTO lavori_clienti (lavoro_id, utente_id) VALUES (?, ?)'),
   prossimoCodice() {

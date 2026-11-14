@@ -114,6 +114,7 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       tipiPratica: archivio.tipiPratica,
       statiPratica: archivio.statiPratica,
       descriviStato: pratiche.descriviStato,
+      postaAttiva: posta.attiva,
       clienti: Lavori.clienti.all(lavoro.id),
       aggiornamenti: Aggiornamenti.perLavoro.all(lavoro.id),
       accessi: Accessi.perLavoro.all(lavoro.id),
@@ -168,6 +169,36 @@ function pulisciTmp(req, res, next) {
   next();
 }
 
+/**
+ * Avvisa via email i clienti attivi del lavoro. Non blocca mai il salvataggio:
+ * restituisce quanti avvisi sono partiti e quanti sono falliti.
+ */
+async function avvisaClienti(req, lavoro, oggetto, corpo) {
+  const esito = { inviati: 0, falliti: 0 };
+  if (!posta.attiva || !lavoro.visibile) return esito;
+  const base = config.urlPubblico || `${req.protocol}://${req.get('host')}`;
+  for (const c of Lavori.clienti.all(lavoro.id).filter((x) => x.attivo)) {
+    try {
+      await posta.invia({
+        a: c.email,
+        oggetto,
+        testo: `Gentile ${c.nome},\n\n${corpo}\n\nPuoi vedere i dettagli e i documenti nella tua area clienti:\n${base}/area/lavori/${lavoro.id}\n\nQuesta è un'email automatica: per domande rispondi pure o contattami.`,
+      });
+      esito.inviati++;
+    } catch (err) {
+      console.error(`Avviso email non inviato a ${c.email}:`, err.message);
+      esito.falliti++;
+    }
+  }
+  return esito;
+}
+
+function fraseEsito(esito) {
+  if (esito.falliti) return ` Attenzione: ${esito.falliti} email non sono partite, controlla le impostazioni SMTP.`;
+  if (esito.inviati) return ` Cliente avvisato via email.`;
+  return '';
+}
+
 function trovaPratica(req, id) {
   return Pratiche.perId.get(Number(id), req.lavoro.id);
 }
@@ -189,7 +220,13 @@ router.post('/lavori/:id/documenti', trovaLavoro, pulisciTmp, upload.array('file
         Aggiornamenti.inserisci.run(req.lavoro.id, `${pratiche.nomeVisibile(pratica.cartella)}: nuovi documenti (${nomi.join(', ')})`);
       }
     }
-    flash(req, 'ok', nomi.length ? `Caricati ${nomi.length} file in «${pratica.cartella}».` : 'Nessun file selezionato.');
+    let esito = { inviati: 0, falliti: 0 };
+    if (nomi.length && req.body.email && pratica.visibile) {
+      const nome = pratiche.nomeVisibile(pratica.cartella);
+      esito = await avvisaClienti(req, req.lavoro, `Nuovi documenti: ${nome} – ${req.lavoro.titolo}`,
+        `sono disponibili nuovi documenti per la pratica «${nome}» del lavoro «${req.lavoro.titolo}»:\n\n${nomi.map((n) => `- ${n}`).join('\n')}`);
+    }
+    flash(req, esito.falliti ? 'errore' : 'ok', (nomi.length ? `Caricati ${nomi.length} file in «${pratica.cartella}».` : 'Nessun file selezionato.') + fraseEsito(esito));
     res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
   } catch (e) { next(e); }
 });
@@ -232,7 +269,8 @@ router.post('/lavori/:id/pratiche', trovaLavoro, auth.verificaCsrf, async (req, 
   }
 });
 
-router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, (req, res) => {
+router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+  try {
   const pratica = trovaPratica(req, req.params.pid);
   if (!pratica) return res.status(404).render('errore', { titolo: 'Pratica non trovata', messaggio: '' });
   const nuova = {
@@ -247,13 +285,20 @@ router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, (req, r
   Pratiche.aggiorna.run(nuova);
   Lavori.tocca.run(req.lavoro.id);
   const cambiata = nuova.stato !== pratica.stato || nuova.data !== pratica.data || nuova.protocollo !== pratica.protocollo;
-  if (req.body.annuncia && nuova.visibile && cambiata) {
-    let frase = `${pratiche.nomeVisibile(pratica.cartella)}: ${pratiche.descriviStato(nuova, req.app.locals.data).toLowerCase()}`;
-    if (nuova.protocollo) frase += `, protocollo n. ${nuova.protocollo}`;
-    Aggiornamenti.inserisci.run(req.lavoro.id, frase + '.');
+  const nome = pratiche.nomeVisibile(pratica.cartella);
+  let frase = `${nome}: ${pratiche.descriviStato(nuova, req.app.locals.data).toLowerCase()}`;
+  if (nuova.protocollo) frase += `, protocollo n. ${nuova.protocollo}`;
+  if (req.body.annuncia && nuova.visibile && cambiata) Aggiornamenti.inserisci.run(req.lavoro.id, frase + '.');
+  let esito = { inviati: 0, falliti: 0 };
+  if (req.body.email && nuova.visibile && cambiata) {
+    let corpo = `la pratica «${nome}» del lavoro «${req.lavoro.titolo}» è stata aggiornata:\n\n${pratiche.descriviStato(nuova, req.app.locals.data)}`;
+    if (nuova.protocollo) corpo += ` – protocollo n. ${nuova.protocollo}`;
+    if (nuova.nota) corpo += `\n\nNota dello studio: ${nuova.nota}`;
+    esito = await avvisaClienti(req, req.lavoro, `Aggiornamento pratica: ${nome} – ${req.lavoro.titolo}`, corpo);
   }
-  flash(req, 'ok', `Pratica «${pratica.cartella}» aggiornata.`);
+  flash(req, esito.falliti ? 'errore' : 'ok', `Pratica «${pratica.cartella}» aggiornata.` + fraseEsito(esito));
   res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
+  } catch (e) { next(e); }
 });
 
 router.post('/lavori/:id/pratiche/:pid/elimina', trovaLavoro, auth.verificaCsrf, (req, res) => {

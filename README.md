@@ -92,6 +92,8 @@ L'app può inviare email dalla casella dello studio **info@geometrainnocenti.it*
 - **Password dimenticata?** nella pagina di accesso: il cliente riceve un link valido 1 ora per sceglierne una nuova.
 - **Email di benvenuto** quando crei un cliente (o con il pulsante nella sua scheda): link valido 7 giorni per scegliere la password, così non devi dettargliela.
 
+- **Avviso di aggiornamento**: quando cambi stato, data o protocollo di una pratica visibile, con "Avvisa il cliente via email" spuntato, i clienti del lavoro ricevono un'email con il nuovo stato, l'eventuale nota e il link all'area clienti. Lo stesso, a scelta, quando carichi nuovi documenti. Le email non contengono allegati: i documenti si scaricano solo dopo l'accesso.
+
 I link si usano una sola volta e si annullano se ne viene creato uno nuovo o se il cliente è disattivato.
 
 Nel `.env` compila:

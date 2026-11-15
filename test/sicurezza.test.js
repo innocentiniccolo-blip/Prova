@@ -536,6 +536,7 @@ test('caso reale: integrazioni, doppioni firmati, email salvate e documento del 
     ['Integrazione presentata', '11391', '2026-07-14'],
     ['Integrazione presentata', '12148', '2026-07-28'],
   ], 'la ricevuta sismica dentro un\'integrazione non diventa una proposta per la SCIA');
+  db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id); // lo studio rende visibile la SCIA
   for (const x of prop) await automazioni.applicaStato(x.id, null, { email: false });
   const dopo = db.prepare('SELECT * FROM pratiche WHERE id = ?').get(pr.id);
   assert.strictEqual(dopo.protocollo, '10912', 'il protocollo della SCIA resta quello della presentazione');

@@ -82,5 +82,15 @@ function avvisaBlocco(req, { email, perIp = false, dove = 'accesso' }) {
   }
 }
 
+/** Email allo studio (es. il cliente ha caricato dei documenti). Non fa mai fallire la richiesta. */
+function avvisaStudio(oggetto, testo) {
+  const destinatari = qAdmin.all().map((r) => r.email);
+  if (!destinatari.length && config.studio.email) destinatari.push(config.studio.email);
+  for (const a of destinatari) {
+    posta.invia({ a, oggetto, testo }).catch((e) => console.error('Avviso allo studio non inviato:', e.message));
+  }
+}
+
 module.exports = {
+  avvisaStudio,
   avvisaBlocco, inviaBenvenuto, avvisaClienti, baseUrl };

@@ -13,6 +13,8 @@ const path = require('node:path');
 const config = require('./config');
 
 const MAX_PROFONDITA = 6;
+// Qui arrivano i file caricati dai clienti: non è una pratica e non viene letta in automatico
+const CARTELLA_CLIENTE = 'Documenti dal cliente';
 
 const tipiPratica = config.studio.pratiche.tipi;
 const statiPratica = config.studio.pratiche.stati;
@@ -54,7 +56,7 @@ function cartellaLavoro(lavoro) {
 /** Nome valido per una sottocartella-pratica: un solo segmento, non nascosto. */
 function nomePraticaValido(nome) {
   const n = String(nome || '');
-  return Boolean(n) && n === n.trim() && !/[\\/]/.test(n) && n !== '.' && n !== '..' && !nascosto(n);
+  return Boolean(n) && n === n.trim() && !/[\\/]/.test(n) && n !== '.' && n !== '..' && !nascosto(n) && n.toLowerCase() !== CARTELLA_CLIENTE.toLowerCase();
 }
 
 /** Percorso assoluto della sottocartella di una pratica, o null. */
@@ -183,6 +185,7 @@ async function eliminaFile(lavoro, nomePratica, rel) {
 }
 
 module.exports = {
+  CARTELLA_CLIENTE,
   tipiPratica,
   statiPratica,
   risolviDentro,

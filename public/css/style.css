@@ -253,3 +253,18 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .carica-verbale { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--bordo); }
 .azioni-verbale { white-space: nowrap; text-align: right; }
 .azioni-verbale > * { margin-left: .6rem; }
+
+/* Documenti richiesti al cliente */
+.richiesta.aperta { border-left: 4px solid var(--ambra); }
+.richiesta-aperta { background: #fff4e0; color: var(--ambra); }
+.richiesta-inviata { background: #e8f0fb; color: var(--blu-medio); }
+.richiesta-completa { background: #ecf8f1; color: var(--verde); }
+.conta.attenzione { background: #fff4e0; color: var(--ambra); font-size: .8rem; padding: .15rem .6rem; border-radius: 99px; vertical-align: middle; }
+.file-inviati { list-style: none; padding: 0; margin: .6rem 0 1rem; }
+.file-inviati li { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; padding: .4rem 0; border-bottom: 1px dashed var(--bordo); overflow-wrap: anywhere; }
+.invio-cliente { margin: .8rem 0 0; }
+.invio-cliente input[type=file] { flex: 1 1 14rem; background: #fff; }
+.invio-cliente.in-corso { opacity: .6; pointer-events: none; }
+.azioni-richiesta { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin-top: .4rem; }
+.file-inviati li > form, .file-inviati li > a { flex: 0 0 auto; white-space: nowrap; }
+.file-inviati li > span { min-width: 0; }

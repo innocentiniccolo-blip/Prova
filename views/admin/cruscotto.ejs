@@ -27,6 +27,17 @@
         </ul>
       </div>
     <% } %>
+    <% if (documentiRicevuti.length) { %>
+      <div class="carta proposte">
+        <h2>Documenti ricevuti dai clienti</h2>
+        <ul class="semplice">
+          <% documentiRicevuti.forEach(r => { %>
+            <li><a href="/studio/lavori/<%= r.lavoro_id %>#richieste"><%= r.titolo %></a> · <%= r.codice %> – <%= r.lavoro_titolo %>
+              <span class="badge richiesta-inviata"><%= r.n_file %> file da controllare</span></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
     <% if (avvisiImprese.length) { %>
       <div class="carta proposte">
         <h2>Sicurezza cantiere: documenti da sistemare</h2>

@@ -10,6 +10,7 @@ const archivio = require('../archivio');
 const pratiche = require('../pratiche');
 const automazioni = require('../automazioni');
 const imprese = require('../imprese');
+const richieste = require('../richieste');
 const posta = require('../posta');
 const { inviaBenvenuto, avvisaClienti } = require('../notifiche');
 const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
@@ -44,6 +45,7 @@ router.get('/', async (req, res, next) => {
     titolo: 'Studio', lavori, perStato, nClienti: clienti.length,
     proposteLavori: automazioni.proposteLavori(), proposteStato: automazioni.proposteStato(),
     avvisiImprese: imprese.avvisiScadenze(),
+    documentiRicevuti: richieste.Q.daControllare.all(),
     blocchi: auth.blocchiAttivi().filter((b) => !/\|(reset|profilo|configura)/.test(b.chiave) || b.chiave.includes('|profilo|')),
   });
 });
@@ -169,6 +171,8 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       anteprimaPossibile,
       impreseCantiere: imprese.impreseDelLavoro(lavoro.id),
       verbali: imprese.Q.verbali.all(lavoro.id),
+      richieste: richieste.elenco(lavoro.id),
+      limitiRichieste: richieste.LIMITI,
       tipiVerbale: imprese.TIPI_VERBALE,
       tutteImprese: imprese.Q.tutte.all(),
       tipiDoc: imprese.TIPI,
@@ -590,6 +594,48 @@ router.post('/lavori/:id/verbali/:vid', trovaLavoro, auth.verificaCsrf, async (r
     }
     res.redirect(`/studio/lavori/${req.lavoro.id}#sicurezza`);
   } catch (e) { next(e); }
+});
+
+// ---------- Documenti richiesti al cliente ----------
+router.post('/lavori/:id/richieste', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const titolo = testo(req.body.titolo, 120);
+    if (!titolo) { flash(req, 'errore', 'Indica quale documento chiedi.'); return res.redirect(`/studio/lavori/${req.lavoro.id}#richieste`); }
+    const descrizione = testo(req.body.descrizione, 1000);
+    richieste.crea(req.lavoro, titolo, descrizione);
+    let msg = `Richiesta «${titolo}» aggiunta: il cliente la vede nella sua area.`;
+    if (req.body.email) {
+      const esito = await avvisaClienti(req, req.lavoro, `Documento richiesto: ${titolo}`,
+        `per proseguire con il lavoro «${req.lavoro.titolo}» mi serve questo documento:\n\n${titolo}${descrizione ? '\n' + descrizione : ''}\n\nPuoi caricarlo direttamente dall'area clienti, nella sezione "Documenti richiesti".`);
+      msg += esito.inviati ? ` Email inviata a ${esito.inviati} client${esito.inviati === 1 ? 'e' : 'i'}.` : ' Nessuna email inviata (posta non configurata o lavoro non visibile).';
+    }
+    flash(req, 'ok', msg);
+    res.redirect(`/studio/lavori/${req.lavoro.id}#richieste`);
+  } catch (e) { next(e); }
+});
+
+router.post('/lavori/:id/richieste/:rid', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const r = richieste.Q.perId.get(Number(req.params.rid), req.lavoro.id);
+  if (!r) flash(req, 'errore', 'Richiesta non trovata.');
+  else if (req.body.azione === 'elimina') {
+    richieste.Q.elimina.run(r.id, req.lavoro.id);
+    flash(req, 'ok', `Richiesta eliminata. I file già ricevuti restano nella cartella «${richieste.CARTELLA}» del lavoro.`);
+  } else if (req.body.azione === 'completa') {
+    richieste.Q.stato.run('completa', 'completa', r.id);
+    flash(req, 'ok', 'Segnata come ricevuta: il cliente vede la conferma.');
+  } else if (req.body.azione === 'riapri') {
+    richieste.Q.stato.run('aperta', 'aperta', r.id);
+    flash(req, 'ok', 'Richiesta riaperta: il cliente può caricare di nuovo.');
+  }
+  res.redirect(`/studio/lavori/${req.lavoro.id}#richieste`);
+});
+
+router.get('/lavori/:id/richieste/:rid/file/:fid', trovaLavoro, (req, res) => {
+  const r = richieste.Q.perId.get(Number(req.params.rid), req.lavoro.id);
+  const f = r && richieste.Q.fileId.get(Number(req.params.fid), r.id);
+  const abs = f && richieste.percorsoFile(req.lavoro, r, f);
+  if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il file non è più nella cartella del lavoro.' });
+  inviaFile(res, abs, { scarica: req.query.scarica === '1' });
 });
 
 module.exports = router;

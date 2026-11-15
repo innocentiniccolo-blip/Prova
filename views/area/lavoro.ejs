@@ -20,6 +20,40 @@
         <% if (lavoro.descrizione) { %>
           <div class="carta"><h2>Descrizione</h2><p class="a-capo"><%= lavoro.descrizione %></p></div>
         <% } %>
+        <% if (richieste.length) { const daFare = richieste.filter(r => r.stato === 'aperta').length; %>
+          <h2 class="titolo-sezione" id="richieste">Documenti richiesti<% if (daFare) { %> <span class="conta attenzione"><%= daFare %> da inviare</span><% } %></h2>
+          <% richieste.forEach(r => { %>
+            <article class="carta richiesta <%= r.stato %>">
+              <div class="pratica-testa">
+                <h3><%= r.titolo %></h3>
+                <span class="badge richiesta-<%= r.stato %>"><%= r.stato === 'aperta' ? 'Da inviare' : r.stato === 'inviata' ? 'Inviato, in verifica' : 'Ricevuto ✓' %></span>
+              </div>
+              <% if (r.descrizione) { %><p class="a-capo muto"><%= r.descrizione %></p><% } %>
+              <% if (r.file.length) { %>
+                <ul class="file-inviati">
+                  <% r.file.forEach(f => { %>
+                    <li>
+                      <span><%= f.nome %> <small class="muto"><%= dimensione(f.dimensione) %> · inviato il <%= data(f.caricato_il) %></small></span>
+                      <% if (r.stato !== 'completa' && f.utente_id === utente.id) { %>
+                        <form method="post" action="/area/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file/<%= f.id %>/elimina" class="in-linea" data-conferma="Togliere questo file?">
+                          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Togli</button>
+                        </form>
+                      <% } %>
+                    </li>
+                  <% }) %>
+                </ul>
+              <% } %>
+              <% if (r.stato !== 'completa') { %>
+                <form method="post" action="/area/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file" enctype="multipart/form-data" class="carica invio-cliente" data-invio>
+                  <input type="file" name="file" multiple required accept="<%= estensioni.join(',') %>" aria-label="File da inviare per: <%= r.titolo %>">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <button class="pulsante"><%= r.file.length ? 'Invia altri file' : 'Invia allo studio' %></button>
+                </form>
+              <% } %>
+            </article>
+          <% }) %>
+          <p class="nota">Puoi inviare PDF, foto (JPG, PNG, HEIC) e documenti Word o Excel, fino a <%= limitiRichieste.fileMb %> MB per file e <%= limitiRichieste.filePerInvio %> file per volta. Dal telefono puoi anche fotografare il documento.</p>
+        <% } %>
         <h2 class="titolo-sezione" id="pratiche">Le pratiche</h2>
         <% if (!pratiche.length) { %>
           <div class="carta"><p class="vuoto">Lo studio aggiungerà qui le pratiche man mano che il lavoro procede.</p></div>

@@ -21,3 +21,13 @@ document.querySelectorAll('[data-filtro]').forEach((input) => input.addEventList
     r.hidden = q && !r.textContent.toLowerCase().includes(q);
   });
 }));
+
+// Invio documenti del cliente: controllo dimensione prima di spedire e blocco del doppio invio
+document.querySelectorAll('[data-invio]').forEach((f) => f.addEventListener('submit', (e) => {
+  const file = [...f.querySelector('input[type=file]').files];
+  const grande = file.find((x) => x.size > 25 * 1024 * 1024);
+  if (grande) { e.preventDefault(); alert(`"${grande.name}" supera i 25 MB. Riduci il file o dividilo in più parti.`); return; }
+  if (file.length > 8) { e.preventDefault(); alert('Puoi inviare al massimo 8 file per volta.'); return; }
+  f.classList.add('in-corso');
+  f.querySelector('button').textContent = 'Invio in corso…';
+}));

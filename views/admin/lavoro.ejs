@@ -123,6 +123,48 @@
           </details>
         <% }) %>
 
+        <div class="carta" id="richieste">
+          <h2>Documenti richiesti al cliente</h2>
+          <p class="muto">Chiedi al cliente un documento: lo carica dalla sua area e lo trovi nella cartella del lavoro, in «Documenti dal cliente». Ti arriva un'email quando invia qualcosa.</p>
+          <% richieste.forEach(r => { %>
+            <div class="impresa-cantiere">
+              <div class="pratica-testa">
+                <span class="pratica-titolo"><strong><%= r.titolo %></strong><small class="muto">chiesto il <%= data(r.creato_il) %><% if (r.inviato_il) { %> · ultimo invio <%= data(r.inviato_il) %><% } %></small></span>
+                <span class="badge richiesta-<%= r.stato %>"><%= r.stato === 'aperta' ? 'In attesa del cliente' : r.stato === 'inviata' ? 'Da controllare' : 'Ricevuto ✓' %></span>
+              </div>
+              <% if (r.descrizione) { %><p class="a-capo muto"><%= r.descrizione %></p><% } %>
+              <% if (r.file.length) { %>
+                <ul class="file-inviati">
+                  <% r.file.forEach(f => { %>
+                    <li><span><a href="/studio/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file/<%= f.id %>" target="_blank" rel="noopener"><%= f.nome %></a>
+                      <small class="muto"><%= dimensione(f.dimensione) %> · <%= f.caricato_da || 'cliente' %>, <%= data(f.caricato_il) %></small></span>
+                      <a href="/studio/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file/<%= f.id %>?scarica=1">Scarica</a></li>
+                  <% }) %>
+                </ul>
+              <% } %>
+              <form method="post" action="/studio/lavori/<%= lavoro.id %>/richieste/<%= r.id %>" class="azioni-richiesta">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <% if (r.stato !== 'completa') { %><button class="pulsante piccolo" name="azione" value="completa">Segna come ricevuto</button><% } %>
+                <% if (r.stato !== 'aperta') { %><button class="link" name="azione" value="riapri">Chiedi di nuovo</button><% } %>
+                <button class="link pericolo" name="azione" value="elimina">Elimina richiesta</button>
+              </form>
+            </div>
+          <% }) %>
+          <% if (!richieste.length) { %><p class="vuoto">Nessuna richiesta.</p><% } %>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/richieste" class="modulo carica-verbale">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <label>Documento da chiedere <input name="titolo" required maxlength="120" list="doc-frequenti" placeholder="es. Carta d'identità e codice fiscale"></label>
+            <datalist id="doc-frequenti">
+              <option value="Carta d'identità e codice fiscale"><option value="Atto di provenienza"><option value="Procura firmata"><option value="Visura e planimetria catastale"><option value="Bollette (luce e gas)"><option value="Libretto della caldaia"><option value="Fatture e bonifici dei lavori"><option value="Dichiarazioni di conformità degli impianti">
+            </datalist>
+            <label>Indicazioni per il cliente <small>(facoltative)</small> <textarea name="descrizione" rows="2" maxlength="1000" placeholder="es. fronte e retro, di tutti i proprietari"></textarea></label>
+            <div class="azioni">
+              <label class="scelta"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente via email</label>
+              <button class="pulsante">Aggiungi richiesta</button>
+            </div>
+          </form>
+        </div>
+
         <div class="carta" id="sicurezza">
           <div class="pratica-testa">
             <h2>Sicurezza cantiere</h2>

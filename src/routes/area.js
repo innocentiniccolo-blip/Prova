@@ -4,13 +4,26 @@ const express = require('express');
 const auth = require('../auth');
 const archivio = require('../archivio');
 const pratiche = require('../pratiche');
+const fs = require('node:fs');
+const path = require('node:path');
+const multer = require('multer');
+const config = require('../config');
 const imprese = require('../imprese');
+const richieste = require('../richieste');
+const notifiche = require('../notifiche');
 const { Lavori, Pratiche, Aggiornamenti, Accessi, Utenti } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 
 const router = express.Router();
 router.use(auth.richiediLogin);
 
+// Caricamenti dei clienti: limiti più stretti di quelli dello studio
+const tmpDir = path.join(config.datiDir, 'tmp');
+fs.mkdirSync(tmpDir, { recursive: true });
+const caricaCliente = multer({
+  dest: tmpDir,
+  limits: { fileSize: richieste.LIMITI.fileMb * 1024 * 1024, files: richieste.LIMITI.filePerInvio, fields: 10, fieldSize: 2000 },
+}).array('file', richieste.LIMITI.filePerInvio);
 /** Lo staff può vedere l'area come la vedrebbe un cliente (anteprima). */
 function lavoroAccessibile(req) {
   const id = Number(req.params.id);
@@ -33,7 +46,7 @@ router.get('/lavori/:id', async (req, res, next) => {
     const aggiornamenti = Aggiornamenti.perLavoro.all(lavoro.id);
     const impreseCantiere = lavoro.sicurezza ? imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true }) : [];
     const verbali = lavoro.sicurezza ? imprese.Q.verbali.all(lavoro.id).filter((v) => v.visibile) : [];
-    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
+    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, richieste: richieste.elenco(lavoro.id), limitiRichieste: richieste.LIMITI, estensioni: richieste.ESTENSIONI, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
   } catch (e) { next(e); }
 });
 
@@ -67,6 +80,61 @@ router.get('/lavori/:id/verbali/:vid', (req, res) => {
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
   Accessi.registra.run(lavoro.id, req.utente.id, `Sicurezza cantiere/Verbale ${v.tipo} del ${v.data}`);
   inviaFile(res, abs, { scarica: req.query.scarica === '1' });
+});
+
+// ---------- Documenti richiesti: il cliente carica i file ----------
+function richiestaAperta(req, res, next) {
+  const lavoro = lavoroAccessibile(req);
+  const r = lavoro && richieste.Q.perId.get(Number(req.params.rid), lavoro.id);
+  if (!r) return res.status(404).render('errore', { titolo: 'Richiesta non trovata', messaggio: 'La richiesta non esiste o non è associata al tuo account.' });
+  req.lavoro = lavoro; req.richiesta = r;
+  next();
+}
+const tornaAlLavoro = (req, res, tipo, msg) => {
+  req.session.flash = { tipo, msg };
+  res.redirect(`/area/lavori/${req.lavoro.id}#richieste`);
+};
+
+router.post('/lavori/:id/richieste/:rid/file', richiestaAperta, (req, res, next) => {
+  // Controlli prima di accettare qualsiasi dato: richiesta ancora aperta e numero di invii
+  if (req.richiesta.stato === 'completa') return tornaAlLavoro(req, res, 'errore', 'Questa richiesta è già stata chiusa dallo studio.');
+  if (richieste.troppiInvii(req.utente.id)) return tornaAlLavoro(req, res, 'errore', 'Troppi invii in poco tempo. Riprova più tardi.');
+  res.on('close', () => { for (const f of req.files || []) fs.rm(f.path, { force: true }, () => {}); });
+  caricaCliente(req, res, (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? `Un file supera il limite di ${richieste.LIMITI.fileMb} MB.`
+        : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE' ? `Puoi inviare al massimo ${richieste.LIMITI.filePerInvio} file per volta.`
+        : 'Caricamento non riuscito. Riprova.';
+      return tornaAlLavoro(req, res, 'errore', msg);
+    }
+    next();
+  });
+}, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const files = req.files || [];
+    if (!files.length) return tornaAlLavoro(req, res, 'errore', 'Scegli almeno un file da inviare.');
+    const esito = await richieste.ricevi(req.lavoro, req.richiesta, files, req.utente.id);
+    if (esito.salvati.length && req.utente.ruolo !== 'admin') {
+      notifiche.avvisaStudio(`Documenti ricevuti: ${req.richiesta.titolo} – ${req.lavoro.codice}`,
+        `${req.utente.nome} ha caricato ${esito.salvati.length} file per la richiesta «${req.richiesta.titolo}».\n\n`
+        + `Lavoro: ${req.lavoro.codice} – ${req.lavoro.titolo}\nFile:\n${esito.salvati.map((n) => '  - ' + n).join('\n')}\n\n`
+        + `Li trovi nella cartella del lavoro, in «${richieste.CARTELLA}/${req.richiesta.cartella}», e nel pannello:\n${notifiche.baseUrl(req)}/studio/lavori/${req.lavoro.id}#richieste`);
+    }
+    const scarti = esito.rifiutati.map((x) => `${x.nome} (${x.motivo})`).join('; ');
+    if (!esito.salvati.length) return tornaAlLavoro(req, res, 'errore', `Nessun file inviato: ${scarti}.`);
+    tornaAlLavoro(req, res, 'ok', `Inviat${esito.salvati.length === 1 ? 'o 1 file' : 'i ' + esito.salvati.length + ' file'} allo studio.${scarti ? ' Non accettati: ' + scarti + '.' : ''}`);
+  } catch (e) { next(e); }
+});
+
+// Il cliente può togliere un file inviato per errore finché lo studio non chiude la richiesta
+router.post('/lavori/:id/richieste/:rid/file/:fid/elimina', richiestaAperta, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const f = richieste.Q.fileId.get(Number(req.params.fid), req.richiesta.id);
+    if (!f || req.richiesta.stato === 'completa') return tornaAlLavoro(req, res, 'errore', 'Il file non può più essere tolto: contatta lo studio.');
+    if (req.utente.ruolo !== 'admin' && f.utente_id !== req.utente.id) return tornaAlLavoro(req, res, 'errore', 'Puoi togliere solo i file che hai inviato tu.');
+    await richieste.eliminaFile(req.lavoro, req.richiesta, f);
+    tornaAlLavoro(req, res, 'ok', 'File tolto.');
+  } catch (e) { next(e); }
 });
 
 router.get('/profilo', (req, res) => {

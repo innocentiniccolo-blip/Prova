@@ -22,10 +22,12 @@ if [ "$(id -u)" -ne 0 ]; then echo "Esegui come root (sudo -i)"; exit 1; fi
 echo "==> Installazione area clienti per https://$DOMINIO"
 
 export DEBIAN_FRONTEND=noninteractive
+# Su un server appena creato gli aggiornamenti automatici occupano apt per qualche minuto: si aspetta
+APT_ATTESA="-o DPkg::Lock::Timeout=1800"
 echo "==> Aggiornamento del sistema"
-apt-get update -q
-apt-get -y -q -o Dpkg::Options::=--force-confold upgrade
-apt-get -y -q install ca-certificates curl ufw fail2ban unattended-upgrades sqlite3
+apt-get $APT_ATTESA update -q
+apt-get $APT_ATTESA -y -q -o Dpkg::Options::=--force-confold upgrade
+apt-get $APT_ATTESA -y -q install ca-certificates curl ufw fail2ban unattended-upgrades sqlite3
 
 echo "==> Aggiornamenti di sicurezza automatici"
 cat > /etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
@@ -54,8 +56,8 @@ if ! command -v docker >/dev/null; then
   chmod a+r /etc/apt/keyrings/docker.asc
   . /etc/os-release
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" > /etc/apt/sources.list.d/docker.list
-  apt-get update -q
-  apt-get -y -q install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  apt-get $APT_ATTESA update -q
+  apt-get $APT_ATTESA -y -q install docker-ce docker-ce-cli containerd.io docker-compose-plugin
 fi
 systemctl enable --now docker >/dev/null
 

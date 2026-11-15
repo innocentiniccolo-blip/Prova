@@ -1,0 +1,59 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore stretto testo-legale">
+    <p class="occhiello">Informativa ai sensi degli artt. 13 e 14 del Regolamento (UE) 2016/679 (GDPR)</p>
+    <h1>Privacy e cookie dell'area clienti</h1>
+    <p>Questa pagina spiega quali dati personali vengono trattati nell'area clienti dello studio, perché, per quanto tempo e quali sono i tuoi diritti.</p>
+
+    <h2>1. Titolare del trattamento</h2>
+    <p><strong><%= studio.nomeBreve %></strong> – <%= studio.indirizzo %><br>
+      <% if (studio.piva) { %>P.IVA <%= studio.piva %> · <% } %>Email <a href="mailto:<%= studio.email %>"><%= studio.email %></a><% if (studio.pec) { %> · PEC <a href="mailto:<%= studio.pec %>"><%= studio.pec %></a><% } %></p>
+    <p>Lo studio non ha nominato un responsabile della protezione dei dati (DPO): per ogni questione sulla privacy puoi scrivere direttamente al titolare.</p>
+
+    <h2>2. Dati trattati, finalità e basi giuridiche</h2>
+    <div class="tabella-scorri"><table class="tabella">
+      <thead><tr><th>Dati</th><th>Perché</th><th>Base giuridica</th><th>Conservazione</th></tr></thead>
+      <tbody>
+        <tr><td>Nome, email, telefono e credenziali di accesso (la password è salvata solo in forma cifrata)</td><td>Creare e gestire il tuo accesso</td><td>Esecuzione dell'incarico (art. 6.1.b)</td><td>Fino alla chiusura dell'account, che puoi chiedere in ogni momento</td></tr>
+        <tr><td>Pratiche e documenti del tuo incarico: stato, date, numeri di protocollo, elaborati, ricevute</td><td>Farti seguire l'avanzamento del lavoro</td><td>Esecuzione dell'incarico (art. 6.1.b) e obblighi di legge del professionista (art. 6.1.c)</td><td>Per la durata dell'incarico e poi per 10 anni, salvo termini diversi di legge</td></tr>
+        <tr><td>Documenti che carichi tu su richiesta dello studio (ad esempio documento d'identità, atti, bollette)</td><td>Predisporre e presentare le pratiche affidate</td><td>Esecuzione dell'incarico (art. 6.1.b) e obblighi di legge (art. 6.1.c)</td><td>Come i documenti dell'incarico</td></tr>
+        <tr><td>Registro delle consultazioni: quali documenti hai aperto e quando</td><td>Sapere se un documento è stato ricevuto e tutelare la riservatezza degli accessi</td><td>Legittimo interesse dello studio (art. 6.1.f)</td><td>12 mesi, poi cancellazione automatica</td></tr>
+        <tr><td>Dati di sicurezza: indirizzo IP e orario degli accessi, tentativi di accesso falliti</td><td>Proteggere gli account da accessi non autorizzati (blocco dopo 5 errori e segnalazione allo studio)</td><td>Legittimo interesse alla sicurezza (art. 6.1.f) e obbligo di sicurezza (art. 32)</td><td>I tentativi falliti per circa un'ora; i registri tecnici del server hanno dimensione limitata e si sovrascrivono periodicamente</td></tr>
+        <tr><td>Email di servizio: benvenuto, avvisi sullo stato delle pratiche, richieste di documenti, recupero password</td><td>Tenerti aggiornato sul tuo incarico</td><td>Esecuzione dell'incarico (art. 6.1.b)</td><td>Gli avvisi possono essere disattivati su richiesta</td></tr>
+        <tr><td>Sicurezza in cantiere, quando lo studio segue questo incarico: dati di imprese e lavoratori autonomi (visura camerale, DURC, patente a crediti) e verbali di cantiere</td><td>Mettere il committente in condizione di verificare l'idoneità delle imprese, come richiede la legge</td><td>Obblighi di legge in materia di sicurezza nei cantieri (art. 6.1.c; art. 90 del d.lgs. 81/2008)</td><td>Per la durata del cantiere e poi come i documenti dell'incarico</td></tr>
+      </tbody>
+    </table></div>
+    <p>I dati sono necessari per usare l'area clienti: senza di essi non è possibile creare l'accesso, ma l'incarico può proseguire comunque con i canali tradizionali. Non vengono chiesti dati appartenenti a categorie particolari (ad esempio sulla salute). Non esistono decisioni automatizzate né profilazione, e i dati non sono usati per pubblicità.</p>
+    <p>Se nell'area vedi documenti di imprese o di altre persone, puoi usarli solo per le finalità del tuo cantiere e non puoi diffonderli.</p>
+
+    <h2>3. Chi può vedere i dati</h2>
+    <ul>
+      <li>il titolare dello studio; ogni cliente vede solo i propri lavori e solo ciò che lo studio ha reso visibile;</li>
+      <li><strong>Aruba S.p.A.</strong>, che fornisce il server e la posta elettronica in qualità di responsabile del trattamento (art. 28), con data center in Italia;</li>
+      <li>enti pubblici (Comuni, Agenzia delle Entrate – Territorio, ENEA, Regione, ASL) per le pratiche affidate allo studio;</li>
+      <li>altri professionisti e imprese coinvolti nell'incarico, nei limiti di quanto necessario.</li>
+    </ul>
+    <p>I dati dell'area clienti <strong>non vengono trasferiti fuori dall'Unione Europea</strong>, non vengono diffusi né venduti.</p>
+
+    <h2>4. Sicurezza</h2>
+    <p>Connessione cifrata (HTTPS), password conservate solo in forma cifrata, blocco temporaneo dopo ripetuti errori di accesso, copie di sicurezza giornaliere conservate per 30 giorni (un dato cancellato può quindi restare nelle copie fino a 30 giorni), aggiornamenti automatici del server. Le email dell'area clienti sono di solo testo e non contengono strumenti di tracciamento. In caso di violazione dei dati che comporti un rischio per i tuoi diritti, lo studio la notifica al Garante entro 72 ore e, quando il rischio è elevato, informa anche te (artt. 33 e 34).</p>
+
+    <h2 id="cookie">5. Cookie</h2>
+    <p>L'area clienti usa <strong>un solo cookie tecnico</strong>, chiamato <code>studio.sid</code>, che serve a riconoscerti dopo l'accesso e scade dopo 8 ore di inattività o quando esci. Non ci sono cookie di statistica, di profilazione o di terze parti: per questo, secondo le Linee guida del Garante del 10 giugno 2021, non serve un banner di consenso.</p>
+
+    <h2>6. I tuoi diritti</h2>
+    <p>In ogni momento puoi chiedere l'accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento, la portabilità, e puoi opporti ai trattamenti basati sul legittimo interesse (artt. 15–22 GDPR). Dalla pagina <a href="/area/profilo">Profilo</a> puoi scaricare subito una copia dei tuoi dati. Per le altre richieste scrivi a <a href="mailto:<%= studio.email %>"><%= studio.email %></a>: la risposta arriva entro un mese (art. 12).</p>
+    <p>Se ritieni che il trattamento violi la normativa puoi proporre reclamo al <strong>Garante per la protezione dei dati personali</strong> (art. 77) – <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener">www.garanteprivacy.it</a> – oppure rivolgerti al giudice.</p>
+
+    <h2>7. Norme di riferimento</h2>
+    <ul>
+      <li><a href="https://eur-lex.europa.eu/legal-content/IT/TXT/?uri=CELEX:32016R0679" target="_blank" rel="noopener">Regolamento (UE) 2016/679</a> – Regolamento generale sulla protezione dei dati (GDPR);</li>
+      <li><a href="https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2003-06-30;196" target="_blank" rel="noopener">D.lgs. 30 giugno 2003, n. 196</a> – Codice in materia di protezione dei dati personali, come modificato dal d.lgs. 10 agosto 2018, n. 101;</li>
+      <li><a href="https://www.garanteprivacy.it/home/docweb/-/docweb-display/docweb/9677876" target="_blank" rel="noopener">Linee guida del Garante su cookie e altri strumenti di tracciamento</a> (10 giugno 2021);</li>
+      <li><a href="https://www.normattiva.it/uri-res/N2Ls?urn:nir:stato:decreto.legislativo:2008-04-09;81" target="_blank" rel="noopener">D.lgs. 9 aprile 2008, n. 81</a> – Sicurezza nei luoghi di lavoro, per la parte sui cantieri.</li>
+    </ul>
+
+    <p class="nota">Ultimo aggiornamento: 15 novembre 2026. Le versioni aggiornate di questa informativa vengono pubblicate in questa pagina.</p>
+  </div>
+</section>
+<%- include('partials/piede') %>

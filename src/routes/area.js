@@ -137,6 +137,27 @@ router.post('/lavori/:id/richieste/:rid/file/:fid/elimina', richiestaAperta, aut
   } catch (e) { next(e); }
 });
 
+// Copia dei propri dati (diritto di accesso e portabilità, artt. 15 e 20 GDPR)
+router.get('/profilo/dati', (req, res) => {
+  const u = Utenti.perId.get(req.utente.id);
+  const lavori = Utenti.lavori.all(u.id);
+  const dati = {
+    generato_il: new Date().toISOString(),
+    titolare: { nome: config.studio.nomeBreve, indirizzo: config.studio.indirizzo, email: config.studio.email },
+    account: { nome: u.nome, email: u.email, telefono: u.telefono, creato_il: u.creato_il, ultimo_accesso: u.ultimo_accesso, informativa_vista_il: u.informativa_il },
+    lavori: lavori.map((l) => ({
+      codice: l.codice, titolo: l.titolo, stato: l.stato,
+      documenti_richiesti: richieste.elenco(l.id).map((r) => ({ richiesta: r.titolo, stato: r.stato, chiesto_il: r.creato_il,
+        file_inviati: r.file.filter((f) => f.utente_id === u.id).map((f) => ({ nome: f.nome, dimensione: f.dimensione, inviato_il: f.caricato_il })) })),
+    })),
+    documenti_consultati: Accessi.perUtente.all(u.id),
+    nota: 'I documenti delle pratiche sono scaricabili dall\'area clienti. Per rettifiche, cancellazione o altre richieste scrivi al titolare.',
+  };
+  res.setHeader('Content-Disposition', 'attachment; filename="i-miei-dati-area-clienti.json"');
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.type('application/json').send(JSON.stringify(dati, null, 2));
+});
+
 router.get('/profilo', (req, res) => {
   res.render('area/profilo', { titolo: 'Il mio profilo', messaggio: null, errore: null });
 });

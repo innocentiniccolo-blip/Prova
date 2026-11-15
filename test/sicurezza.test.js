@@ -327,3 +327,53 @@ test('molte email diverse dallo stesso indirizzo: blocco dell\'indirizzo e un so
     assert.strictEqual((await browser().accedi('anna@esempio.it', PW)).loc, '/area');
   } finally { posta.invia = originale; }
 });
+
+test('privacy: informativa pubblica, link nelle pagine, niente indicizzazione, copia dei propri dati', async () => {
+  const anon = browser();
+  const inf = await anon.go('/privacy');
+  assert.strictEqual(inf.status, 200);
+  for (const t of ['2016/679', '196', 'Garante', 'Aruba', 'studio.sid', 'art. 77', '12 mesi']) assert.ok(inf.text.includes(t), t);
+  assert.match((await anon.go('/accedi')).text, /href="\/privacy"/);
+  assert.match(inf.headers.get('x-robots-tag') || '', /noindex/);
+  assert.match((await anon.go('/robots.txt')).text, /Disallow: \//);
+  // Un solo cookie, tecnico
+  const sc = (await browser().go('/accedi')).headers.getSetCookie();
+  assert.strictEqual(sc.length, 1);
+  assert.match(sc[0], /^studio\.sid=/);
+  // Copia dei dati: solo i propri
+  db.prepare('DELETE FROM tentativi_accesso').run();
+  assert.strictEqual((await anon.go('/area/profilo/dati')).status, 302);
+  const b = browser();
+  await b.accedi('anna@esempio.it', PW);
+  const dati = JSON.parse((await b.go('/area/profilo/dati')).text);
+  assert.strictEqual(dati.account.email, 'anna@esempio.it');
+  assert.ok(dati.account.informativa_vista_il, 'presa visione registrata');
+  assert.deepStrictEqual(dati.lavori.map((l) => l.codice), ['A-1']);
+  const testo = JSON.stringify(dati);
+  assert.ok(!testo.includes('bruno') && !testo.includes('password') && !testo.includes('nota interna'));
+});
+
+test('privacy: le consultazioni più vecchie di 12 mesi vengono cancellate', () => {
+  const u = Utenti.perEmail.get('anna@esempio.it');
+  db.prepare("INSERT INTO accessi_file (lavoro_id, utente_id, file, creato_il) VALUES (?, ?, 'vecchio.pdf', datetime('now', '-13 months'))").run(lavoroA, u.id);
+  db.prepare("INSERT INTO accessi_file (lavoro_id, utente_id, file, creato_il) VALUES (?, ?, 'recente.pdf', datetime('now', '-11 months'))").run(lavoroA, u.id);
+  require('../src/pulizia').esegui();
+  const rimasti = db.prepare('SELECT file FROM accessi_file').all().map((r) => r.file);
+  assert.ok(!rimasti.includes('vecchio.pdf') && rimasti.includes('recente.pdf'));
+});
+
+test('privacy: eliminando un cliente spariscono account, sessioni e collegamenti', async () => {
+  const h = await auth.hashPassword(PW);
+  const id = Number(Utenti.inserisci.run('temp@esempio.it', h, 'Temporaneo', '333', 'cliente').lastInsertRowid);
+  Lavori.aggiungiCliente.run(lavoroA, id);
+  const c = browser();
+  await c.accedi('temp@esempio.it', PW);
+  await c.go(`/area/lavori/${lavoroA}/file?p=${pratica(lavoroA)}&f=tavola.pdf`);
+  const s = browser();
+  await s.accedi('studio@esempio.it', PW);
+  await s.post(`/studio/clienti/${id}/elimina`, {}, { da: '/studio' });
+  assert.strictEqual(Utenti.perEmail.get('temp@esempio.it'), undefined);
+  assert.strictEqual((await c.go('/area')).status, 302, 'sessione chiusa');
+  assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM lavori_clienti WHERE utente_id = ?').get(id).n, 0);
+  assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM accessi_file WHERE utente_id = ?').get(id).n, 0);
+});

@@ -66,6 +66,8 @@ router.get('/', (req, res) => {
   res.render('home', { titolo: null });
 });
 
+router.get('/privacy', (req, res) => res.render('privacy', { titolo: 'Privacy e cookie' }));
+
 router.get('/accedi', (req, res) => {
   if (req.utente) return res.redirect(req.utente.ruolo === 'admin' ? '/studio' : '/area');
   res.render('accedi', { titolo: 'Area clienti', errore: null, email: '', postaAttiva: posta.attiva });
@@ -93,6 +95,7 @@ router.post('/accedi', auth.verificaCsrf, async (req, res, next) => {
       if (err) return next(err);
       req.session.utenteId = u.id;
       Utenti.segnaAccesso.run(u.id);
+      Utenti.segnaInformativa.run(u.id); // presa visione dell'informativa mostrata nella pagina di accesso
       const home = u.ruolo === 'admin' ? '/studio' : '/area';
       const sicuro = typeof dopo === 'string' && /^\/(?![/\\])[^\\\s]*$/.test(dopo) && dopo.length < 500;
       res.redirect(sicuro ? dopo : home);
@@ -145,6 +148,7 @@ router.post('/imposta-password/:token', auth.verificaCsrf, async (req, res, next
     const hash = await auth.hashPassword(nuova);
     if (!linkPassword.consuma(link.id)) return render(null);
     Utenti.impostaPassword.run(hash, link.utente_id);
+    Utenti.segnaInformativa.run(link.utente_id);
     Utenti.terminaSessioni.run(link.utente_id);
     auth.azzeraEmail(link.email);
     req.session.flash = { tipo: 'ok', msg: 'Password impostata. Ora puoi accedere.' };

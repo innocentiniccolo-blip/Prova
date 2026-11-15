@@ -443,9 +443,11 @@ router.post('/clienti/:id/reimposta-password', auth.verificaCsrf, async (req, re
 });
 
 router.post('/clienti/:id/elimina', auth.verificaCsrf, (req, res) => {
+  const daEliminare = Utenti.perId.get(Number(req.params.id));
   Utenti.terminaSessioni.run(Number(req.params.id));
+  if (daEliminare && daEliminare.ruolo === 'cliente') auth.azzeraEmail(daEliminare.email);
   Utenti.elimina.run(Number(req.params.id));
-  flash(req, 'ok', 'Cliente eliminato.');
+  flash(req, 'ok', 'Cliente eliminato: account, accessi ai lavori e registro delle consultazioni non sono più collegati a lui. I documenti delle pratiche restano nelle cartelle dei lavori.');
   res.redirect('/studio/clienti');
 });
 

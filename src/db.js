@@ -169,5 +169,6 @@ CREATE TABLE IF NOT EXISTS sessioni (
 // Migrazioni leggere per i database già esistenti
 const colonne = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
 if (!colonne('lavori').includes('sicurezza')) db.exec('ALTER TABLE lavori ADD COLUMN sicurezza INTEGER NOT NULL DEFAULT 0');
+if (!colonne('utenti').includes('informativa_il')) db.exec('ALTER TABLE utenti ADD COLUMN informativa_il TEXT');
 
 module.exports = db;

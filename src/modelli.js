@@ -46,6 +46,7 @@ const Utenti = {
   inserisci: db.prepare('INSERT INTO utenti (email, password_hash, nome, telefono, ruolo) VALUES (?, ?, ?, ?, ?)'),
   aggiorna: db.prepare('UPDATE utenti SET email = ?, nome = ?, telefono = ?, attivo = ? WHERE id = ?'),
   impostaPassword: db.prepare('UPDATE utenti SET password_hash = ? WHERE id = ?'),
+  segnaInformativa: db.prepare("UPDATE utenti SET informativa_il = datetime('now') WHERE id = ? AND informativa_il IS NULL"),
   segnaAccesso: db.prepare("UPDATE utenti SET ultimo_accesso = datetime('now') WHERE id = ?"),
   elimina: db.prepare("DELETE FROM utenti WHERE id = ? AND ruolo = 'cliente'"),
   lavori: db.prepare('SELECT l.id, l.codice, l.titolo, l.stato FROM lavori l JOIN lavori_clienti lc ON lc.lavoro_id = l.id WHERE lc.utente_id = ? ORDER BY l.codice DESC'),
@@ -72,6 +73,7 @@ const Aggiornamenti = {
 };
 
 const Accessi = {
+  perUtente: db.prepare('SELECT file AS documento, creato_il AS quando FROM accessi_file WHERE utente_id = ? ORDER BY id DESC'),
   registra: db.prepare('INSERT INTO accessi_file (lavoro_id, utente_id, file) VALUES (?, ?, ?)'),
   perLavoro: db.prepare(`
     SELECT a.*, u.nome FROM accessi_file a LEFT JOIN utenti u ON u.id = a.utente_id

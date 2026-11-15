@@ -19,7 +19,8 @@ const trasporto = attiva
 
 /** Invia un'email di solo testo. Senza SMTP configurato, in sviluppo la scrive nel terminale. */
 async function invia({ a, oggetto, testo }) {
-  const firma = `\n\n--\n${config.studio.nome}\n${config.studio.indirizzo}\nCell. ${config.studio.telefono}`;
+  const firma = `\n\n--\n${config.studio.nome}\n${config.studio.indirizzo}\nCell. ${config.studio.telefono}`
+    + (config.urlPubblico ? `\nInformativa sulla privacy: ${config.urlPubblico}/privacy` : '');
   if (!attiva) {
     if (!config.produzione) console.log(`\n[email non inviata: SMTP non configurato]\nA: ${a}\nOggetto: ${oggetto}\n\n${testo}${firma}\n`);
     return false;

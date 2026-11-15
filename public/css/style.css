@@ -268,3 +268,9 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .azioni-richiesta { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin-top: .4rem; }
 .file-inviati li > form, .file-inviati li > a { flex: 0 0 auto; white-space: nowrap; }
 .file-inviati li > span { min-width: 0; }
+
+/* Informativa */
+.testo-legale h2 { margin-top: 2rem; font-size: 1.15rem; }
+.testo-legale table { font-size: .9rem; }
+.testo-legale td, .testo-legale th { vertical-align: top; padding: .5rem .6rem; border-bottom: 1px solid var(--bordo); text-align: left; }
+.tabella-scorri { overflow-x: auto; }

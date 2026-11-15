@@ -18,12 +18,15 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Area riservata: nessuna pagina deve finire nei motori di ricerca
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
   // Nessuno script esterno o in linea: tutto il codice della pagina sta in /js/app.js
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
   if (config.cookieSecure) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
   next();
 });
 
+app.get('/robots.txt', (req, res) => res.type('text/plain').send('User-agent: *\nDisallow: /\n'));
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: config.produzione ? '7d' : 0 }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
 app.use(session({
@@ -91,6 +94,7 @@ app.use((err, req, res, next) => {
 
 if (require.main === module) {
   // Un errore imprevisto in un'operazione in background non deve spegnere il servizio
+  require('./pulizia').avvia();
   process.on('unhandledRejection', (e) => console.error('Errore non gestito:', e));
   require('./automazioni').avvia();
   app.listen(config.port, () => {

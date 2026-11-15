@@ -31,3 +31,18 @@ document.querySelectorAll('[data-invio]').forEach((f) => f.addEventListener('sub
   f.classList.add('in-corso');
   f.querySelector('button').textContent = 'Invio in corso…';
 }));
+
+// Moduli a spunte: il pulsante si attiva solo dopo aver cambiato qualcosa
+document.querySelectorAll('form[data-modifiche]').forEach((f) => {
+  const pulsante = f.querySelector('button');
+  const nota = f.querySelector('[data-suggerimento]');
+  const stato = () => [...f.querySelectorAll('input[type=checkbox]')].map((c) => c.checked).join();
+  const iniziale = stato();
+  const aggiorna = () => {
+    const cambiato = stato() !== iniziale;
+    pulsante.disabled = !cambiato;
+    if (nota) nota.textContent = cambiato ? 'Modifiche da salvare.' : 'Spunta o togli la spunta a una cartella, poi salva.';
+  };
+  f.addEventListener('change', aggiorna);
+  aggiorna();
+});

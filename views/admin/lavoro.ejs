@@ -64,7 +64,7 @@
             <button class="pulsante">Aggiungi pratica</button>
           </form>
           <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } else { %>
-            <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche-visibili" class="cartelle-visibili">
+            <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche-visibili" class="cartelle-visibili" data-modifiche>
               <input type="hidden" name="_csrf" value="<%= csrf %>">
               <h3>Cartelle visibili al cliente</h3>
               <p class="nota">Spunta le cartelle che il cliente può vedere. Le cartelle nuove nascono sempre private.</p>
@@ -74,7 +74,7 @@
                     <% if (!p.esiste) { %><small class="muto"> (cartella non trovata)</small><% } %></li>
                 <% }) %>
               </ul>
-              <button class="pulsante piccolo">Salva visibilità</button>
+              <button class="pulsante piccolo">Salva visibilità</button> <small class="muto" data-suggerimento>Spunta o togli la spunta a una cartella, poi salva.</small>
             </form>
           <% } %>
         </div>

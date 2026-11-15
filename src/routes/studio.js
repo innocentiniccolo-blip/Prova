@@ -317,7 +317,7 @@ router.post('/lavori/:id/pratiche-visibili', trovaLavoro, auth.verificaCsrf, (re
     const v = scelte.has(p.id) ? 1 : 0;
     if (v !== p.visibile) { Pratiche.aggiorna.run({ id: p.id, lavoro_id: p.lavoro_id, stato: p.stato, data: p.data, protocollo: p.protocollo, nota: p.nota, visibile: v }); n++; }
   }
-  flash(req, 'ok', n ? `Visibilità aggiornata: ${scelte.size} cartell${scelte.size === 1 ? 'a visibile' : 'e visibili'} al cliente.` : 'Nessuna modifica.');
+  flash(req, 'ok', n ? `Visibilità aggiornata: ${scelte.size} cartell${scelte.size === 1 ? 'a visibile' : 'e visibili'} al cliente.` : 'Nessuna modifica: le cartelle spuntate erano già visibili al cliente.');
   res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
 });
 

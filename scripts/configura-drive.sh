@@ -2,9 +2,11 @@
 # Collegamento in SOLA LETTURA tra Google Drive (cartella dei lavori) e l'area clienti.
 #
 # Uso, sul server come root, dopo installa-server.sh:
-#   bash configura-drive.sh /root/chiave-drive.json ID_CARTELLA_DRIVE
+#   bash configura-drive.sh /root/chiave-drive.json
 #
 # - Usa un "account di servizio" Google: vede solo le cartelle condivise con lui, in sola lettura.
+# - Si sceglie lavoro per lavoro: su Drive si condivide la cartella del lavoro con l'account di
+#   servizio (come Visualizzatore) e il lavoro arriva sul server; togliendo la condivisione esce.
 # - Copia sul server solo ciò che serve all'area clienti (minimizzazione dei dati, art. 5 GDPR):
 #   cartelle dei lavori e delle pratiche, sottocartelle "Presentazione", ricevute PDF, _cliente.txt.
 #   Non copia mai documenti d'identità e gli altri file con nomi "sensibili" (stessi criteri dell'app).
@@ -13,11 +15,10 @@
 set -euo pipefail
 
 CHIAVE="${1:-}"
-CARTELLA="${2:-}"
 DIR=/opt/area-clienti
 if [ "$(id -u)" -ne 0 ]; then echo "Esegui come root"; exit 1; fi
-if [ ! -f "$CHIAVE" ] || [ -z "$CARTELLA" ]; then
-  echo "Uso: bash configura-drive.sh /percorso/chiave.json ID_CARTELLA_DRIVE"; exit 1
+if [ ! -f "$CHIAVE" ]; then
+  echo "Uso: bash configura-drive.sh /percorso/chiave.json"; exit 1
 fi
 
 echo "==> Installazione di rclone"
@@ -33,7 +34,7 @@ cat > /etc/area-clienti/rclone.conf <<EOF
 type = drive
 scope = drive.readonly
 service_account_file = /etc/area-clienti/drive-chiave.json
-root_folder_id = $CARTELLA
+shared_with_me = true
 skip_gdocs = true
 EOF
 chmod 600 /etc/area-clienti/rclone.conf

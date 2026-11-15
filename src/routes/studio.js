@@ -44,7 +44,15 @@ router.get('/', async (req, res, next) => {
     titolo: 'Studio', lavori, perStato, nClienti: clienti.length,
     proposteLavori: automazioni.proposteLavori(), proposteStato: automazioni.proposteStato(),
     avvisiImprese: imprese.avvisiScadenze(),
+    blocchi: auth.blocchiAttivi().filter((b) => !/\|(reset|profilo|configura)/.test(b.chiave) || b.chiave.includes('|profilo|')),
   });
+});
+
+// ---------- Accessi bloccati per troppi errori ----------
+router.post('/blocchi/sblocca', auth.verificaCsrf, (req, res) => {
+  const ok = auth.sblocca(String(req.body.chiave || '').slice(0, 300));
+  flash(req, ok ? 'ok' : 'errore', ok ? 'Accesso sbloccato.' : 'Blocco non trovato (forse è già scaduto).');
+  res.redirect('/studio');
 });
 
 // ---------- Automazioni: proposte da confermare ----------

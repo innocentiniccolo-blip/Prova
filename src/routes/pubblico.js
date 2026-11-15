@@ -4,6 +4,7 @@ const express = require('express');
 const config = require('../config');
 const { Utenti } = require('../modelli');
 const auth = require('../auth');
+const notifiche = require('../notifiche');
 const posta = require('../posta');
 const linkPassword = require('../link-password');
 
@@ -41,7 +42,7 @@ router.post('/configura', auth.verificaCsrf, async (req, res, next) => {
     if (!serveConfigurazione()) return res.redirect('/accedi');
     const dati = { nome: String(req.body.nome || '').trim().slice(0, 200), email: String(req.body.email || '').trim().toLowerCase() };
     const render = (errore) => res.status(400).render('configura', { titolo: 'Primo avvio', errore, dati });
-    if (auth.loginBloccato(req, 'configura')) return render('Troppi tentativi. Riprova tra 15 minuti.');
+    if (auth.loginBloccato(req, 'configura')) return render('Troppi tentativi. Riprova tra un\'ora.');
     const codice = String(req.body.codice || '').trim().toUpperCase();
     if (codice.length !== codiceConfigurazione.length ||
         !crypto.timingSafeEqual(Buffer.from(codice), Buffer.from(codiceConfigurazione))) {
@@ -76,14 +77,14 @@ router.post('/accedi', auth.verificaCsrf, async (req, res, next) => {
     const password = String(req.body.password || '');
     const errore = (msg) => res.status(401).render('accedi', { titolo: 'Area clienti', errore: msg, email, postaAttiva: posta.attiva });
 
-    if (auth.loginBloccato(req, email) || auth.ipBloccato(req)) return errore('Troppi tentativi. Riprova tra 15 minuti.');
+    if (auth.loginBloccato(req, email) || auth.ipBloccato(req)) return errore('Troppi tentativi. Riprova tra un\'ora.');
     if (email.length > 200 || password.length > 200) return errore('Email o password non corretti.');
     const u = email ? Utenti.perEmail.get(email) : null;
     // Confronto sempre eseguito, anche se l'utente non esiste: stessi tempi di risposta
     const ok = (await auth.verificaPassword(password, u ? u.password_hash : auth.HASH_FINTO)) && u && u.attivo;
     if (!ok) {
-      auth.registraErrore(req, email);
-      auth.registraErroreIp(req);
+      if (auth.registraErrore(req, email)) notifiche.avvisaBlocco(req, { email });
+      if (auth.registraErroreIp(req)) notifiche.avvisaBlocco(req, { perIp: true });
       return errore('Email o password non corretti.');
     }
     auth.azzeraTentativi(req, email);
@@ -110,7 +111,7 @@ router.post('/password-dimenticata', auth.verificaCsrf, async (req, res, next) =
   const email = String(req.body.email || '').trim().toLowerCase();
   // Limite di richieste: riusa il contatore dei tentativi di accesso, con una chiave a parte
   if (auth.loginBloccato(req, `reset|${email}`)) {
-    return res.status(429).render('password-dimenticata', { titolo: 'Password dimenticata', inviata: false, errore: 'Troppe richieste. Riprova tra 15 minuti.' });
+    return res.status(429).render('password-dimenticata', { titolo: 'Password dimenticata', inviata: false, errore: 'Troppe richieste. Riprova tra un\'ora.' });
   }
   auth.registraErrore(req, `reset|${email}`);
   try {
@@ -145,7 +146,7 @@ router.post('/imposta-password/:token', auth.verificaCsrf, async (req, res, next
     if (!linkPassword.consuma(link.id)) return render(null);
     Utenti.impostaPassword.run(hash, link.utente_id);
     Utenti.terminaSessioni.run(link.utente_id);
-    auth.azzeraTentativi(req, link.email);
+    auth.azzeraEmail(link.email);
     req.session.flash = { tipo: 'ok', msg: 'Password impostata. Ora puoi accedere.' };
     res.redirect('/accedi');
   } catch (e) { next(e); }

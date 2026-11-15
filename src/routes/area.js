@@ -78,9 +78,9 @@ router.post('/profilo/password', auth.verificaCsrf, async (req, res, next) => {
     const { attuale = '', nuova = '', conferma = '' } = req.body;
     const u = Utenti.perId.get(req.utente.id);
     const render = (errore, messaggio = null) => res.render('area/profilo', { titolo: 'Il mio profilo', errore, messaggio });
-    if (auth.loginBloccato(req, `profilo|${u.id}`)) return render('Troppi tentativi. Riprova tra 15 minuti.');
+    if (auth.loginBloccato(req, `profilo|${u.id}`)) return render('Troppi tentativi. Riprova tra un\'ora.');
     if (attuale.length > 200 || !(await auth.verificaPassword(attuale, u.password_hash))) {
-      auth.registraErrore(req, `profilo|${u.id}`);
+      if (auth.registraErrore(req, `profilo|${u.id}`)) require('../notifiche').avvisaBlocco(req, { email: u.email, dove: 'profilo' });
       return render('La password attuale non è corretta.');
     }
     if (nuova.length < 10 || nuova.length > 200) return render('La nuova password deve avere tra 10 e 200 caratteri.');

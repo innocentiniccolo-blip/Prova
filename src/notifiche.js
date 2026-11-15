@@ -45,4 +45,42 @@ async function avvisaClienti(req, lavoro, oggetto, corpo) {
   return esito;
 }
 
-module.exports = { inviaBenvenuto, avvisaClienti, baseUrl };
+const db = require('./db');
+const qAdmin = db.prepare("SELECT email FROM utenti WHERE ruolo = 'admin' AND attivo = 1");
+const qUtente = db.prepare('SELECT nome, ruolo, attivo FROM utenti WHERE email = ?');
+let avvisiInviati = []; // orari degli ultimi avvisi: al massimo 10 email all'ora
+
+/**
+ * Segnala allo studio che un accesso è stato bloccato per troppi errori.
+ * Non blocca né fa fallire la richiesta: gli errori di invio finiscono solo nel registro.
+ */
+function avvisaBlocco(req, { email, perIp = false, dove = 'accesso' }) {
+  const ora = Date.now();
+  avvisiInviati = avvisiInviati.filter((t) => ora - t < 60 * 60 * 1000);
+  console.warn(`[sicurezza] Blocco ${perIp ? 'indirizzo IP' : 'accesso'}: ${email || '-'} da ${req.ip} (${dove})`);
+  if (avvisiInviati.length >= 10) return;
+  avvisiInviati.push(ora);
+  const ultimo = avvisiInviati.length === 10;
+  const u = email && !perIp ? qUtente.get(String(email).trim().toLowerCase()) : null;
+  const chi = perIp ? 'molte email diverse'
+    : u ? `${email} (${u.ruolo === 'admin' ? 'account dello studio' : 'cliente: ' + u.nome}${u.attivo ? '' : ', disattivato'})`
+    : `${email} (nessun account con questa email)`;
+  const quando = new Date().toLocaleString('it-IT', { timeZone: 'Europe/Rome', dateStyle: 'short', timeStyle: 'short' });
+  const destinatari = qAdmin.all().map((r) => r.email);
+  if (!destinatari.length && config.studio.email) destinatari.push(config.studio.email);
+  const testo = `Un accesso all'area clienti è stato bloccato per un'ora dopo troppi errori.\n\n`
+    + `Quando: ${quando}\nDove: ${dove === 'profilo' ? 'cambio password dal profilo' : 'pagina di accesso'}\n`
+    + `Email usata: ${chi}\nIndirizzo IP: ${req.ip}\n`
+    + `Limite superato: ${perIp ? 'troppi errori dallo stesso indirizzo IP' : 'password sbagliata 5 volte'}\n\n`
+    + `Cosa significa: quasi sempre è qualcuno che ha dimenticato la password. Se è un tuo cliente può usare "Password dimenticata?" `
+    + `oppure puoi sbloccarlo subito dal pannello dello studio (${baseUrl(req)}/studio, riquadro "Accessi bloccati").\n`
+    + `Se invece non riconosci l'email o gli avvisi si ripetono, è un tentativo di indovinare una password: il blocco lo ferma, non devi fare altro.`
+    + (ultimo ? `\n\nNota: per non riempirti la casella, per un'ora non invio altri avvisi di questo tipo. I blocchi restano elencati nel pannello.` : '');
+  for (const a of destinatari) {
+    posta.invia({ a, oggetto: `Accesso bloccato: ${perIp ? 'indirizzo ' + req.ip : email}`, testo })
+      .catch((e) => console.error('Avviso di blocco non inviato:', e.message));
+  }
+}
+
+module.exports = {
+  avvisaBlocco, inviaBenvenuto, avvisaClienti, baseUrl };

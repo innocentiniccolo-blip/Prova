@@ -253,10 +253,77 @@ test('la lettura automatica non si ferma su PDF rotti', async () => {
   assert.strictEqual(typeof n, 'number');
 });
 
-test('troppi tentativi di accesso: blocco temporaneo', async () => {
-  const b = browser();
-  for (let i = 0; i < 8; i++) await b.accedi('anna@esempio.it', 'sbagliata' + i);
-  const r = await b.accedi('anna@esempio.it', PW);
-  assert.strictEqual(r.status, 401);
-  assert.match(r.text, /Troppi tentativi/);
+test('5 password sbagliate: blocco di un\'ora, avviso allo studio, sblocco dal pannello', async () => {
+  const notifiche = require('../src/notifiche');
+  const posta = require('../src/posta');
+  const inviate = [];
+  const originale = posta.invia;
+  posta.invia = async (m) => { inviate.push(m); return true; };
+  try {
+    db.prepare('DELETE FROM tentativi_accesso').run(); // riparte da zero: le prove precedenti hanno già contato errori
+    const b = browser();
+    for (let i = 0; i < 4; i++) assert.match((await b.accedi('bruno@esempio.it', 'sbagliata' + i)).text, /non corretti/);
+    assert.strictEqual(inviate.length, 0, 'nessun avviso prima del quinto errore');
+    await b.accedi('bruno@esempio.it', 'sbagliata5');
+    await new Promise((r) => setTimeout(r, 50));
+    assert.strictEqual(inviate.length, 1, 'un solo avviso al quinto errore');
+    assert.strictEqual(inviate[0].a, 'studio@esempio.it');
+    assert.match(inviate[0].oggetto, /Accesso bloccato: bruno@esempio.it/);
+    assert.match(inviate[0].testo, /cliente: Bruno/);
+    // Bloccato anche con la password giusta, e nessun secondo avviso
+    const r = await b.accedi('bruno@esempio.it', PW);
+    assert.strictEqual(r.status, 401);
+    assert.match(r.text, /Troppi tentativi\. Riprova tra un(&#39;|')ora/);
+    await new Promise((r2) => setTimeout(r2, 50));
+    assert.strictEqual(inviate.length, 1);
+    // Il blocco è nel database (resiste al riavvio) e dura un'ora
+    const blocco = auth.blocchiAttivi().find((x) => x.email === 'bruno@esempio.it');
+    assert.ok(blocco);
+    assert.ok(Math.abs(blocco.fino - blocco.bloccato_dal - 60 * 60 * 1000) < 5);
+    // Lo studio lo vede nel pannello e lo sblocca
+    const s = browser();
+    await s.accedi('studio@esempio.it', PW);
+    assert.match((await s.go('/studio')).text, /Accessi bloccati[\s\S]*bruno@esempio\.it/);
+    assert.strictEqual((await browser().post('/studio/blocchi/sblocca', { chiave: blocco.chiave })).status, 302, 'senza accesso non si sblocca');
+    assert.ok(auth.blocchiAttivi().some((x) => x.email === 'bruno@esempio.it'));
+    await s.post('/studio/blocchi/sblocca', { chiave: blocco.chiave }, { da: '/studio' });
+    assert.strictEqual((await browser().accedi('bruno@esempio.it', PW)).loc, '/area');
+  } finally { posta.invia = originale; }
+});
+
+test('il blocco scade dopo un\'ora e non prima', () => {
+  const req = { ip: '203.0.113.9' };
+  for (let i = 0; i < 5; i++) auth.registraErrore(req, 'tempo@esempio.it');
+  assert.ok(auth.loginBloccato(req, 'tempo@esempio.it'));
+  const k = '203.0.113.9|tempo@esempio.it';
+  db.prepare('UPDATE tentativi_accesso SET bloccato_dal = ? WHERE chiave = ?').run(Date.now() - 59 * 60 * 1000, k);
+  assert.ok(auth.loginBloccato(req, 'tempo@esempio.it'), 'dopo 59 minuti è ancora bloccato');
+  db.prepare('UPDATE tentativi_accesso SET bloccato_dal = ? WHERE chiave = ?').run(Date.now() - 61 * 60 * 1000, k);
+  assert.ok(!auth.loginBloccato(req, 'tempo@esempio.it'), 'dopo 61 minuti è libero');
+  // Da un altro indirizzo la stessa email non è bloccata: nessuno può chiudere fuori un cliente a distanza
+  for (let i = 0; i < 5; i++) auth.registraErrore(req, 'altro@esempio.it');
+  assert.ok(!auth.loginBloccato({ ip: '198.51.100.7' }, 'altro@esempio.it'));
+});
+
+test('molte email diverse dallo stesso indirizzo: blocco dell\'indirizzo e un solo avviso', async () => {
+  const posta = require('../src/posta');
+  const inviate = [];
+  const originale = posta.invia;
+  posta.invia = async (m) => { inviate.push(m); return true; };
+  try {
+    db.prepare('DELETE FROM tentativi_accesso').run();
+    const b = browser();
+    for (let i = 0; i < 20; i++) await b.accedi(`ignoto${i}@esempio.it`, 'x');
+    await new Promise((r) => setTimeout(r, 50));
+    assert.strictEqual(inviate.filter((m) => /indirizzo/.test(m.oggetto)).length, 1);
+    const r = await b.accedi('anna@esempio.it', PW);
+    assert.match(r.text, /Troppi tentativi/);
+    // Un errore di invio della posta non fa cadere nulla
+    db.prepare('DELETE FROM tentativi_accesso').run();
+    posta.invia = async () => { throw new Error('SMTP giù'); };
+    for (let i = 0; i < 5; i++) assert.strictEqual((await b.accedi('anna@esempio.it', 'no' + i)).status, 401);
+    await new Promise((r2) => setTimeout(r2, 50));
+    db.prepare('DELETE FROM tentativi_accesso').run();
+    assert.strictEqual((await browser().accedi('anna@esempio.it', PW)).loc, '/area');
+  } finally { posta.invia = originale; }
 });

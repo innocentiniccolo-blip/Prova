@@ -9,6 +9,24 @@
       </div>
     </div>
     <% const nomeTipo = { comune: 'Protocollo comunale', docfa: 'Catasto (DOCFA)', ape: 'APE – Regione', enea: 'ENEA', pregeo: 'Catasto (PREGEO)', suap: 'SUAP / STAR', asl: 'ASL – notifica preliminare', altro: 'Ricevuta' }; %>
+    <% if (blocchi.length) { %>
+      <div class="carta proposte">
+        <h2>Accessi bloccati</h2>
+        <p class="muto">Bloccati per un'ora dopo troppi errori di password. Puoi sbloccarli subito se riconosci la persona.</p>
+        <ul class="semplice">
+          <% blocchi.forEach(b => { const perIp = b.chiave.startsWith('ip|'); %>
+            <li>
+              <strong><%= perIp ? 'Indirizzo ' + b.ip : (b.email || '').replace(/^profilo\|\d+$/, 'Cambio password dal profilo') %></strong>
+              <small class="muto"><% if (!perIp) { %>da <%= b.ip %> · <% } %>fino alle <%= new Date(b.fino).toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' }) %></small>
+              <form method="post" action="/studio/blocchi/sblocca" class="in-linea">
+                <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="chiave" value="<%= b.chiave %>">
+                <button class="link">Sblocca</button>
+              </form>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
     <% if (avvisiImprese.length) { %>
       <div class="carta proposte">
         <h2>Sicurezza cantiere: documenti da sistemare</h2>

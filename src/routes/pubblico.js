@@ -18,7 +18,7 @@ function serveConfigurazione() {
   const serve = Utenti.contaAdmin.get().n === 0;
   if (serve && !codiceConfigurazione) {
     codiceConfigurazione = crypto.randomBytes(4).toString('hex').toUpperCase();
-    console.log(`\n=== PRIMO AVVIO ===\nApri /configura nel browser e usa questo codice: ${codiceConfigurazione}\n`);
+    if (!process.env.POSTA_CARTELLA) console.log(`\n=== PRIMO AVVIO ===\nApri /configura nel browser e usa questo codice: ${codiceConfigurazione}\n`);
   }
   if (!serve) codiceConfigurazione = null;
   return serve;

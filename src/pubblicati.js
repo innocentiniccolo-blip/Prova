@@ -48,7 +48,9 @@ function sembraSensibile(percorso) {
   return null;
 }
 
-const stessoFile = (riga, f) => riga && riga.dimensione === f.dimensione && riga.modificato === Math.floor(new Date(f.modificato).getTime());
+// Tolleranza di 1 ms: la data letta dall'elenco è arrotondata, quella salvata è troncata
+const stessoIstante = (a, b) => Math.abs(a - b) <= 1;
+const stessoFile = (riga, f) => Boolean(riga) && riga.dimensione === f.dimensione && stessoIstante(riga.modificato, new Date(f.modificato).getTime());
 
 /** Aggiunge a ogni file della pratica: pubblicato (bool), sensibile (motivo o null), cambiato (era pubblicato ma è stato modificato). */
 function annota(pratica, file) {
@@ -67,7 +69,7 @@ function visibile(lavoro, pratica, rel) {
   const abs = riga && archivio.fileDocumento(lavoro, pratica.cartella, rel);
   if (!abs) return false;
   const st = fs.statSync(abs);
-  return st.size === riga.dimensione && Math.floor(st.mtimeMs) === riga.modificato;
+  return st.size === riga.dimensione && stessoIstante(st.mtimeMs, riga.modificato);
 }
 
 /** Pubblica un file. Restituisce { ok } oppure { ok: false, motivo }. */

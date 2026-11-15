@@ -441,3 +441,25 @@ test('riservatezza: gli "altri documenti" delle imprese (POS, attestati, idoneit
   assert.strictEqual((await a.go(`/area/lavori/${lavoroA}/imprese/${impresaId}/documenti/${id}`)).status, 404);
   assert.strictEqual((await a.go(`/area/lavori/${lavoroA}/imprese/${impresaId}/documenti/${docId}`)).status, 200, 'il DURC resta visibile');
 });
+
+test('riservatezza: elenco e apertura dei documenti pubblicati sono sempre coerenti', async () => {
+  const pubblicati = require('../src/pubblicati');
+  const archivio = require('../src/archivio');
+  const lavoro = Lavori.perId.get(lavoroA);
+  const pr = db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(lavoroA);
+  const dir = path.join(process.env.ARCHIVIO_DIR, 'A-1 Anna', 'CILA');
+  // Date di modifica con frazioni di millisecondo diverse (arrotondamento per eccesso e per difetto)
+  for (let i = 0; i < 12; i++) {
+    const nome = `elaborato-${i}.pdf`;
+    fs.writeFileSync(path.join(dir, nome), '%PDF-1.4');
+    const t = 1790000000 + i + (i * 0.0837 % 1) / 1000 + 0.0004 * (i % 3);
+    fs.utimesSync(path.join(dir, nome), t, t);
+    assert.ok(pubblicati.pubblica(lavoro, pr, nome).ok);
+  }
+  const elenco = pubblicati.annota(pr, await archivio.documentiPratica(lavoro, 'CILA')).filter((f) => /^elaborato-/.test(f.nome));
+  assert.strictEqual(elenco.length, 12);
+  for (const f of elenco) {
+    assert.ok(f.pubblicato && !f.cambiato, f.nome);
+    assert.ok(pubblicati.visibile(lavoro, pr, f.percorso), f.nome);
+  }
+});

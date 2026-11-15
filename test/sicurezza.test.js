@@ -463,3 +463,43 @@ test('riservatezza: elenco e apertura dei documenti pubblicati sono sempre coere
     assert.ok(pubblicati.visibile(lavoro, pr, f.percorso), f.nome);
   }
 });
+
+test('cartella Presentazione: i file sono visibili in automatico, i documenti d\'identità mai', async () => {
+  const pubblicati = require('../src/pubblicati');
+  const pr = db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(lavoroA);
+  const dir = path.join(process.env.ARCHIVIO_DIR, 'A-1 Anna', 'CILA');
+  const pres = path.join(dir, 'Presentazione');
+  fs.mkdirSync(path.join(pres, 'Tavole'), { recursive: true });
+  const buoni = ['Presentazione/Tav01 - Stato attuale.pdf', 'Presentazione/Relazione tecnica.pdf', 'Presentazione/Tavole/Tav02 - Progetto.pdf', 'Presentazione/Modulo CILA.pdf.p7m'];
+  const identita = ['Presentazione/Carta di identità Rossi.pdf', 'Presentazione/carta identita.pdf', 'Presentazione/Documento identità Anna.pdf', 'Presentazione/doc ide Rossi.pdf',
+    'Presentazione/Doc. Ide. Bianchi.pdf', 'Presentazione/DOC_IDE.pdf', 'Presentazione/doc identità.jpg', 'Presentazione/CARTA_IDENTITA_ROSSI_MARIO.PDF', 'Presentazione/Documento di identità.pdf'];
+  for (const f of [...buoni, ...identita, 'Bozza interna.pdf']) fs.writeFileSync(path.join(dir, f), '%PDF-1.4 x');
+  db.prepare('DELETE FROM tentativi_accesso').run();
+  const a = browser();
+  await a.accedi('anna@esempio.it', PW);
+  const apri = async (f) => (await a.go(`/area/lavori/${lavoroA}/file?p=${pr.id}&f=${encodeURIComponent(f)}`)).status;
+  const pagina = (await a.go(`/area/lavori/${lavoroA}`)).text;
+  for (const f of buoni) { assert.strictEqual(await apri(f), 200, f); assert.ok(pagina.includes(path.basename(f)), f); }
+  for (const f of identita) {
+    assert.ok(pubblicati.sembraSensibile(f), f);
+    assert.strictEqual(await apri(f), 404, f);
+    assert.ok(!pagina.toLowerCase().includes(path.basename(f).toLowerCase()), f);
+  }
+  // Fuori dalla cartella Presentazione resta privato
+  assert.strictEqual(await apri('Bozza interna.pdf'), 404);
+  // Un file aggiunto dopo compare da solo; sostituirlo non lo nasconde
+  fs.writeFileSync(path.join(pres, 'Tav03 - Sovrapposto.pdf'), '%PDF-1.4 a');
+  assert.strictEqual(await apri('Presentazione/Tav03 - Sovrapposto.pdf'), 200);
+  fs.writeFileSync(path.join(pres, 'Tav03 - Sovrapposto.pdf'), '%PDF-1.4 versione nuova');
+  assert.strictEqual(await apri('Presentazione/Tav03 - Sovrapposto.pdf'), 200);
+  // Varianti del nome della cartella; parole simili non contano
+  assert.ok(pubblicati.automatico('01 - Presentazione/x.pdf') && pubblicati.automatico('PRESENTAZIONE CILA/x.pdf') && pubblicati.automatico('presentazione/sub/x.pdf'));
+  assert.ok(!pubblicati.automatico('Rappresentazione/x.pdf') && !pubblicati.automatico('Presentazione.pdf') && !pubblicati.automatico('Vecchia/x.pdf'));
+  // Pratica resa privata: non si vede più nulla, nemmeno la Presentazione
+  db.prepare('UPDATE pratiche SET visibile = 0 WHERE id = ?').run(pr.id);
+  assert.strictEqual(await apri(buoni[0]), 404);
+  db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id);
+  // I file nascosti (che iniziano con _) restano fuori anche lì
+  fs.writeFileSync(path.join(pres, '_appunti.pdf'), 'x');
+  assert.strictEqual(await apri('Presentazione/_appunti.pdf'), 404);
+});

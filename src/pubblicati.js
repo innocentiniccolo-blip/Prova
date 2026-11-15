@@ -1,7 +1,9 @@
 'use strict';
 /**
- * Regola di riservatezza dell'area clienti: il cliente vede SOLO i documenti che lo studio
- * ha pubblicato uno per uno. Tutto il resto della cartella resta privato.
+ * Regola di riservatezza dell'area clienti: il cliente vede SOLO
+ *  - i file che lo studio mette nella sottocartella "Presentazione" di una pratica (automatico);
+ *  - i documenti che lo studio ha pubblicato uno per uno.
+ * Tutto il resto della cartella resta privato.
  *  - un file nuovo o mai pubblicato non è visibile;
  *  - se un file pubblicato viene modificato o sostituito, torna privato finché non lo si ripubblica;
  *  - i file il cui nome indica dati sensibili (documenti d'identità, dati sanitari, dati bancari…)
@@ -32,7 +34,7 @@ const norm = (t) => ` ${String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLow
 
 // Parole nel nome (o nella sottocartella) che indicano un documento con dati sensibili
 const SENSIBILI = [
-  ['documento d\'identità', /\b(carta( di| d)? identita|carta identita|c i|ci|documento( di| d)? identita|doc( di)? identita|documenti( di| d)? identita|identita|passaporto|patente|permesso( di)? soggiorno)\b/],
+  ['documento d\'identità', /\b(carta( di| d)? identita|carta identita|c i|ci|documento( di| d)? identita|doc( di)? identita|documenti( di| d)? identita|identita|doc( di| d)? ide[a-z]*|doc id|docide[a-z]*|doc ident[a-z]*|passaporto|patente|permesso( di)? soggiorno)\b/],
   ['codice fiscale o tessera sanitaria', /\b(codice fiscale|cod fiscale|cod fisc|c f|cf|tessera sanitaria)\b/],
   ['dati sulla salute', /\b(certificato medico|medic[oa]|sanitari[oa]|invalidita|disabilita|legge 104|diagnosi|referto|asl referto)\b/],
   ['dati bancari o reddituali', /\b(iban|estratto conto|coordinate bancarie|busta paga|buste paga|cedolino|redditi|modello 730|mod 730|isee|cud|unico pf|mutuo)\b/],
@@ -49,6 +51,13 @@ function sembraSensibile(percorso) {
 }
 
 // Tolleranza di 1 ms: la data letta dall'elenco è arrotondata, quella salvata è troncata
+// Cartella dei documenti da mostrare al cliente: tutto ciò che sta in una sottocartella "Presentazione"
+// della pratica (anche "01 - Presentazione", "Presentazione CILA"…) è visibile in automatico, tranne i file sensibili.
+function automatico(rel) {
+  const parti = String(rel).split(/[\\/]/).slice(0, -1);
+  return parti.some((c) => /\bpresentazione\b/.test(norm(c)));
+}
+
 const stessoIstante = (a, b) => Math.abs(a - b) <= 1;
 const stessoFile = (riga, f) => Boolean(riga) && riga.dimensione === f.dimensione && stessoIstante(riga.modificato, new Date(f.modificato).getTime());
 
@@ -58,13 +67,15 @@ function annota(pratica, file) {
   return file.map((f) => {
     const riga = righe.get(f.percorso);
     const sensibile = sembraSensibile(f.percorso);
-    return { ...f, sensibile, pubblicato: !sensibile && stessoFile(riga, f), cambiato: Boolean(riga) && !stessoFile(riga, f) };
+    const auto = automatico(f.percorso);
+    return { ...f, sensibile, automatico: auto, pubblicato: !sensibile && (auto || stessoFile(riga, f)), cambiato: !auto && Boolean(riga) && !stessoFile(riga, f) };
   });
 }
 
 /** Il file (percorso relativo alla pratica) è visibile al cliente in questo momento? */
 function visibile(lavoro, pratica, rel) {
   if (!pratica || !pratica.visibile || sembraSensibile(rel)) return false;
+  if (automatico(rel)) return Boolean(archivio.fileDocumento(lavoro, pratica.cartella, rel));
   const riga = q.uno.get(pratica.id, rel);
   const abs = riga && archivio.fileDocumento(lavoro, pratica.cartella, rel);
   if (!abs) return false;
@@ -84,4 +95,4 @@ function pubblica(lavoro, pratica, rel) {
 }
 const nascondi = (pratica, rel) => q.togli.run(pratica.id, rel).changes === 1;
 
-module.exports = { sembraSensibile, annota, visibile, pubblica, nascondi };
+module.exports = { automatico, sembraSensibile, annota, visibile, pubblica, nascondi };

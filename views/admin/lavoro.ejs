@@ -118,7 +118,7 @@
                   <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="p" value="<%= p.id %>">
                   <button class="link" name="azione" value="tutti">Pubblica tutti i documenti non sensibili di questa pratica</button>
                 </form>
-                <p class="nota">Il cliente vede solo i documenti segnati «Visibile al cliente». I file nuovi o modificati restano privati finché non li pubblichi; quelli con nomi che indicano dati sensibili (documenti d'identità, codice fiscale, procure, dati bancari o sanitari) non si possono pubblicare.</p>
+                <p class="nota">Il cliente vede in automatico i file che metti nella sottocartella <strong>Presentazione</strong> di questa pratica, più quelli che pubblichi a mano da qui. I file con nomi che indicano dati sensibili (carta d'identità, documento identità, doc ide, codice fiscale, procure, dati bancari o sanitari) non vengono mai mostrati, nemmeno se sono in Presentazione.</p>
               <% } %>
             <% } else { %>
               <div class="avviso errore">

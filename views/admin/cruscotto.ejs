@@ -4,7 +4,7 @@
     <div class="barra-titolo">
       <h1>Lavori</h1>
       <div class="azioni">
-        <form method="post" action="/studio/automazioni/esegui" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante secondario">Controlla NAS ora</button></form>
+        <form method="post" action="/studio/automazioni/esegui" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante secondario">Controlla <%= nomeArchivio %> ora</button></form>
         <a class="pulsante" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
       </div>
     </div>
@@ -54,7 +54,7 @@
         <% proposteLavori.forEach(p => { %>
           <div class="proposta">
             <div>
-              <strong>Nuovo lavoro trovato sul NAS</strong><br>
+              <strong>Nuovo lavoro trovato su <%= nomeArchivio %></strong><br>
               <span class="muto"><%= p.cartella %></span><br>
               Cliente: <%= p.nome %> · <%= p.email %><% if (p.telefono) { %> · <%= p.telefono %><% } %>
             </div>

@@ -112,8 +112,19 @@ function idClienti(body) {
 function renderFormLavoro(res, lavoro, clientiSel, errore) {
   res.status(errore ? 400 : 200).render('admin/lavoro-form', {
     titolo: lavoro.id ? `Modifica ${lavoro.codice}` : 'Nuovo lavoro',
-    lavoro, clientiSel, errore, tuttiClienti: Utenti.clienti.all(),
+    lavoro, clientiSel, errore, tuttiClienti: Utenti.clienti.all(), cartelleLibere: cartelleLibere(lavoro.cartella),
   });
+}
+
+/** Cartelle dei lavori presenti nell'archivio e non ancora collegate a un lavoro (per sceglierle dal modulo). */
+function cartelleLibere(attuale) {
+  let nomi = [];
+  try {
+    nomi = require('node:fs').readdirSync(config.archivioDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith('.')).map((d) => d.name);
+  } catch { return []; }
+  const usate = new Set(db.prepare('SELECT cartella FROM lavori').all().map((r) => r.cartella));
+  return nomi.filter((n) => !usate.has(n) || n === attuale).sort((a, b) => a.localeCompare(b, 'it'));
 }
 
 router.get('/lavori/nuovo', (req, res) => {
@@ -132,18 +143,21 @@ function salvaClienti(lavoroId, ids) {
 router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
   const dati = datiLavoro(req.body);
   const clienti = idClienti(req.body);
+  if (config.archivioSolaLettura && !req.body.cartella?.trim()) {
+    return renderFormLavoro(res, { ...req.body }, clienti, 'Scegli la cartella del lavoro su Google Drive (prima condividila con l\'account di servizio).');
+  }
   if (!req.body.cartella?.trim() && dati.codice && dati.titolo) {
     dati.cartella = archivio.normalizzaCartella(`${dati.codice} ${archivio.nomeSicuro(dati.titolo) || ''}`);
   }
   if (!dati.codice || !dati.titolo) return renderFormLavoro(res, { ...req.body }, clienti, 'Codice e titolo sono obbligatori.');
-  if (!dati.cartella) return renderFormLavoro(res, { ...req.body }, clienti, 'Cartella sul NAS non valida.');
+  if (!dati.cartella) return renderFormLavoro(res, { ...req.body }, clienti, 'Cartella non valida.');
   try {
     db.exec('BEGIN');
     const { lastInsertRowid } = Lavori.inserisci.run(dati);
     salvaClienti(lastInsertRowid, clienti);
     db.exec('COMMIT');
-    await archivio.creaStruttura(dati);
-    flash(req, 'ok', 'Lavoro creato. Se la cartella sul NAS esisteva già, le sue sottocartelle compaiono qui sotto come pratiche.');
+    if (!config.archivioSolaLettura) await archivio.creaStruttura(dati);
+    flash(req, 'ok', 'Lavoro creato. Le sottocartelle della cartella del lavoro compaiono qui sotto come pratiche.');
     res.redirect(`/studio/lavori/${lastInsertRowid}`);
   } catch (e) {
     if (db.isTransaction) db.exec('ROLLBACK');
@@ -189,7 +203,7 @@ router.post('/lavori/:id', trovaLavoro, auth.verificaCsrf, async (req, res, next
   const dati = { ...datiLavoro(req.body), id: req.lavoro.id };
   const clienti = idClienti(req.body);
   if (!dati.codice || !dati.titolo) return renderFormLavoro(res, { ...req.body, id: req.lavoro.id }, clienti, 'Codice e titolo sono obbligatori.');
-  if (!dati.cartella) return renderFormLavoro(res, { ...req.body, id: req.lavoro.id }, clienti, 'Cartella sul NAS non valida.');
+  if (!dati.cartella) return renderFormLavoro(res, { ...req.body, id: req.lavoro.id }, clienti, 'Cartella non valida.');
   try {
     db.exec('BEGIN');
     Lavori.aggiorna.run(dati);
@@ -204,7 +218,7 @@ router.post('/lavori/:id', trovaLavoro, auth.verificaCsrf, async (req, res, next
   }
 });
 
-router.post('/lavori/:id/crea-cartelle', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+router.post('/lavori/:id/crea-cartelle', soloScrittura, trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
   try {
     await archivio.creaStruttura(req.lavoro);
     flash(req, 'ok', 'Cartella del lavoro creata sul NAS.');
@@ -234,11 +248,20 @@ function fraseEsito(esito) {
   return '';
 }
 
+
+// Con l'archivio copiato da Google Drive le cartelle e i file dei lavori si gestiscono su Drive:
+// ciò che si creasse qui verrebbe cancellato alla copia successiva.
+function soloScrittura(req, res, next) {
+  if (!config.archivioSolaLettura) return next();
+  flash(req, 'errore', 'Cartelle e file dei lavori si gestiscono su Google Drive: compaiono qui entro 5 minuti.');
+  res.redirect(`/studio/lavori/${req.params.id}`);
+}
+
 function trovaPratica(req, id) {
   return Pratiche.perId.get(Number(id), req.lavoro.id);
 }
 
-router.post('/lavori/:id/documenti', trovaLavoro, pulisciTmp, upload.array('file'), auth.verificaCsrf, async (req, res, next) => {
+router.post('/lavori/:id/documenti', soloScrittura, trovaLavoro, pulisciTmp, upload.array('file'), auth.verificaCsrf, async (req, res, next) => {
   const files = req.files || [];
   try {
     const pratica = trovaPratica(req, req.body.pratica);
@@ -299,7 +322,7 @@ router.post('/lavori/:id/documenti/visibilita', trovaLavoro, auth.verificaCsrf, 
   } catch (e) { next(e); }
 });
 
-router.post('/lavori/:id/documenti/elimina', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+router.post('/lavori/:id/documenti/elimina', soloScrittura, trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
   try {
     const pratica = trovaPratica(req, req.body.p);
     const ok = Boolean(pratica) && await archivio.eliminaFile(req.lavoro, pratica.cartella, String(req.body.f || ''));
@@ -321,7 +344,7 @@ router.post('/lavori/:id/pratiche-visibili', trovaLavoro, auth.verificaCsrf, (re
   res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
 });
 
-router.post('/lavori/:id/pratiche', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+router.post('/lavori/:id/pratiche', soloScrittura, trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
   try {
     const nome = testo(req.body.altro, 100) || testo(req.body.tipo, 100);
     if (!nome) {

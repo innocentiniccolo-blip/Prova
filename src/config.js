@@ -18,6 +18,8 @@ const config = {
   produzione: process.env.NODE_ENV === 'production',
   // true = niente pagina di presentazione: l'indirizzo apre subito l'accesso (es. area.geometrainnocenti.it)
   soloArea: process.env.SOLO_AREA === 'true',
+  // Archivio copiato da Google Drive in sola lettura: cartelle e file si gestiscono su Drive
+  archivioSolaLettura: process.env.ARCHIVIO_SOLA_LETTURA === 'true',
   // Indirizzo pubblico dell'app, usato nei link delle email (es. https://area.geometrainnocenti.it)
   urlPubblico: String(process.env.URL_PUBBLICO || '').replace(/\/+$/, ''),
   // Invio email (password dimenticata, benvenuto). Se SMTP_HOST è vuoto le email sono disattivate.

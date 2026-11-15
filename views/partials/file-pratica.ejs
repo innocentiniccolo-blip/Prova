@@ -32,12 +32,12 @@
                 <% } %>
               </form>
             <% } %>
-            <form method="post" action="<%= base %>/documenti/elimina" class="in-linea" data-conferma="Eliminare definitivamente «<%= f.nome %>» dal NAS?">
+            <% if (!archivioSolaLettura) { %><form method="post" action="<%= base %>/documenti/elimina" class="in-linea" data-conferma="Eliminare definitivamente «<%= f.nome %>» dal NAS?">
               <input type="hidden" name="_csrf" value="<%= csrf %>">
               <input type="hidden" name="p" value="<%= p.id %>">
               <input type="hidden" name="f" value="<%= f.percorso %>">
               <button class="link pericolo">Elimina</button>
-            </form>
+            </form><% } %>
           <% } %>
         </span>
       </li>

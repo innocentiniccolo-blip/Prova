@@ -21,8 +21,10 @@
         <label>Data inizio <input type="date" name="data_inizio" value="<%= lavoro.data_inizio || '' %>"></label>
         <label>Fine prevista <input type="date" name="data_fine" value="<%= lavoro.data_fine || '' %>"></label>
       </div>
-      <label>Cartella sul NAS
-        <input name="cartella" value="<%= lavoro.cartella || '' %>" placeholder="Lascia vuoto per crearla automaticamente (es. 2026-001 Rossi Ristrutturazione)">
+      <label>Cartella su <%= nomeArchivio %>
+        <input name="cartella" list="cartelle-libere" value="<%= lavoro.cartella || '' %>" placeholder="<%= archivioSolaLettura ? 'Scegli dall\'elenco la cartella condivisa su Drive' : 'Lascia vuoto per crearla automaticamente (es. 2026-001 Rossi Ristrutturazione)' %>"<%= archivioSolaLettura ? ' required' : '' %>>
+        <datalist id="cartelle-libere"><% (cartelleLibere || []).forEach(c => { %><option value="<%= c %>"><% }) %></datalist>
+        <% if (archivioSolaLettura) { %><small>Compaiono qui le cartelle dei lavori condivise su Google Drive con l'account di servizio dell'area clienti<%= (cartelleLibere || []).length ? '' : ' (al momento nessuna libera)' %>.</small><% } %>
         <small>Percorso relativo alla cartella archivio lavori. Puoi indicare anche una cartella esistente, es. <code>2025/2025-018 Bianchi</code>. Ogni sottocartella (es. <code>Accesso atti</code>, <code>CILA</code>) diventa una pratica. Quelle con un nome riconosciuto sono visibili al cliente; le altre restano private finché non le rendi visibili.</small>
       </label>
       <fieldset>

@@ -50,7 +50,7 @@ app.use((req, res, next) => {
 });
 
 // Valori predefiniti per le viste (servono anche per gli errori che avvengono prima della sessione)
-Object.assign(app.locals, { studio: config.studio, percorso: '', flash: null, utente: null, csrf: '' });
+Object.assign(app.locals, { archivioSolaLettura: config.archivioSolaLettura, nomeArchivio: config.archivioSolaLettura ? 'Google Drive' : 'NAS', studio: config.studio, percorso: '', flash: null, utente: null, csrf: '' });
 
 // Helper per le viste
 app.locals.dimensione = (b) => {

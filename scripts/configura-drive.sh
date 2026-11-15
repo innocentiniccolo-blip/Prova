@@ -69,6 +69,9 @@ exec flock -n /run/area-clienti-drive.lock \\
 EOF
 chmod 700 /usr/local/bin/area-clienti-drive
 
+echo "==> Area clienti in modalità Google Drive (cartelle e file si gestiscono su Drive)"
+grep -q '^ARCHIVIO_SOLA_LETTURA=' "$DIR/.env" || echo 'ARCHIVIO_SOLA_LETTURA=true' >> "$DIR/.env"
+
 echo "==> Prima copia da Drive (può richiedere qualche minuto)"
 /usr/local/bin/area-clienti-drive
 chown -R 1000:1000 "$DIR/documenti"
@@ -93,6 +96,7 @@ WantedBy=timers.target
 EOF
 systemctl daemon-reload
 systemctl enable --now area-clienti-drive.timer >/dev/null
+(cd "$DIR" && docker compose pull -q && docker compose up -d) >/dev/null
 
 echo
 echo "=================================================================="

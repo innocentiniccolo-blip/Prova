@@ -17,10 +17,10 @@
     <% if (!lavoro.visibile) { %><div class="avviso info">Questo lavoro è nascosto: i clienti non lo vedono.</div><% } %>
     <% if (!cartellaEsiste) { %>
       <div class="avviso errore">
-        La cartella <code><%= lavoro.cartella %></code> non esiste sul NAS.
-        <form method="post" action="/studio/lavori/<%= lavoro.id %>/crea-cartelle" class="in-linea">
+        La cartella <code><%= lavoro.cartella %></code> non esiste su <%= nomeArchivio %>.
+        <% if (!archivioSolaLettura) { %><form method="post" action="/studio/lavori/<%= lavoro.id %>/crea-cartelle" class="in-linea">
           <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Creala ora</button>
-        </form>
+        </form><% } else { %>Su Drive condividi la cartella con l'account di servizio dell'area clienti, oppure correggi il nome della cartella in "Modifica".<% } %>
       </div>
     <% } %>
 
@@ -54,7 +54,8 @@
 
         <div class="carta" id="pratiche">
           <h2>Pratiche</h2>
-          <p class="muto">Ogni sottocartella di <code><%= lavoro.cartella %></code> è una pratica. Puoi crearle anche dal PC sul NAS: compaiono qui da sole.</p>
+          <p class="muto">Ogni sottocartella di <code><%= lavoro.cartella %></code> è una pratica. <% if (archivioSolaLettura) { %>Le crei e le riempi su Google Drive: compaiono qui da sole entro 5 minuti.<% } else { %>Puoi crearle anche dal PC sul NAS: compaiono qui da sole.<% } %></p>
+          <% if (!archivioSolaLettura) { %>
           <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche" class="carica">
             <input type="hidden" name="_csrf" value="<%= csrf %>">
             <select name="tipo" aria-label="Tipo di pratica">
@@ -63,6 +64,7 @@
             <input name="altro" maxlength="100" placeholder="oppure scrivi un altro nome" aria-label="Altro nome di pratica">
             <button class="pulsante">Aggiungi pratica</button>
           </form>
+          <% } %>
           <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } else { %>
             <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche-visibili" class="cartelle-visibili" data-modifiche>
               <input type="hidden" name="_csrf" value="<%= csrf %>">
@@ -116,6 +118,7 @@
             </form>
 
             <% if (p.esiste) { %>
+              <% if (!archivioSolaLettura) { %>
               <form method="post" action="<%= base %>/documenti" enctype="multipart/form-data" class="carica">
                 <input type="hidden" name="_csrf" value="<%= csrf %>">
                 <input type="hidden" name="pratica" value="<%= p.id %>">
@@ -124,6 +127,7 @@
                 <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Annuncia</label>
                 <button class="pulsante">Carica</button>
               </form>
+              <% } %>
               <%- include('../partials/file-pratica', { p, base, admin: true }) %>
               <% if (p.file.length) { %>
                 <form method="post" action="<%= base %>/documenti/visibilita" class="azioni-richiesta">
@@ -134,8 +138,8 @@
               <% } %>
             <% } else { %>
               <div class="avviso errore">
-                La cartella «<%= p.cartella %>» non c'è più sul NAS (forse è stata rinominata).
-                <form method="post" action="<%= base %>/pratiche/<%= p.id %>/elimina" class="in-linea" data-conferma="Togliere la pratica dall'elenco? I file sul NAS non vengono toccati.">
+                La cartella «<%= p.cartella %>» non c'è più su <%= nomeArchivio %> (forse è stata rinominata).
+                <form method="post" action="<%= base %>/pratiche/<%= p.id %>/elimina" class="in-linea" data-conferma="Togliere la pratica dall'elenco? I file su <%= nomeArchivio %> non vengono toccati.">
                   <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Toglila dall'elenco</button>
                 </form>
               </div>
@@ -318,7 +322,7 @@
             <% accessi.forEach(a => { %><li><strong><%= a.nome || 'utente eliminato' %></strong> · <%= dataOra(a.creato_il) %><br><small class="muto"><%= a.file %></small></li><% }) %>
           </ul>
         </div>
-        <form method="post" action="/studio/lavori/<%= lavoro.id %>/elimina" data-conferma="Eliminare il lavoro dall'app? I file sul NAS resteranno intatti.">
+        <form method="post" action="/studio/lavori/<%= lavoro.id %>/elimina" data-conferma="Eliminare il lavoro dall'app? I file su <%= nomeArchivio %> resteranno intatti.">
           <input type="hidden" name="_csrf" value="<%= csrf %>">
           <button class="link pericolo">Elimina lavoro dall'app</button>
         </form>

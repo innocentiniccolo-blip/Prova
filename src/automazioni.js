@@ -148,6 +148,7 @@ async function confermaLavoro(id, req, extra = {}) {
   }
   // Prime proposte di stato dalle ricevute già presenti
   await scansionaRicevute(Lavori.perId.get(lavoroId)).catch((e) => console.error(e));
+  await require('./sicurezzaDrive').importaLavoro(Lavori.perId.get(lavoroId)).catch((e) => console.error(e));
   return { lavoroId, clienteNuovo, emailInviata, conCliente: Boolean(cliente) };
 }
 
@@ -246,6 +247,7 @@ async function giro() {
   try {
     await scansionaNuoviLavori();
     await scansionaRicevute();
+    await require('./sicurezzaDrive').importaTutti();
   } catch (e) {
     console.error('Automazioni:', e);
   } finally {

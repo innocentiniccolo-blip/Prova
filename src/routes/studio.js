@@ -86,7 +86,8 @@ router.post('/proposte-stato/:id/scarta', auth.verificaCsrf, (req, res) => {
 router.post('/automazioni/esegui', auth.verificaCsrf, async (req, res) => {
   const n1 = await automazioni.scansionaNuoviLavori();
   const n2 = await automazioni.scansionaRicevute();
-  flash(req, 'ok', `Controllo completato: ${n1} nuovi lavori, ${n2} nuove proposte di stato.`);
+  const n3 = await require('../sicurezzaDrive').importaTutti();
+  flash(req, 'ok', `Controllo completato: ${n1} nuovi lavori, ${n2} nuove proposte di stato` + (n3 ? `, ${n3} documenti di imprese della sicurezza.` : '.'));
   res.redirect('/studio');
 });
 
@@ -157,6 +158,7 @@ router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
     salvaClienti(lastInsertRowid, clienti);
     db.exec('COMMIT');
     if (!config.archivioSolaLettura) await archivio.creaStruttura(dati);
+    await require('../sicurezzaDrive').importaLavoro(Lavori.perId.get(lastInsertRowid)).catch((e) => console.error(e));
     flash(req, 'ok', 'Lavoro creato. Le sottocartelle della cartella del lavoro compaiono qui sotto come pratiche.');
     res.redirect(`/studio/lavori/${lastInsertRowid}`);
   } catch (e) {

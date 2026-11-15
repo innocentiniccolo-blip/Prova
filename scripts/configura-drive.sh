@@ -17,17 +17,21 @@ set -euo pipefail
 CHIAVE="${1:-}"
 DIR=/opt/area-clienti
 if [ "$(id -u)" -ne 0 ]; then echo "Esegui come root"; exit 1; fi
-if [ ! -f "$CHIAVE" ]; then
+if [ -z "$CHIAVE" ] && [ -f /etc/area-clienti/drive-chiave.json ]; then
+  echo "==> Chiave già presente: aggiorno solo le impostazioni"
+elif [ ! -f "$CHIAVE" ]; then
   echo "Uso: bash configura-drive.sh /percorso/chiave.json"; exit 1
 fi
 
 echo "==> Installazione di rclone"
 command -v rclone >/dev/null || apt-get -o DPkg::Lock::Timeout=1800 -y -q install rclone
 
-echo "==> Chiave dell'account di servizio"
 install -d -m 700 /etc/area-clienti
-install -m 600 "$CHIAVE" /etc/area-clienti/drive-chiave.json
-shred -u "$CHIAVE" 2>/dev/null || rm -f "$CHIAVE"
+if [ -n "$CHIAVE" ]; then
+  echo "==> Chiave dell'account di servizio"
+  install -m 600 "$CHIAVE" /etc/area-clienti/drive-chiave.json
+  shred -u "$CHIAVE" 2>/dev/null || rm -f "$CHIAVE"
+fi
 
 cat > /etc/area-clienti/rclone.conf <<EOF
 [drive]
@@ -43,7 +47,10 @@ chmod 600 /etc/area-clienti/rclone.conf
 cat > /etc/area-clienti/filtro-drive.txt <<'EOF'
 # Mai sul server: documenti d'identità e altri file sensibili (anche dentro Presentazione)
 # (le regole non distinguono maiuscole e minuscole: rclone gira con --ignore-case)
-- /**/*{carta*identit,cartaidentit,documento*identit,doc ide,docide,doc id,docid,passaporto,patente,permesso*soggiorno,codice*fiscale,tessera*sanitaria,isee,busta*paga,estratto*conto,certificat*medic,referto,procura,delega,conferimento}*
+- /**/*{carta*identit,cartaidentit,documento*identit,doc ide,docide,doc id,docid,passaporto,permesso*soggiorno,codice*fiscale,tessera*sanitaria,isee,busta*paga,estratto*conto,certificat*medic,referto,procura,delega,conferimento}*
+# Sì: documenti delle imprese nella cartella Sicurezza del lavoro (visura, DURC, patente a crediti)
++ /*/*sicurezza*/**.{pdf,p7m}
+- /**/*patente*
 - *.{eml,msg,zip,rar,7z,tar,gz,tgz}
 # Le cartelle "Documenti dal cliente" esistono solo sul server: non toccarle
 - /**/Documenti dal cliente/**

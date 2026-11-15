@@ -13,7 +13,7 @@ const imprese = require('../imprese');
 const richieste = require('../richieste');
 const pubblicati = require('../pubblicati');
 const posta = require('../posta');
-const { inviaBenvenuto, avvisaClienti } = require('../notifiche');
+const { inviaBenvenuto, avvisaClienti, avvisaStatoPratica } = require('../notifiche');
 const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 
@@ -263,12 +263,7 @@ router.post('/lavori/:id/documenti', trovaLavoro, pulisciTmp, upload.array('file
         Aggiornamenti.inserisci.run(req.lavoro.id, `${pratiche.nomeVisibile(pratica.cartella)}: nuovi documenti (${nomi.join(', ')})`);
       }
     }
-    let esito = { inviati: 0, falliti: 0 };
-    if (nomi.length && req.body.email && pratica.visibile) {
-      const nome = pratiche.nomeVisibile(pratica.cartella);
-      esito = await avvisaClienti(req, req.lavoro, `Nuovi documenti: ${nome} – ${req.lavoro.titolo}`,
-        `sono disponibili nuovi documenti per la pratica «${nome}» del lavoro «${req.lavoro.titolo}»:\n\n${nomi.map((n) => `- ${n}`).join('\n')}`);
-    }
+    const esito = { inviati: 0, falliti: 0 }; // nessuna email per i documenti: il cliente riceve solo gli aggiornamenti di stato
     flash(req, esito.falliti || bloccati.length ? 'errore' : 'ok', (tutti.length ? `Caricati ${tutti.length} file in «${pratica.cartella}»: ${nomi.length ? nomi.length + ' pubblicati per il cliente' : 'restano privati finché non li pubblichi'}.` : 'Nessun file selezionato.')
       + (bloccati.length ? ` Non pubblicati perché sembrano sensibili: ${bloccati.join('; ')}.` : '') + fraseEsito(esito));
     res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
@@ -357,10 +352,7 @@ router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, async (
   if (req.body.annuncia && nuova.visibile && cambiata) Aggiornamenti.inserisci.run(req.lavoro.id, frase + '.');
   let esito = { inviati: 0, falliti: 0 };
   if (req.body.email && nuova.visibile && cambiata) {
-    let corpo = `la pratica «${nome}» del lavoro «${req.lavoro.titolo}» è stata aggiornata:\n\n${pratiche.descriviStato(nuova, req.app.locals.data)}`;
-    if (nuova.protocollo) corpo += ` – protocollo n. ${nuova.protocollo}`;
-    if (nuova.nota) corpo += `\n\nNota dello studio: ${nuova.nota}`;
-    esito = await avvisaClienti(req, req.lavoro, `Aggiornamento pratica: ${nome} – ${req.lavoro.titolo}`, corpo);
+    esito = await avvisaStatoPratica(req, req.lavoro, nome, nuova);
   }
   flash(req, esito.falliti ? 'errore' : 'ok', `Pratica «${pratica.cartella}» aggiornata.` + fraseEsito(esito));
   res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);

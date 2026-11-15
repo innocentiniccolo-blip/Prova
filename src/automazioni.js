@@ -197,8 +197,7 @@ async function applicaStato(id, req, { email = true } = {}) {
   if (p.visibile) {
     Aggiornamenti.inserisci.run(lavoro.id, `${nome}: ${descr.toLowerCase()}${prot}.`);
     if (email) {
-      esito = await notifiche.avvisaClienti(req, lavoro, `Aggiornamento pratica: ${nome} – ${lavoro.titolo}`,
-        `la pratica «${nome}» del lavoro «${lavoro.titolo}» è stata aggiornata:\n\n${descr}${ps.protocollo ? ` – protocollo n. ${ps.protocollo}` : ''}`);
+      esito = await notifiche.avvisaStatoPratica(req, lavoro, nome, { stato: ps.stato, data: ps.data, protocollo: ps.protocollo || p.protocollo });
     }
   }
   return esito;

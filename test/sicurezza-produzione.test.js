@@ -169,3 +169,43 @@ test('primo avvio non più disponibile dopo la creazione dello studio', async ()
   const r = await browser().go('/configura');
   assert.strictEqual(r.status, 302);
 });
+
+test('email al cliente: solo per il cambio di stato, con stato, data e protocollo', async () => {
+  const { Lavori } = require('../src/modelli');
+  const pratiche = require('../src/pratiche');
+  db.prepare('DELETE FROM tentativi_accesso').run();
+  const carla = Utenti.perEmail.get('carla@esempio.it');
+  const id = Number(Lavori.inserisci.run({ codice: 'E-1', titolo: 'Lavoro email', descrizione: null, indirizzo: null, stato: 'In corso', cartella: 'E-1 Email', data_inizio: null, data_fine: null, visibile: 1 }).lastInsertRowid);
+  Lavori.aggiungiCliente.run(id, carla.id);
+  fs.mkdirSync(path.join(process.env.ARCHIVIO_DIR, 'E-1 Email', 'CILA'), { recursive: true });
+  await pratiche.sincronizza(Lavori.perId.get(id));
+  const pr = db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(id);
+  db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id);
+  const s = browser('192.0.2.200');
+  await s.accedi('studio@esempio.it', PW);
+  const pag = `/studio/lavori/${id}`;
+  // Caricare un documento non manda email, anche se si prova a chiederla
+  posta.length = 0;
+  const fd = new FormData();
+  fd.append('_csrf', ((await s.go(pag)).text.match(/name="_csrf" value="([^"]+)"/) || [])[1]);
+  fd.append('pratica', String(pr.id)); fd.append('pubblica', '1'); fd.append('email', '1');
+  fd.append('file', new Blob(['%PDF-1.4 x']), 'Tavola.pdf');
+  await s.go(`${pag}/documenti`, { method: 'POST', body: fd });
+  await new Promise((r) => setTimeout(r, 200));
+  assert.strictEqual(posta.length, 0, 'nessuna email per i documenti');
+  // Cambio di stato: email con stato, data e protocollo, senza la nota interna
+  await s.post(`${pag}/pratiche/${pr.id}`, { stato: 'Presentata', data: '2026-11-10', protocollo: '18405', nota: 'nota da non spedire', visibile: '1', email: '1' }, pag);
+  await attendiPosta(1);
+  assert.strictEqual(posta.length, 1);
+  const m = testoPosta(posta[0]);
+  assert.match(m, /To: carla@esempio\.it/);
+  assert.match(m, /Subject: =\?UTF-8\?Q\?Aggiornamento_pratica:_CILA/);
+  assert.match(m, /Stato: Presentata/);
+  assert.match(m, /Data: 10\/11\/2026/);
+  assert.match(m, /Protocollo n\.: 18405/);
+  assert.ok(!m.includes('nota da non spedire'));
+  // Salvare di nuovo senza cambiare stato, data o protocollo: nessuna seconda email
+  await s.post(`${pag}/pratiche/${pr.id}`, { stato: 'Presentata', data: '2026-11-10', protocollo: '18405', nota: 'altra nota', visibile: '1', email: '1' }, pag);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.strictEqual(posta.length, 1);
+});

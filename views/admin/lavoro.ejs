@@ -97,7 +97,7 @@
               <div class="azioni">
                 <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= p.visibile ? 'checked' : '' %>> Visibile al cliente</label>
                 <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label>
-                <% if (postaAttiva) { %><label class="scelta"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente via email</label><% } %>
+                <% if (postaAttiva) { %><label class="scelta" title="Email con stato, data e numero di protocollo, solo se cambiano"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente via email</label><% } %>
                 <button class="pulsante">Salva</button>
               </div>
             </form>
@@ -109,7 +109,6 @@
                 <input type="file" name="file" multiple required aria-label="File da caricare in <%= p.cartella %>">
                 <label class="scelta"><input type="checkbox" name="pubblica" value="1"> Pubblica per il cliente</label>
                 <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Annuncia</label>
-                <% if (postaAttiva) { %><label class="scelta"><input type="checkbox" name="email" value="1"> Avvisa via email</label><% } %>
                 <button class="pulsante">Carica</button>
               </form>
               <%- include('../partials/file-pratica', { p, base, admin: true }) %>

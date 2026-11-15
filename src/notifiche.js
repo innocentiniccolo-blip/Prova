@@ -45,6 +45,19 @@ async function avvisaClienti(req, lavoro, oggetto, corpo) {
   return esito;
 }
 
+/**
+ * Email al cliente quando cambia lo stato di una pratica: solo stato, data e numero di protocollo.
+ * È l'unico avviso automatico sulle pratiche (nessuna email per i documenti aggiunti).
+ */
+function avvisaStatoPratica(req, lavoro, nomePratica, { stato, data, protocollo }) {
+  const dataIt = data ? String(data).slice(0, 10).split('-').reverse().join('/') : null;
+  const righe = [`Stato: ${stato}`];
+  if (dataIt) righe.push(`Data: ${dataIt}`);
+  if (protocollo) righe.push(`Protocollo n.: ${protocollo}`);
+  return avvisaClienti(req, lavoro, `Aggiornamento pratica: ${nomePratica} – ${lavoro.titolo}`,
+    `la pratica «${nomePratica}» del lavoro «${lavoro.titolo}» è stata aggiornata.\n\n${righe.join('\n')}`);
+}
+
 const db = require('./db');
 const qAdmin = db.prepare("SELECT email FROM utenti WHERE ruolo = 'admin' AND attivo = 1");
 const qUtente = db.prepare('SELECT nome, ruolo, attivo FROM utenti WHERE email = ?');
@@ -93,4 +106,4 @@ function avvisaStudio(oggetto, testo) {
 
 module.exports = {
   avvisaStudio,
-  avvisaBlocco, inviaBenvenuto, avvisaClienti, baseUrl };
+  avvisaBlocco, inviaBenvenuto, avvisaClienti, avvisaStatoPratica, baseUrl };

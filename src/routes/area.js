@@ -4,6 +4,7 @@ const express = require('express');
 const auth = require('../auth');
 const archivio = require('../archivio');
 const pratiche = require('../pratiche');
+const pubblicati = require('../pubblicati');
 const fs = require('node:fs');
 const path = require('node:path');
 const multer = require('multer');
@@ -44,9 +45,15 @@ router.get('/lavori/:id', async (req, res, next) => {
     // Anche lo studio, in anteprima, vede solo ciò che vede il cliente
     const elenco = await pratiche.conDocumenti(lavoro, { soloVisibili: true });
     const aggiornamenti = Aggiornamenti.perLavoro.all(lavoro.id);
-    const impreseCantiere = lavoro.sicurezza ? imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true }) : [];
+    // Al cliente solo visura, DURC e patente: gli altri documenti delle imprese (POS, attestati, idoneità…) restano allo studio
+    const impreseCantiere = (lavoro.sicurezza ? imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true }) : [])
+      .map((i) => ({ ...i, nota: undefined, riepilogo: { ...i.riepilogo, altri: [] } }));
     const verbali = lavoro.sicurezza ? imprese.Q.verbali.all(lavoro.id).filter((v) => v.visibile) : [];
-    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, richieste: richieste.elenco(lavoro.id), limitiRichieste: richieste.LIMITI, estensioni: richieste.ESTENSIONI, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
+    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, richieste: richieste.elenco(lavoro.id).map((r) => {
+      // Ogni cliente vede solo i nomi dei file che ha inviato lui; degli altri solo il numero
+      const miei = req.utente.ruolo === 'admin' ? r.file : r.file.filter((f) => f.utente_id === req.utente.id);
+      return { ...r, file: miei, altriFile: r.file.length - miei.length };
+    }), limitiRichieste: richieste.LIMITI, estensioni: richieste.ESTENSIONI, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
   } catch (e) { next(e); }
 });
 
@@ -54,7 +61,8 @@ router.get('/lavori/:id/file', (req, res) => {
   const lavoro = lavoroAccessibile(req);
   const pratica = lavoro && Pratiche.perId.get(Number(req.query.p), lavoro.id);
   const rel = String(req.query.f || '');
-  const abs = pratica && pratica.visibile && archivio.fileDocumento(lavoro, pratica.cartella, rel);
+  // Solo documenti pubblicati dallo studio: tutto il resto della cartella non è raggiungibile
+  const abs = pratica && pubblicati.visibile(lavoro, pratica, rel) && archivio.fileDocumento(lavoro, pratica.cartella, rel);
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
   Accessi.registra.run(lavoro.id, req.utente.id, `${pratica.cartella}/${rel}`);
   inviaFile(res, abs, { scarica: req.query.scarica === '1' });
@@ -66,6 +74,7 @@ router.get('/lavori/:id/imprese/:iid/documenti/:did', (req, res) => {
   const iid = Number(req.params.iid);
   const link = lavoro && lavoro.sicurezza && imprese.Q.collegamento.get(lavoro.id, iid);
   const doc = link && link.visibile && imprese.Q.documento.get(Number(req.params.did), iid);
+  if (doc && doc.tipo === 'altro') return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
   const abs = doc && imprese.percorsoFile(doc);
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
   const imp = imprese.Q.perId.get(iid);

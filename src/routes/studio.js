@@ -11,6 +11,7 @@ const pratiche = require('../pratiche');
 const automazioni = require('../automazioni');
 const imprese = require('../imprese');
 const richieste = require('../richieste');
+const pubblicati = require('../pubblicati');
 const posta = require('../posta');
 const { inviaBenvenuto, avvisaClienti } = require('../notifiche');
 const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
@@ -248,6 +249,14 @@ router.post('/lavori/:id/documenti', trovaLavoro, pulisciTmp, upload.array('file
       const originale = Buffer.from(f.originalname, 'latin1').toString('utf8');
       nomi.push(await archivio.salvaUpload(req.lavoro, pratica.cartella, f.path, originale));
     }
+    // I file caricati restano privati, a meno che lo studio scelga di pubblicarli subito
+    const tutti = nomi.slice();
+    const bloccati = [];
+    if (req.body.pubblica) {
+      for (const n of tutti) { const r = pubblicati.pubblica(req.lavoro, pratica, n); if (!r.ok) bloccati.push(`${n} (${r.motivo})`); }
+    }
+    nomi.length = 0;
+    if (req.body.pubblica) nomi.push(...tutti.filter((n) => !pubblicati.sembraSensibile(n)));
     if (nomi.length) {
       Lavori.tocca.run(req.lavoro.id);
       if (req.body.annuncia && pratica.visibile) {
@@ -260,7 +269,8 @@ router.post('/lavori/:id/documenti', trovaLavoro, pulisciTmp, upload.array('file
       esito = await avvisaClienti(req, req.lavoro, `Nuovi documenti: ${nome} – ${req.lavoro.titolo}`,
         `sono disponibili nuovi documenti per la pratica «${nome}» del lavoro «${req.lavoro.titolo}»:\n\n${nomi.map((n) => `- ${n}`).join('\n')}`);
     }
-    flash(req, esito.falliti ? 'errore' : 'ok', (nomi.length ? `Caricati ${nomi.length} file in «${pratica.cartella}».` : 'Nessun file selezionato.') + fraseEsito(esito));
+    flash(req, esito.falliti || bloccati.length ? 'errore' : 'ok', (tutti.length ? `Caricati ${tutti.length} file in «${pratica.cartella}»: ${nomi.length ? nomi.length + ' pubblicati per il cliente' : 'restano privati finché non li pubblichi'}.` : 'Nessun file selezionato.')
+      + (bloccati.length ? ` Non pubblicati perché sembrano sensibili: ${bloccati.join('; ')}.` : '') + fraseEsito(esito));
     res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
   } catch (e) { next(e); }
 });
@@ -270,6 +280,28 @@ router.get('/lavori/:id/file', trovaLavoro, (req, res) => {
   const abs = pratica && archivio.fileDocumento(req.lavoro, pratica.cartella, String(req.query.f || ''));
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: '' });
   inviaFile(res, abs, { scarica: req.query.scarica === '1' });
+});
+
+// Pubblica o nasconde un documento (o tutti quelli non sensibili della pratica) per il cliente
+router.post('/lavori/:id/documenti/visibilita', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const pratica = trovaPratica(req, req.body.p);
+    if (!pratica) { flash(req, 'errore', 'Pratica non valida.'); return res.redirect(`/studio/lavori/${req.lavoro.id}`); }
+    const rel = String(req.body.f || '');
+    if (req.body.azione === 'nascondi') {
+      pubblicati.nascondi(pratica, rel);
+      flash(req, 'ok', 'Documento nascosto al cliente.');
+    } else if (req.body.azione === 'tutti') {
+      const file = await archivio.documentiPratica(req.lavoro, pratica.cartella);
+      let n = 0; let saltati = 0;
+      for (const f of file) { if (pubblicati.pubblica(req.lavoro, pratica, f.percorso).ok) n++; else saltati++; }
+      flash(req, 'ok', `Pubblicati ${n} documenti.` + (saltati ? ` ${saltati} lasciati privati perché sembrano contenere dati sensibili.` : ''));
+    } else {
+      const r = pubblicati.pubblica(req.lavoro, pratica, rel);
+      flash(req, r.ok ? 'ok' : 'errore', r.ok ? 'Documento pubblicato: ora il cliente può vederlo.' : `Non pubblicato: ${r.motivo}. I documenti sensibili non vengono mai mostrati nell'area clienti.`);
+    }
+    res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
+  } catch (e) { next(e); }
 });
 
 router.post('/lavori/:id/documenti/elimina', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {

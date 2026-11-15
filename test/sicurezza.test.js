@@ -73,6 +73,10 @@ test.before(async () => {
   await require('../src/pratiche').sincronizza(Lavori.perId.get(lavoroA));
   await require('../src/pratiche').sincronizza(Lavori.perId.get(lavoroB));
   db.prepare('UPDATE pratiche SET visibile = 1').run();
+  // Per le prove: lo studio ha pubblicato la tavola (gli altri file restano privati)
+  const pubblicati = require('../src/pubblicati');
+  pubblicati.pubblica(Lavori.perId.get(lavoroA), db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(lavoroA), 'tavola.pdf');
+  pubblicati.pubblica(Lavori.perId.get(lavoroB), db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(lavoroB), 'privato.pdf');
   // Sicurezza cantiere su A: impresa con un documento e un verbale
   imprese.Q.impostaSicurezza.run(1, lavoroA);
   impresaId = Number(imprese.Q.inserisci.run({ ragione_sociale: 'Edile <img src=x onerror=alert(1)>', piva: null, sede: null, pec: null, telefono: null, autonomo: 0, nota: 'nota interna riservata' }).lastInsertRowid);
@@ -376,4 +380,64 @@ test('privacy: eliminando un cliente spariscono account, sessioni e collegamenti
   assert.strictEqual((await c.go('/area')).status, 302, 'sessione chiusa');
   assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM lavori_clienti WHERE utente_id = ?').get(id).n, 0);
   assert.strictEqual(db.prepare('SELECT COUNT(*) AS n FROM accessi_file WHERE utente_id = ?').get(id).n, 0);
+});
+
+test('riservatezza: il cliente vede solo i documenti pubblicati; i sensibili mai', async () => {
+  const pubblicati = require('../src/pubblicati');
+  const lavoro = Lavori.perId.get(lavoroA);
+  const pr = db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(lavoroA);
+  const dir = path.join(process.env.ARCHIVIO_DIR, 'A-1 Anna', 'CILA');
+  const PDF = '%PDF-1.4 x';
+  for (const n of ['relazione.pdf', "Carta d'identità Rossi.pdf", 'C.I. e C.F. Anna.pdf', 'Procura speciale.pdf', 'Codice_Fiscale.jpg', 'IBAN.pdf', 'certificato medico.pdf', 'Protocollo 730.pdf'])
+    fs.writeFileSync(path.join(dir, n), PDF);
+  fs.mkdirSync(path.join(dir, 'Documenti identita'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'Documenti identita', 'scansione001.pdf'), PDF);
+  const a = browser();
+  await a.accedi('anna@esempio.it', PW);
+  const apri = async (f) => (await a.go(`/area/lavori/${lavoroA}/file?p=${pr.id}&f=${encodeURIComponent(f)}`)).status;
+  // File appena arrivato nella cartella: privato
+  assert.strictEqual(await apri('relazione.pdf'), 404);
+  assert.ok(!(await a.go(`/area/lavori/${lavoroA}`)).text.includes('relazione.pdf'));
+  // Lo studio lo pubblica
+  const s = browser();
+  await s.accedi('studio@esempio.it', PW);
+  const pag = `/studio/lavori/${lavoroA}`;
+  await s.post(`${pag}/documenti/visibilita`, { p: pr.id, f: 'relazione.pdf', azione: 'pubblica' }, { da: pag });
+  assert.strictEqual(await apri('relazione.pdf'), 200);
+  // I sensibili non si pubblicano: né uno per uno, né con "pubblica tutti", né scrivendo nel database
+  const sensibili = ["Carta d'identità Rossi.pdf", 'C.I. e C.F. Anna.pdf', 'Procura speciale.pdf', 'Codice_Fiscale.jpg', 'IBAN.pdf', 'certificato medico.pdf', 'Documenti identita/scansione001.pdf'];
+  for (const f of sensibili) await s.post(`${pag}/documenti/visibilita`, { p: pr.id, f, azione: 'pubblica' }, { da: pag });
+  await s.post(`${pag}/documenti/visibilita`, { p: pr.id, azione: 'tutti' }, { da: pag });
+  for (const f of sensibili) db.prepare('INSERT OR REPLACE INTO file_pubblicati (pratica_id, percorso, dimensione, modificato) VALUES (?, ?, ?, ?)').run(pr.id, f, PDF.length, Math.floor(fs.statSync(path.join(dir, f)).mtimeMs));
+  const t = (await a.go(`/area/lavori/${lavoroA}`)).text;
+  for (const f of sensibili) {
+    assert.strictEqual(await apri(f), 404, f);
+    assert.ok(!t.includes(path.basename(f).replace("'", '&#39;')), f);
+  }
+  // Un nome innocuo con un numero non viene scambiato per sensibile
+  assert.strictEqual(pubblicati.sembraSensibile('Protocollo 730.pdf'), null);
+  assert.strictEqual(await apri('Protocollo 730.pdf'), 200, 'pubblicato da "pubblica tutti"');
+  // Se il file pubblicato viene sostituito, torna privato
+  fs.writeFileSync(path.join(dir, 'relazione.pdf'), PDF + ' contenuto diverso');
+  assert.strictEqual(await apri('relazione.pdf'), 404);
+  // Nascondere funziona; il cliente non può pubblicare
+  await s.post(`${pag}/documenti/visibilita`, { p: pr.id, f: 'Protocollo 730.pdf', azione: 'nascondi' }, { da: pag });
+  assert.strictEqual(await apri('Protocollo 730.pdf'), 404);
+  assert.strictEqual((await a.post(`${pag}/documenti/visibilita`, { p: pr.id, f: 'Protocollo 730.pdf', azione: 'pubblica' }, { da: `/area/lavori/${lavoroA}` })).status, 403);
+  // Pratica resa privata: nemmeno i pubblicati
+  db.prepare('UPDATE pratiche SET visibile = 0 WHERE id = ?').run(pr.id);
+  assert.strictEqual(await apri('tavola.pdf'), 404);
+  db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id);
+  assert.ok(pubblicati.visibile(lavoro, pr, 'tavola.pdf'));
+});
+
+test('riservatezza: gli "altri documenti" delle imprese (POS, attestati, idoneità) non arrivano al cliente', async () => {
+  const f = path.join(tmp, 'pos.pdf'); fs.writeFileSync(f, '%PDF-1.4 pos');
+  const id = await imprese.salvaDocumento(impresaId, { tipo: 'altro', descrizione: 'Idoneità sanitaria lavoratori' }, f, 'idoneita.pdf');
+  const a = browser();
+  db.prepare('DELETE FROM tentativi_accesso').run();
+  await a.accedi('anna@esempio.it', PW);
+  assert.ok(!(await a.go(`/area/lavori/${lavoroA}`)).text.includes('Idoneità sanitaria'));
+  assert.strictEqual((await a.go(`/area/lavori/${lavoroA}/imprese/${impresaId}/documenti/${id}`)).status, 404);
+  assert.strictEqual((await a.go(`/area/lavori/${lavoroA}/imprese/${impresaId}/documenti/${docId}`)).status, 200, 'il DURC resta visibile');
 });

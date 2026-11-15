@@ -9,6 +9,7 @@
  * non le rende visibili dal pannello.
  */
 const config = require('./config');
+const pubblicati = require('./pubblicati');
 const archivio = require('./archivio');
 const { Pratiche } = require('./modelli');
 
@@ -41,7 +42,11 @@ async function sincronizza(lavoro) {
 async function conDocumenti(lavoro, { soloVisibili = false } = {}) {
   let elenco = await sincronizza(lavoro);
   if (soloVisibili) elenco = elenco.filter((p) => p.visibile && p.esiste);
-  for (const p of elenco) p.file = p.esiste ? await archivio.documentiPratica(lavoro, p.cartella) : [];
+  for (const p of elenco) {
+    const file = p.esiste ? pubblicati.annota(p, await archivio.documentiPratica(lavoro, p.cartella)) : [];
+    // Il cliente vede solo i documenti pubblicati uno per uno dallo studio
+    p.file = soloVisibili ? file.filter((f) => f.pubblicato) : file;
+  }
   return elenco;
 }
 

@@ -43,6 +43,7 @@
                   <% }) %>
                 </ul>
               <% } %>
+              <% if (r.altriFile) { %><p class="nota">Altri <%= r.altriFile %> file inviati da un altro intestatario.</p><% } %>
               <% if (r.stato !== 'completa') { %>
                 <form method="post" action="/area/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file" enctype="multipart/form-data" class="carica invio-cliente" data-invio>
                   <input type="file" name="file" multiple required accept="<%= estensioni.join(',') %>" aria-label="File da inviare per: <%= r.titolo %>">

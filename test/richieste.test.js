@@ -218,3 +218,21 @@ test('troppi invii in un\'ora vengono fermati', async () => {
   assert.match(ultimo.pagina, /Troppi invii/);
   assert.strictEqual(richieste.Q.file.all(rid).length, 40);
 });
+
+test('riservatezza: un cointestatario non vede i nomi dei file inviati dall\'altro', async () => {
+  const h = await auth.hashPassword(PW);
+  const id = Number(Utenti.inserisci.run('carlo@esempio.it', h, 'Carlo', null, 'cliente').lastInsertRowid);
+  Lavori.aggiungiCliente.run(lavoroA, id);
+  const rid = richieste.crea(Lavori.perId.get(lavoroA), 'Documenti personali', null);
+  const a = browser();
+  await a.accedi('anna@esempio.it');
+  await a.carica(`/area/lavori/${lavoroA}/richieste/${rid}/file`, [['patente-anna-riservata.pdf', PDF]], { da: paginaA() });
+  const c = browser();
+  await c.accedi('carlo@esempio.it');
+  const t = (await c.go(paginaA())).text;
+  assert.ok(!t.includes('patente-anna-riservata'));
+  assert.match(t, /Altri 1 file inviati da un altro intestatario/);
+  const f = richieste.Q.file.all(rid)[0];
+  await c.post(`/area/lavori/${lavoroA}/richieste/${rid}/file/${f.id}/elimina`, {}, paginaA());
+  assert.strictEqual(richieste.Q.file.all(rid).length, 1, 'non può togliere i file altrui');
+});

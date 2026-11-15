@@ -107,11 +107,19 @@
                 <input type="hidden" name="_csrf" value="<%= csrf %>">
                 <input type="hidden" name="pratica" value="<%= p.id %>">
                 <input type="file" name="file" multiple required aria-label="File da caricare in <%= p.cartella %>">
+                <label class="scelta"><input type="checkbox" name="pubblica" value="1"> Pubblica per il cliente</label>
                 <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Annuncia</label>
                 <% if (postaAttiva) { %><label class="scelta"><input type="checkbox" name="email" value="1"> Avvisa via email</label><% } %>
                 <button class="pulsante">Carica</button>
               </form>
               <%- include('../partials/file-pratica', { p, base, admin: true }) %>
+              <% if (p.file.length) { %>
+                <form method="post" action="<%= base %>/documenti/visibilita" class="azioni-richiesta">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="p" value="<%= p.id %>">
+                  <button class="link" name="azione" value="tutti">Pubblica tutti i documenti non sensibili di questa pratica</button>
+                </form>
+                <p class="nota">Il cliente vede solo i documenti segnati «Visibile al cliente». I file nuovi o modificati restano privati finché non li pubblichi; quelli con nomi che indicano dati sensibili (documenti d'identità, codice fiscale, procure, dati bancari o sanitari) non si possono pubblicare.</p>
+              <% } %>
             <% } else { %>
               <div class="avviso errore">
                 La cartella «<%= p.cartella %>» non c'è più sul NAS (forse è stata rinominata).

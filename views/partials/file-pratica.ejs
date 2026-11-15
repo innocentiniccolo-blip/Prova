@@ -16,6 +16,20 @@
           <% if (anteprimaPossibile(f.nome)) { %><a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener">Apri</a><% } %>
           <a href="<%= base %>/file?<%= q %>&scarica=1">Scarica</a>
           <% if (admin) { %>
+            <% if (f.sensibile) { %>
+              <span class="badge doc-scaduto" title="Il nome indica <%= f.sensibile %>: non può essere pubblicato">Sensibile: sempre privato</span>
+            <% } else { %>
+              <form method="post" action="<%= base %>/documenti/visibilita" class="in-linea">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <input type="hidden" name="p" value="<%= p.id %>">
+                <input type="hidden" name="f" value="<%= f.percorso %>">
+                <% if (f.pubblicato) { %>
+                  <span class="badge visibile">Visibile al cliente</span> <button class="link" name="azione" value="nascondi">Nascondi</button>
+                <% } else { %>
+                  <span class="badge privata"><%= f.cambiato ? 'Modificato: di nuovo privato' : 'Privato' %></span> <button class="link" name="azione" value="pubblica">Pubblica</button>
+                <% } %>
+              </form>
+            <% } %>
             <form method="post" action="<%= base %>/documenti/elimina" class="in-linea" data-conferma="Eliminare definitivamente «<%= f.nome %>» dal NAS?">
               <input type="hidden" name="_csrf" value="<%= csrf %>">
               <input type="hidden" name="p" value="<%= p.id %>">

@@ -69,3 +69,18 @@ test('import dalla cartella Sicurezza: crea imprese, collega al cantiere, attiva
   assert.strictEqual(Lavori.perId.get(id).sicurezza, 1);
   assert.strictEqual(await importaLavoro(Lavori.perId.get(id)), 0, 'secondo giro: nessun duplicato');
 });
+
+test('avvisi della sicurezza: si nascondono e tornano con un documento nuovo', async () => {
+  const id = Number(imprese.Q.inserisci.run({ ragione_sociale: 'Avvisi srl', piva: null, sede: null, pec: null, telefono: null, autonomo: 0, nota: null }).lastInsertRowid);
+  const l = Number(Lavori.inserisci.run({ codice: '2026-010', titolo: 'Avvisi', descrizione: null, indirizzo: null, stato: 'In corso', cartella: '2026-010 Avvisi', data_inizio: null, data_fine: null, visibile: 1 }).lastInsertRowid);
+  imprese.Q.collega.run(l, id, null, 1);
+  imprese.Q.impostaSicurezza.run(1, l);
+  const miei = () => imprese.avvisiScadenze().filter((a) => a.impresa.id === id);
+  assert.strictEqual(miei().length, 3);
+  imprese.nascondiAvviso(id, 'durc');
+  assert.strictEqual(miei().length, 2);
+  await imprese.salvaDocumento(id, { tipo: 'durc', rilascio: '2020-01-01' });
+  assert.strictEqual(miei().length, 3, 'un DURC nuovo (scaduto) fa ricomparire l\'avviso');
+  imprese.nascondiAvviso();
+  assert.strictEqual(miei().length, 0);
+});

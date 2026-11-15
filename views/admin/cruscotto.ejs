@@ -43,9 +43,12 @@
         <h2>Sicurezza cantiere: documenti da sistemare</h2>
         <ul class="semplice">
           <% avvisiImprese.forEach(a => { %>
-            <li><a href="/studio/imprese/<%= a.impresa.id %>"><%= a.impresa.ragione_sociale %></a> · <%= a.tipo %> <span class="badge doc-<%= a.stato.codice %>"><%= a.stato.testo %></span></li>
+            <li><a href="/studio/imprese/<%= a.impresa.id %>"><%= a.impresa.ragione_sociale %></a> · <%= a.tipo %> <span class="badge doc-<%= a.stato.codice %>"><%= a.stato.testo %></span>
+              <form method="post" action="/studio/avvisi-imprese/nascondi" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="impresa" value="<%= a.impresa.id %>"><input type="hidden" name="tipo" value="<%= a.chiaveTipo %>"><button class="link" title="Nascondi questo avviso">Nascondi</button></form></li>
           <% }) %>
         </ul>
+        <form method="post" action="/studio/avvisi-imprese/nascondi" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Nascondi tutti</button></form>
+        <small class="muto">Un avviso nascosto ricompare da solo se arriva un documento nuovo o cambia la scadenza.</small>
       </div>
     <% } %>
     <% if (proposteLavori.length || proposteStato.length) { %>

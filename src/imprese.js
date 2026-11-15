@@ -121,16 +121,42 @@ function impreseDelLavoro(lavoroId, { soloVisibili = false } = {}) {
     .map((i) => ({ ...i, riepilogo: riepilogo(i.id) }));
 }
 
+// Avvisi nascosti dallo studio: tornano da soli se arriva un documento nuovo o cambia lo stato
+db.exec(`CREATE TABLE IF NOT EXISTS avvisi_nascosti (
+  impresa_id INTEGER NOT NULL REFERENCES imprese(id) ON DELETE CASCADE,
+  tipo       TEXT NOT NULL,
+  chiave     TEXT NOT NULL,
+  PRIMARY KEY (impresa_id, tipo)
+)`);
+const QA = {
+  nascosto: db.prepare('SELECT chiave FROM avvisi_nascosti WHERE impresa_id = ? AND tipo = ?'),
+  nascondi: db.prepare(`INSERT INTO avvisi_nascosti (impresa_id, tipo, chiave) VALUES (?, ?, ?)
+    ON CONFLICT (impresa_id, tipo) DO UPDATE SET chiave = excluded.chiave`),
+};
+const chiaveAvviso = (doc, stato) => `${doc ? doc.id : 0}:${stato.codice}`;
+
 /** Documenti scaduti o in scadenza delle imprese nei cantieri attivi (per il cruscotto). */
 function avvisiScadenze() {
   const avvisi = [];
   for (const i of Q.inCantieriAttivi.all()) {
     const r = riepilogo(i.id);
     for (const t of PRINCIPALI) {
-      if (r[t].stato.codice !== 'ok') avvisi.push({ impresa: i, tipo: TIPI[t], stato: r[t].stato });
+      if (r[t].stato.codice === 'ok') continue;
+      const chiave = chiaveAvviso(r[t].doc, r[t].stato);
+      if (QA.nascosto.get(i.id, t)?.chiave === chiave) continue;
+      avvisi.push({ impresa: i, chiaveTipo: t, tipo: TIPI[t], stato: r[t].stato });
     }
   }
   return avvisi;
+}
+
+/** Nasconde un avviso (o tutti, senza argomenti) finché non cambia il documento o il suo stato. */
+function nascondiAvviso(impresaId, tipo) {
+  for (const a of avvisiScadenze()) {
+    if (impresaId && (a.impresa.id !== impresaId || a.chiaveTipo !== tipo)) continue;
+    const r = riepilogo(a.impresa.id)[a.chiaveTipo];
+    QA.nascondi.run(a.impresa.id, a.chiaveTipo, chiaveAvviso(r.doc, r.stato));
+  }
 }
 
 function percorsoFile(doc) {
@@ -210,6 +236,6 @@ async function eliminaFileLavoro(lavoroId) {
 module.exports = {
   TIPI_VERBALE, percorsoVerbale, salvaVerbale, eliminaVerbale, eliminaFileLavoro,
   TIPI, PRINCIPALI, CREDITI_MINIMI, Q,
-  scadenzaPredefinita, statoDocumento, riepilogo, impreseDelLavoro, avvisiScadenze,
+  scadenzaPredefinita, statoDocumento, riepilogo, impreseDelLavoro, avvisiScadenze, nascondiAvviso,
   percorsoFile, salvaDocumento, eliminaDocumento, eliminaImpresa,
 };

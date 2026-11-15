@@ -51,6 +51,14 @@ router.get('/', async (req, res, next) => {
   });
 });
 
+// Nasconde gli avvisi della sicurezza (uno o tutti): tornano se arriva un documento nuovo
+router.post('/avvisi-imprese/nascondi', auth.verificaCsrf, (req, res) => {
+  const id = Number(req.body.impresa) || null;
+  imprese.nascondiAvviso(id, id ? String(req.body.tipo || '') : null);
+  flash(req, 'ok', id ? 'Avviso nascosto: ricompare se arriva un documento nuovo o cambia la scadenza.' : 'Avvisi nascosti: ricompaiono se arriva un documento nuovo o cambia una scadenza.');
+  res.redirect('/studio');
+});
+
 // ---------- Accessi bloccati per troppi errori ----------
 router.post('/blocchi/sblocca', auth.verificaCsrf, (req, res) => {
   const ok = auth.sblocca(String(req.body.chiave || '').slice(0, 300));

@@ -85,6 +85,14 @@ async function scansionaNuoviLavori() {
       }
       return; // una cartella di lavoro non contiene altri lavori
     }
+    // Con Google Drive ogni cartella condivisa è un lavoro: si propone anche senza _cliente.txt
+    if (config.archivioSolaLettura && livello === 1 && rel) {
+      if (!q.lavoroPerCartella.get(rel) && !q.propostaPerCartella.get(rel)) {
+        const { lastInsertRowid } = q.inserisciProposta.run(rel, codiceETitolo(rel).titolo, '', null);
+        trovate.push(Number(lastInsertRowid));
+      }
+      return;
+    }
     if (livello >= 2) return;
     for (const v of voci) {
       if (v.isDirectory() && !v.name.startsWith('.') && !v.name.startsWith('_') && !v.name.startsWith('@') && v.name !== '#recycle') {
@@ -93,21 +101,28 @@ async function scansionaNuoviLavori() {
     }
   }
   await esplora('', 0);
-  if (AUTO) for (const id of trovate) await confermaLavoro(id, null).catch((e) => console.error(e));
+  if (AUTO) for (const id of trovate) if (q.proposta.get(id)?.email) await confermaLavoro(id, null).catch((e) => console.error(e));
   return trovate.length;
 }
 
 /** Crea lavoro e cliente da una proposta. Restituisce { lavoroId, clienteNuovo, emailInviata }. */
-async function confermaLavoro(id, req) {
-  const p = q.proposta.get(id);
-  if (!p || p.stato !== 'nuova') throw new Error('Proposta non trovata o già gestita');
+async function confermaLavoro(id, req, extra = {}) {
+  const p = { ...q.proposta.get(id) };
+  if (!p.id || p.stato !== 'nuova') throw new Error('Proposta non trovata o già gestita');
+  // Email e nome del cliente indicati al momento della conferma (cartelle senza _cliente.txt)
+  const email = String(extra.email || '').trim().toLowerCase();
+  if (email) {
+    if (!/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}$/i.test(email)) throw new Error('Email del cliente non valida');
+    p.email = email;
+    p.nome = String(extra.nome || '').trim().slice(0, 200) || p.nome;
+  }
   const { codice, titolo } = codiceETitolo(p.cartella);
-  let cliente = Utenti.perEmail.get(p.email);
+  let cliente = p.email ? Utenti.perEmail.get(p.email) : null;
   let clienteNuovo = false;
   db.exec('BEGIN');
   let lavoroId;
   try {
-    if (!cliente) {
+    if (!cliente && p.email) {
       const pw = auth.passwordTemporanea();
       const { lastInsertRowid } = Utenti.inserisci.run(p.email, await auth.hashPassword(pw), p.nome, p.telefono, 'cliente');
       cliente = Utenti.perId.get(Number(lastInsertRowid));
@@ -120,7 +135,7 @@ async function confermaLavoro(id, req) {
       cartella: p.cartella, data_inizio: null, data_fine: null, visibile: 1,
     });
     lavoroId = Number(r.lastInsertRowid);
-    Lavori.aggiungiCliente.run(lavoroId, cliente.id);
+    if (cliente) Lavori.aggiungiCliente.run(lavoroId, cliente.id);
     q.statoProposta.run('confermata', id);
     db.exec('COMMIT');
   } catch (e) {
@@ -128,12 +143,12 @@ async function confermaLavoro(id, req) {
     throw e;
   }
   let emailInviata = false;
-  if (clienteNuovo && cliente.ruolo === 'cliente') {
+  if (clienteNuovo && cliente && cliente.ruolo === 'cliente') {
     try { emailInviata = await notifiche.inviaBenvenuto(req, cliente); } catch (e) { console.error(e); }
   }
   // Prime proposte di stato dalle ricevute già presenti
   await scansionaRicevute(Lavori.perId.get(lavoroId)).catch((e) => console.error(e));
-  return { lavoroId, clienteNuovo, emailInviata };
+  return { lavoroId, clienteNuovo, emailInviata, conCliente: Boolean(cliente) };
 }
 
 function scartaLavoro(id) { q.statoProposta.run('scartata', id); }

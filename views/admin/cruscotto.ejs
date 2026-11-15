@@ -56,10 +56,12 @@
             <div>
               <strong>Nuovo lavoro trovato su <%= nomeArchivio %></strong><br>
               <span class="muto"><%= p.cartella %></span><br>
-              Cliente: <%= p.nome %> · <%= p.email %><% if (p.telefono) { %> · <%= p.telefono %><% } %>
+              <% if (p.email) { %>Cliente: <%= p.nome %> · <%= p.email %><% if (p.telefono) { %> · <%= p.telefono %><% } %><% } else { %><span class="muto">Cliente da indicare (facoltativo: puoi collegarlo anche dopo)</span><% } %>
             </div>
             <div class="azioni">
-              <form method="post" action="/studio/proposte-lavori/<%= p.id %>/conferma" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante piccolo">Conferma</button></form>
+              <form method="post" action="/studio/proposte-lavori/<%= p.id %>/conferma" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>">
+                <% if (!p.email) { %><input name="nome" maxlength="200" placeholder="Nome cliente" aria-label="Nome del cliente"> <input type="email" name="email" maxlength="200" placeholder="Email cliente" aria-label="Email del cliente"><% } %>
+                <button class="pulsante piccolo">Conferma</button></form>
               <form method="post" action="/studio/proposte-lavori/<%= p.id %>/scarta" class="in-linea" data-conferma="Scartare? La cartella non verrà più proposta."><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Scarta</button></form>
             </div>
           </div>

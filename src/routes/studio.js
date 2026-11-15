@@ -61,8 +61,8 @@ router.post('/blocchi/sblocca', auth.verificaCsrf, (req, res) => {
 // ---------- Automazioni: proposte da confermare ----------
 router.post('/proposte-lavori/:id/conferma', auth.verificaCsrf, async (req, res, next) => {
   try {
-    const r = await automazioni.confermaLavoro(Number(req.params.id), req);
-    flash(req, 'ok', 'Lavoro creato' + (r.clienteNuovo ? (r.emailInviata ? ' e email di benvenuto inviata al cliente.' : '. Cliente creato: comunica tu le credenziali (email non inviata).') : ' e collegato al cliente già esistente.'));
+    const r = await automazioni.confermaLavoro(Number(req.params.id), req, { email: req.body.email, nome: req.body.nome });
+    flash(req, 'ok', 'Lavoro creato' + (!r.conCliente ? '. Collega il cliente da «Modifica».' : r.clienteNuovo ? (r.emailInviata ? ' e email di benvenuto inviata al cliente.' : '. Cliente creato: comunica tu le credenziali (email non inviata).') : ' e collegato al cliente già esistente.'));
     res.redirect(`/studio/lavori/${r.lavoroId}`);
   } catch (e) { flash(req, 'errore', e.message); res.redirect('/studio'); }
 });

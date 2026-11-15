@@ -5,8 +5,8 @@
  * Ogni sottocartella del lavoro sul NAS è una pratica. Le cartelle nuove vengono
  * registrate da sole: quelle con un nome riconosciuto (config/studio.json →
  * pratiche.tipi, es. "CILA", "Accesso atti") sono visibili al cliente se
- * "visibiliDiDefault" è true; tutte le altre restano private finché lo studio
- * non le rende visibili dal pannello.
+ * "visibiliDiDefault" è true (di serie è false: ogni nuova cartella nasce privata e lo studio
+ * sceglie quali mostrare al cliente).
  */
 const config = require('./config');
 const pubblicati = require('./pubblicati');

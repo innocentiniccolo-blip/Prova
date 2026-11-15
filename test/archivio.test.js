@@ -37,14 +37,17 @@ test('riconosce i tipi di pratica nel nome della cartella', () => {
   assert.strictEqual(archivio.indiceTipo('CILAS'), -1);
 });
 
-test('sincronizza: tipi noti visibili, cartelle sconosciute private', async () => {
+test('sincronizza: tutte le cartelle nascono private, lo studio sceglie quali mostrare', async () => {
   const { lastInsertRowid } = Lavori.inserisci.run({
     codice: '2026-001', titolo: 'Ristrutturazione', descrizione: null, indirizzo: null, stato: 'In corso',
     cartella: lavoro.cartella, data_inizio: null, data_fine: null, visibile: 1,
   });
   const l = { ...lavoro, id: Number(lastInsertRowid) };
   const elenco = await pratiche.sincronizza(l);
-  assert.deepStrictEqual(elenco.map((p) => [p.cartella, p.visibile]), [['Accesso atti', 1], ['CILA', 1], ['Parcelle', 0]]);
+  assert.deepStrictEqual(elenco.map((p) => [p.cartella, p.visibile]), [['Accesso atti', 0], ['CILA', 0], ['Parcelle', 0]]);
+  for (const p of elenco.filter((x) => x.cartella !== 'Parcelle')) {
+    Pratiche.aggiorna.run({ id: p.id, lavoro_id: l.id, stato: p.stato, data: null, protocollo: null, nota: null, visibile: 1 });
+  }
 
   const perCliente = await pratiche.conDocumenti(l, { soloVisibili: true });
   assert.deepStrictEqual(perCliente.map((p) => p.cartella), ['Accesso atti', 'CILA']);

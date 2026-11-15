@@ -567,3 +567,32 @@ function creaPdf(righe) {
   out += `trailer\n<< /Size ${oggetti.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(out, 'latin1');
 }
+
+test('visibilità delle cartelle: nuove cartelle private, lo studio sceglie quali mostrare', async () => {
+  const pratiche = require('../src/pratiche');
+  const { Lavori: L } = require('../src/modelli');
+  const id = Number(L.inserisci.run({ codice: 'V-1', titolo: 'Scelta cartelle', descrizione: null, indirizzo: null, stato: 'In corso', cartella: 'V-1 Scelta', data_inizio: null, data_fine: null, visibile: 1 }).lastInsertRowid);
+  const anna = Utenti.perEmail.get('anna@esempio.it');
+  L.aggiungiCliente.run(id, anna.id);
+  for (const c of ['005-Nota Tecnica', '006-SCIA']) {
+    fs.mkdirSync(path.join(process.env.ARCHIVIO_DIR, 'V-1 Scelta', c, 'Presentazione'), { recursive: true });
+    fs.writeFileSync(path.join(process.env.ARCHIVIO_DIR, 'V-1 Scelta', c, 'Presentazione', `${c}.pdf`), '%PDF-1.4');
+  }
+  const elenco = await pratiche.sincronizza(L.perId.get(id));
+  assert.ok(elenco.every((p) => !p.visibile), 'anche i tipi riconosciuti (SCIA) nascono privati');
+  db.prepare('DELETE FROM tentativi_accesso').run();
+  const a = browser();
+  await a.accedi('anna@esempio.it', PW);
+  assert.ok(!(await a.go(`/area/lavori/${id}`)).text.includes('006-SCIA.pdf'));
+  const s = browser();
+  await s.accedi('studio@esempio.it', PW);
+  const scia = elenco.find((p) => p.cartella === '006-SCIA');
+  await s.post(`/studio/lavori/${id}/pratiche-visibili`, { visibili: String(scia.id) }, { da: `/studio/lavori/${id}` });
+  const t = (await a.go(`/area/lavori/${id}`)).text;
+  assert.ok(t.includes('006-SCIA.pdf') && !t.includes('Nota Tecnica'));
+  // Tolta la spunta: torna privata
+  await s.post(`/studio/lavori/${id}/pratiche-visibili`, {}, { da: `/studio/lavori/${id}` });
+  assert.ok(!(await a.go(`/area/lavori/${id}`)).text.includes('006-SCIA.pdf'));
+  // Il cliente non può cambiare la visibilità
+  assert.strictEqual((await a.post(`/studio/lavori/${id}/pratiche-visibili`, { visibili: String(scia.id) }, { da: `/area/lavori/${id}` })).status, 403);
+});

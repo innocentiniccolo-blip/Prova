@@ -64,7 +64,7 @@
       "Genio civile",
       "Deposito sismico"
     ],
-    "visibiliDiDefault": true,
+    "visibiliDiDefault": false,
     "stati": [
       "Da fare",
       "In corso",

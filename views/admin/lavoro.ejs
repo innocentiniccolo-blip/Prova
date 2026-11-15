@@ -63,7 +63,20 @@
             <input name="altro" maxlength="100" placeholder="oppure scrivi un altro nome" aria-label="Altro nome di pratica">
             <button class="pulsante">Aggiungi pratica</button>
           </form>
-          <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } %>
+          <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } else { %>
+            <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche-visibili" class="cartelle-visibili">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <h3>Cartelle visibili al cliente</h3>
+              <p class="nota">Spunta le cartelle che il cliente può vedere. Le cartelle nuove nascono sempre private.</p>
+              <ul>
+                <% pratiche.forEach(p => { %>
+                  <li><label class="scelta"><input type="checkbox" name="visibili" value="<%= p.id %>" <%= p.visibile ? 'checked' : '' %>> <%= p.cartella %></label>
+                    <% if (!p.esiste) { %><small class="muto"> (cartella non trovata)</small><% } %></li>
+                <% }) %>
+              </ul>
+              <button class="pulsante piccolo">Salva visibilità</button>
+            </form>
+          <% } %>
         </div>
 
         <% pratiche.forEach(p => { const base = `/studio/lavori/${lavoro.id}`; %>

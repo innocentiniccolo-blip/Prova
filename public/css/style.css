@@ -274,3 +274,7 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .testo-legale table { font-size: .9rem; }
 .testo-legale td, .testo-legale th { vertical-align: top; padding: .5rem .6rem; border-bottom: 1px solid var(--bordo); text-align: left; }
 .tabella-scorri { overflow-x: auto; }
+.cartelle-visibili { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--bordo); }
+.cartelle-visibili h3 { margin: 0 0 .2rem; font-size: 1rem; }
+.cartelle-visibili ul { list-style: none; padding: 0; margin: .6rem 0 1rem; columns: 2 16rem; }
+.cartelle-visibili li { padding: .2rem 0; break-inside: avoid; }

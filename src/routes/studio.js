@@ -309,6 +309,18 @@ router.post('/lavori/:id/documenti/elimina', trovaLavoro, auth.verificaCsrf, asy
 });
 
 // ---------- Pratiche (sottocartelle del lavoro) ----------
+// Sceglie in un colpo solo quali cartelle (pratiche) del lavoro vede il cliente
+router.post('/lavori/:id/pratiche-visibili', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const scelte = new Set([].concat(req.body.visibili || []).map(Number));
+  let n = 0;
+  for (const p of Pratiche.perLavoro.all(req.lavoro.id)) {
+    const v = scelte.has(p.id) ? 1 : 0;
+    if (v !== p.visibile) { Pratiche.aggiorna.run({ id: p.id, lavoro_id: p.lavoro_id, stato: p.stato, data: p.data, protocollo: p.protocollo, nota: p.nota, visibile: v }); n++; }
+  }
+  flash(req, 'ok', n ? `Visibilità aggiornata: ${scelte.size} cartell${scelte.size === 1 ? 'a visibile' : 'e visibili'} al cliente.` : 'Nessuna modifica.');
+  res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
+});
+
 router.post('/lavori/:id/pratiche', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
   try {
     const nome = testo(req.body.altro, 100) || testo(req.body.tipo, 100);

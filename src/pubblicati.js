@@ -34,7 +34,7 @@ const norm = (t) => ` ${String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLow
 
 // Parole nel nome (o nella sottocartella) che indicano un documento con dati sensibili
 const SENSIBILI = [
-  ['documento d\'identità', /\b(carta( di| d)? identita|carta identita|c i|ci|documento( di| d)? identita|doc( di)? identita|documenti( di| d)? identita|identita|doc( di| d)? ide[a-z]*|doc id|docide[a-z]*|doc ident[a-z]*|passaporto|patente|permesso( di)? soggiorno)\b/],
+  ['documento d\'identità', /\b(carta( di| d)? identita|carta identita|c i|ci|documento( di| d)? identita|doc( di)? identita|documenti( di| d)? identita|identita|doc( di| d)? ide[a-z]*|doc id|docide[a-z]*|doc ident[a-z]*|passaporto|documento (del )?(geometra|tecnico|professionista|progettista|direttore lavori)|doc (geometra|tecnico)|patente|permesso( di)? soggiorno)\b/],
   ['codice fiscale o tessera sanitaria', /\b(codice fiscale|cod fiscale|cod fisc|c f|cf|tessera sanitaria)\b/],
   ['dati sulla salute', /\b(certificato medico|medic[oa]|sanitari[oa]|invalidita|disabilita|legge 104|diagnosi|referto|asl referto)\b/],
   ['dati bancari o reddituali', /\b(iban|estratto conto|coordinate bancarie|busta paga|buste paga|cedolino|redditi|modello 730|mod 730|isee|cud|unico pf|mutuo)\b/],
@@ -45,6 +45,7 @@ const SENSIBILI = [
 
 /** Restituisce il motivo per cui il file sembra sensibile, oppure null. */
 function sembraSensibile(percorso) {
+  if (contenitore(percorso)) return 'un archivio o un\'email salvata, che può contenere documenti riservati';
   const n = norm(percorso.replace(/\.[a-z0-9]{1,5}$/i, ''));
   for (const [motivo, re] of SENSIBILI) if (re.test(n)) return motivo;
   return null;
@@ -53,6 +54,10 @@ function sembraSensibile(percorso) {
 // Tolleranza di 1 ms: la data letta dall'elenco è arrotondata, quella salvata è troncata
 // Cartella dei documenti da mostrare al cliente: tutto ciò che sta in una sottocartella "Presentazione"
 // della pratica (anche "01 - Presentazione", "Presentazione CILA"…) è visibile in automatico, tranne i file sensibili.
+// Contenitori che possono includere qualsiasi documento (email salvate, archivi): mai visibili al cliente
+const CONTENITORI = /\.(eml|msg|zip|rar|7z|tar|gz|tgz)$/i;
+const contenitore = (rel) => CONTENITORI.test(String(rel));
+
 function automatico(rel) {
   const parti = String(rel).split(/[\\/]/).slice(0, -1);
   return parti.some((c) => /\bpresentazione\b/.test(norm(c)));

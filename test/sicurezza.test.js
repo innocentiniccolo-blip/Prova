@@ -503,3 +503,67 @@ test('cartella Presentazione: i file sono visibili in automatico, i documenti d\
   fs.writeFileSync(path.join(pres, '_appunti.pdf'), 'x');
   assert.strictEqual(await apri('Presentazione/_appunti.pdf'), 404);
 });
+
+test('caso reale: integrazioni, doppioni firmati, email salvate e documento del geometra', async () => {
+  const pubblicati = require('../src/pubblicati');
+  const pratiche = require('../src/pratiche');
+  const automazioni = require('../src/automazioni');
+  const { PDFDocument, StandardFonts } = await (async () => { try { return require('pdf-lib'); } catch { return {}; } })();
+  for (const f of ['Documento Geometra.pdf', 'CONSEGNA SCIA - Rossi.eml', 'Elaborati.zip']) assert.ok(pubblicati.sembraSensibile(`Presentazione/${f}`), f);
+  assert.strictEqual(pratiche.nomeVisibile('006-SCIa prot.10912 del 07-07-2026'), 'SCIA prot.10912 del 07-07-2026');
+  // Lavoro con presentazione SCIA, due integrazioni e doppioni .p7m
+  const { Lavori: L } = require('../src/modelli');
+  const id = Number(L.inserisci.run({ codice: 'R-1', titolo: 'Caso reale', descrizione: null, indirizzo: null, stato: 'In corso', cartella: 'R-1 Reale', data_inizio: null, data_fine: null, visibile: 1 }).lastInsertRowid);
+  L.aggiungiCliente.run(id, Utenti.perEmail.get('anna@esempio.it').id);
+  const base = path.join(process.env.ARCHIVIO_DIR, 'R-1 Reale', '006-SCIa prot.10912');
+  for (const d of ['Presentazione', 'Integrazione Opere Strutturali', 'Integrazione L.13-89']) fs.mkdirSync(path.join(base, d), { recursive: true });
+  for (const f of ['Tav.U.pdf', 'Tav.U.pdf.p7m', 'Modello SCIA.pdf', 'Modello SCIA.pdf.p7m', 'Solo firmato.pdf.p7m', 'Documento Geometra.pdf', 'CONSEGNA SCIA.eml']) fs.writeFileSync(path.join(base, 'Presentazione', f), '%PDF-1.4 x');
+  // Ricevute come PDF veri (generati con il testo delle ricevute reali)
+  const ricevuta = async (rel, righe) => {
+    const pdfkit = require('pdfjs-dist/package.json'); // assicura che il lettore sia installato
+    assert.ok(pdfkit);
+    fs.writeFileSync(path.join(base, rel), creaPdf(righe));
+  };
+  await ricevuta('Ricevuta_Protocollo.PDF', ['Ricevuta di Protocollazione', 'CAVRIGLIA, li 07/07/2026', 'di un atto al protocollo comunale nella data odierna, alle ore 08:58 al numero 10912 avente come oggetto:']);
+  await ricevuta('Integrazione Opere Strutturali/Ricevuta_2026_11391.PDF', ['Ricevuta di Protocollazione', 'CAVRIGLIA, li 14/07/2026', 'alle ore 10:02 al numero 11391 avente come oggetto:']);
+  await ricevuta('Integrazione L.13-89/Ricevuta_2026_12148.PDF', ['Ricevuta di Protocollazione', 'CAVRIGLIA, li 28/07/2026', 'alle ore 15:34 al numero 12148 avente come oggetto:']);
+  await ricevuta('Integrazione Opere Strutturali/deposito.pdf', ['Settore SISMICA', 'Data Avviso 08/07/2026', 'Attestazione di deposito progetto', 'Progetto n. 181576 Protocollo n. 20260050560']);
+  await automazioni.scansionaRicevute(L.perId.get(id));
+  const pr = db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(id);
+  const prop = db.prepare("SELECT * FROM proposte_stato WHERE pratica_id = ? AND stato_proposta = 'nuova' ORDER BY id").all(pr.id);
+  assert.deepStrictEqual(prop.map((x) => [x.stato, x.protocollo, x.data]), [
+    ['Presentata', '10912', '2026-07-07'],
+    ['Integrazione presentata', '11391', '2026-07-14'],
+    ['Integrazione presentata', '12148', '2026-07-28'],
+  ], 'la ricevuta sismica dentro un\'integrazione non diventa una proposta per la SCIA');
+  for (const x of prop) await automazioni.applicaStato(x.id, null, { email: false });
+  const dopo = db.prepare('SELECT * FROM pratiche WHERE id = ?').get(pr.id);
+  assert.strictEqual(dopo.protocollo, '10912', 'il protocollo della SCIA resta quello della presentazione');
+  assert.strictEqual(dopo.stato, 'Presentata');
+  const diario = db.prepare('SELECT testo FROM aggiornamenti WHERE lavoro_id = ? ORDER BY id').all(id).map((r) => r.testo);
+  assert.match(diario[0], /presentata il 07\/07\/2026, protocollo n\. 10912/);
+  assert.match(diario[2], /integrazione presentata il 28\/07\/2026, protocollo n\. 12148/);
+  // Cosa vede il cliente nella presentazione
+  db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id);
+  const elenco = (await pratiche.conDocumenti(L.perId.get(id), { soloVisibili: true })).find((x) => x.id === pr.id).file.map((f) => f.nome).sort();
+  assert.deepStrictEqual(elenco, ['Modello SCIA.pdf', 'Solo firmato.pdf.p7m', 'Tav.U.pdf']);
+});
+
+// PDF minimo con testo leggibile, senza librerie esterne
+function creaPdf(righe) {
+  const testo = righe.map((r, i) => `BT /F1 11 Tf 40 ${780 - i * 16} Td (${r.replace(/[()\\]/g, '')}) Tj ET`).join('\n');
+  const oggetti = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${Buffer.byteLength(testo)} >>\nstream\n${testo}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+  let out = '%PDF-1.4\n';
+  const pos = [];
+  oggetti.forEach((o, i) => { pos.push(Buffer.byteLength(out)); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = Buffer.byteLength(out);
+  out += `xref\n0 ${oggetti.length + 1}\n0000000000 65535 f \n` + pos.map((p) => `${String(p).padStart(10, '0')} 00000 n \n`).join('');
+  out += `trailer\n<< /Size ${oggetti.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, 'latin1');
+}

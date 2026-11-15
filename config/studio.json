@@ -59,7 +59,10 @@
       "Inizio lavori",
       "Fine lavori",
       "Certificazioni finali",
-      "Agibilità"
+      "Agibilità",
+      "Nota tecnica",
+      "Genio civile",
+      "Deposito sismico"
     ],
     "visibiliDiDefault": true,
     "stati": [

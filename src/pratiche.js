@@ -17,7 +17,11 @@ const opzioni = config.studio.pratiche;
 
 /** Nome mostrato al cliente: senza la numerazione iniziale ("006 - SCIA" → "SCIA"). */
 function nomeVisibile(cartella) {
-  return cartella.replace(/^\s*\d+\s*[-–._)]\s*/, '').trim() || cartella;
+  let nome = cartella.replace(/^\s*\d+\s*[-–._)]\s*/, '').trim() || cartella;
+  for (const t of archivio.tipiPratica) {
+    if (t.length <= 5 && t === t.toUpperCase()) nome = nome.replace(new RegExp(`(^|[^A-Za-z])${t}(?=$|[^A-Za-z])`, 'i'), `$1${t}`);
+  }
+  return nome;
 }
 
 /** Allinea il database alle sottocartelle presenti sul NAS e restituisce le pratiche ordinate. */
@@ -45,7 +49,12 @@ async function conDocumenti(lavoro, { soloVisibili = false } = {}) {
   for (const p of elenco) {
     const file = p.esiste ? pubblicati.annota(p, await archivio.documentiPratica(lavoro, p.cartella)) : [];
     // Il cliente vede solo i documenti pubblicati uno per uno dallo studio
-    p.file = soloVisibili ? file.filter((f) => f.pubblicato) : file;
+    if (soloVisibili) {
+      const visibili = file.filter((f) => f.pubblicato);
+      const percorsi = new Set(visibili.map((f) => f.percorso.toLowerCase()));
+      // «Tavola.pdf.p7m» accanto a «Tavola.pdf»: al cliente basta il PDF, che apre senza programmi di firma
+      p.file = visibili.filter((f) => !(/\.p7m$/i.test(f.percorso) && percorsi.has(f.percorso.slice(0, -4).toLowerCase())));
+    } else p.file = file;
   }
   return elenco;
 }

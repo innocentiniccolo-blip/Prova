@@ -54,6 +54,12 @@ for (const [nome, file, testo, atteso] of casi) {
   });
 }
 
+test('riconosce: attestazione di deposito sismico (Regione Toscana, PORTOS)', () => {
+  const t = 'Direzione Difesa del suolo e Protezione Civile\nSettore SISMICA\nData Avviso 08/07/2026\nAttestazione di deposito progetto\nComune: Cavriglia\nProgetto n.\n181576 Protocollo n.\n20260050560 Al Committente';
+  const { regola, ...r } = riconosci(t, '0000851825_VI_B_977723_protocollato.pdf');
+  assert.deepStrictEqual(r, { tipo: 'sismica', stato: 'Completata', data: '2026-07-08', protocollo: '20260050560' });
+});
+
 test('ignora documenti che non sono ricevute', () => {
   assert.strictEqual(riconosci('Ricevuta di pagamento pagoPA importo 46,00 euro', 'pagopa-ricevuta.pdf'), null);
   assert.strictEqual(riconosci('RELAZIONE TECNICA La presente relazione...', 'Relazione.pdf'), null);

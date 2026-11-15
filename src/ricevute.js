@@ -95,6 +95,15 @@ const REGOLE = [
     }),
   },
   {
+    nome: 'Regione Toscana – deposito sismico (PORTOS)',
+    test: (t) => /Settore\s*SISMICA/i.test(t) && /Attestazione\s*di\s*deposito/i.test(t),
+    estrai: (t) => ({
+      tipo: 'sismica', stato: 'Completata',
+      data: isoData(trova(t, new RegExp(`Data\\s*Avviso\\s*${D}`, 'i'))),
+      protocollo: trova(t, /Protocollo\s*n\.?\s*(\d{6,})/i),
+    }),
+  },
+  {
     nome: 'SUAP – attestazione di presentazione',
     test: (t) => /ATTESTAZIONE\s*DI\s*PRESENTAZIONE/i.test(t) && /presentato\s*in\s*data/i.test(t),
     estrai: (t) => ({
@@ -144,7 +153,7 @@ const REGOLE = [
     test: (t) => /Ricevuta\s*di\s*(Protocollazione|presentazione\s*di\s*atto\s*al\s*protocollo)/i.test(t),
     estrai: (t) => ({
       tipo: 'comune', stato: 'Presentata',
-      data: isoData(trova(t, new RegExp(`lì\\s*,?\\s*${D}`, 'i')) || trova(t, new RegExp(`in\\s*data\\s*${D}`, 'i'))),
+      data: isoData(trova(t, new RegExp(`\\bl[iìí'’]\\s*,?\\s*${D}`, 'i')) || trova(t, new RegExp(`in\\s*data\\s*${D}`, 'i'))),
       protocollo: trova(t, /al\s*numero\s*(\d[\d./]*)/i),
     }),
   },

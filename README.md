@@ -134,7 +134,7 @@ Senza variabili d'ambiente, i dati vanno in `./dati/` (ignorata da git).
 
 ## Sicurezza (in breve)
 
-- Password salvate con bcrypt; massimo 8 tentativi di login ogni 15 minuti.
+- Password salvate con bcrypt; dopo 5 errori l'accesso è bloccato per un'ora e lo studio riceve un'email di avviso.
 - Sessioni salvate su SQLite, cookie `httpOnly`/`SameSite`, token CSRF su tutti i moduli.
 - Ogni cliente vede solo i lavori a cui è associato. Vede solo le pratiche rese visibili. I percorsi dei file sono controllati per impedire l'uscita dalla cartella della pratica (anche tramite `../` o link simbolici).
 - Se disattivi un cliente o gli reimposti la password, le sue sessioni aperte vengono chiuse subito.

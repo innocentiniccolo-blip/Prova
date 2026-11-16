@@ -39,6 +39,21 @@ app.use(session({
   cookie: { httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, maxAge: 8 * 60 * 60 * 1000 },
 }));
 
+// Chiusura per inattività: la sessione si chiude se non c'è attività da troppo tempo
+app.use((req, res, next) => {
+  const sess = req.session;
+  if (!sess || !sess.utenteId) return next();
+  const ora = Date.now();
+  if (sess.ultimaAttivita && ora - sess.ultimaAttivita > config.inattivitaMs) {
+    return req.session.destroy(() => {
+      res.clearCookie('studio.sid');
+      res.redirect('/accedi?scaduta=1');
+    });
+  }
+  sess.ultimaAttivita = ora;
+  next();
+});
+
 app.use(auth.csrf);
 app.use(auth.caricaUtente);
 app.use((req, res, next) => {

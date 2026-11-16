@@ -13,6 +13,8 @@ const config = {
   datiDir: path.resolve(process.env.DATI_DIR || path.join(root, 'dati', 'app')),
   sessionSecret: process.env.SESSION_SECRET || '',
   cookieSecure: process.env.COOKIE_SECURE === 'true',
+  // Chiusura automatica dopo questi minuti senza attività (es. browser chiuso, telefono in tasca)
+  inattivitaMs: (Number(process.env.INATTIVITA_MINUTI) || 30) * 60 * 1000,
   trustProxy: process.env.TRUST_PROXY || false,
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB) || 200,
   produzione: process.env.NODE_ENV === 'production',

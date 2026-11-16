@@ -70,7 +70,8 @@ router.get('/privacy', (req, res) => res.render('privacy', { titolo: 'Privacy e 
 
 router.get('/accedi', (req, res) => {
   if (req.utente) return res.redirect(req.utente.ruolo === 'admin' ? '/studio' : '/area');
-  res.render('accedi', { titolo: 'Area clienti', errore: null, email: '', postaAttiva: posta.attiva });
+  const errore = req.query.scaduta ? `Sessione chiusa per inattività (dopo ${Math.round(config.inattivitaMs / 60000)} minuti senza attività). Accedi di nuovo.` : null;
+  res.render('accedi', { titolo: 'Area clienti', errore, email: '', postaAttiva: posta.attiva });
 });
 
 router.post('/accedi', auth.verificaCsrf, (req, res, next) => auth.inFila(`accedi|${req.ip}`, async () => {

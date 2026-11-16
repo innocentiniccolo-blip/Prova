@@ -152,6 +152,28 @@
           </details>
         <% }) %>
 
+        <div class="carta" id="scheda">
+          <h2>Scheda immobile</h2>
+          <p class="nota">Per agenzie e proprietari: in una riga se l'immobile è pronto per la vendita. Accesso atti, sanatorie e APE completato si aggiornano da soli dalle pratiche. Con la scheda attiva compare anche il pulsante «Scarica il fascicolo», con tutti i documenti visibili a quel ruolo.</p>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/scheda" class="modulo">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <label class="scelta"><input type="checkbox" name="attiva" value="1" <%= scheda.attiva ? 'checked' : '' %>> Mostra la scheda immobile nell'area clienti</label>
+            <div class="riga-campi">
+              <label>Conformità urbanistica
+                <select name="urbanistica"><% Object.entries(SCHEDA.URBANISTICA).forEach(([k, v]) => { %><option value="<%= k %>" <%= scheda.urbanistica === k ? 'selected' : '' %>><%= v.testo %></option><% }) %></select></label>
+              <label>Conformità catastale
+                <select name="catastale"><% Object.entries(SCHEDA.CATASTALE).forEach(([k, v]) => { %><option value="<%= k %>" <%= scheda.catastale === k ? 'selected' : '' %>><%= v.testo %></option><% }) %></select></label>
+            </div>
+            <div class="riga-campi">
+              <label>APE – classe
+                <select name="apeClasse"><option value="">—</option><% SCHEDA.CLASSI_APE.forEach(c => { %><option value="<%= c %>" <%= scheda.apeClasse === c ? 'selected' : '' %>><%= c %></option><% }) %></select></label>
+              <label>APE – valido fino al <input type="date" name="apeScadenza" value="<%= scheda.apeScadenza %>"></label>
+            </div>
+            <label>Nota per agenzia e proprietario (facoltativa) <textarea name="nota" rows="2" maxlength="1000"><%= scheda.nota %></textarea></label>
+            <button class="pulsante piccolo">Salva scheda</button>
+          </form>
+        </div>
+
         <div class="carta" id="richieste">
           <h2>Documenti richiesti al cliente</h2>
           <p class="muto">Chiedi al cliente un documento: lo carica dalla sua area e lo trovi nella cartella del lavoro, in «Documenti dal cliente». Ti arriva un'email quando invia qualcosa.</p>
@@ -306,7 +328,10 @@
       <aside>
         <div class="carta">
           <h2>Clienti con accesso</h2>
-          <% if (!clienti.length) { %><p class="vuoto">Nessun cliente associato.</p><% } %>
+          <% if (!clienti.length && !aziende.length) { %><p class="vuoto">Nessun cliente associato.</p><% } %>
+          <% if (aziende.length) { %><ul class="semplice"><% aziende.forEach(a => { %><li><a href="/studio/aziende/<%= a.id %>"><%= a.nome %></a> <span class="badge"><%= (RUOLI[a.ruolo] || RUOLI.agenzia).nome %></span>
+            <% if (a.consenso_il) { %><br><small class="muto">Consenso del proprietario registrato il <%= data(a.consenso_il) %></small><% } %>
+            <br><a class="link" href="/area/lavori/<%= lavoro.id %>?come=<%= a.ruolo %>">Vedi come <%= a.ruolo %></a></li><% }) %></ul><% } %>
           <ul class="semplice">
             <% clienti.forEach(c => { %><li><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a> <span class="badge"><%= (RUOLI[c.ruolo] || RUOLI.proprietario).nome %></span><br><small class="muto"><%= c.email %></small>
               <% if (c.ruolo === 'agenzia' && c.consenso_il) { %><br><small class="muto">Consenso del proprietario registrato il <%= data(c.consenso_il) %></small><% } %>

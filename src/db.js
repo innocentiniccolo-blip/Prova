@@ -175,5 +175,25 @@ if (!colonne('lavori_clienti').includes('ruolo')) db.exec("ALTER TABLE lavori_cl
 if (!colonne('lavori_clienti').includes('consenso_il')) db.exec('ALTER TABLE lavori_clienti ADD COLUMN consenso_il TEXT');
 if (!colonne('pratiche').includes('visibile_agenzia')) db.exec('ALTER TABLE pratiche ADD COLUMN visibile_agenzia INTEGER NOT NULL DEFAULT 0');
 if (!colonne('pratiche').includes('visibile_impresa')) db.exec('ALTER TABLE pratiche ADD COLUMN visibile_impresa INTEGER NOT NULL DEFAULT 0');
+// Aziende clienti (agenzie immobiliari, imprese) con più persone che accedono
+db.exec(`CREATE TABLE IF NOT EXISTS aziende (
+  id        INTEGER PRIMARY KEY,
+  nome      TEXT NOT NULL,
+  tipo      TEXT NOT NULL DEFAULT 'agenzia' CHECK (tipo IN ('agenzia','impresa')),
+  piva      TEXT,
+  email     TEXT,
+  telefono  TEXT,
+  creato_il TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS lavori_aziende (
+  lavoro_id   INTEGER NOT NULL REFERENCES lavori(id) ON DELETE CASCADE,
+  azienda_id  INTEGER NOT NULL REFERENCES aziende(id) ON DELETE CASCADE,
+  ruolo       TEXT NOT NULL DEFAULT 'agenzia',
+  consenso_il TEXT,
+  PRIMARY KEY (lavoro_id, azienda_id)
+);`);
+if (!colonne('utenti').includes('azienda_id')) db.exec('ALTER TABLE utenti ADD COLUMN azienda_id INTEGER REFERENCES aziende(id) ON DELETE SET NULL');
+// Scheda immobile (per agenzie e proprietari): conformità e APE
+if (!colonne('lavori').includes('scheda')) db.exec('ALTER TABLE lavori ADD COLUMN scheda TEXT');
 
 module.exports = db;

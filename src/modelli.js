@@ -9,12 +9,16 @@ const Lavori = {
     LEFT JOIN utenti u ON u.id = lc.utente_id
     GROUP BY l.id ORDER BY l.aggiornato_il DESC`),
   perId: db.prepare('SELECT * FROM lavori WHERE id = ?'),
+  // Lavori del cliente: collegati a lui direttamente o alla sua azienda (agenzia, impresa)
   perCliente: db.prepare(`
-    SELECT l.* FROM lavori l JOIN lavori_clienti lc ON lc.lavoro_id = l.id
-    WHERE lc.utente_id = ? AND l.visibile = 1 ORDER BY l.aggiornato_il DESC`),
+    SELECT l.* FROM lavori l WHERE l.visibile = 1 AND (
+      EXISTS (SELECT 1 FROM lavori_clienti lc WHERE lc.lavoro_id = l.id AND lc.utente_id = :u)
+      OR EXISTS (SELECT 1 FROM lavori_aziende la JOIN utenti u ON u.azienda_id = la.azienda_id WHERE la.lavoro_id = l.id AND u.id = :u))
+    ORDER BY l.aggiornato_il DESC`),
   delCliente: db.prepare(`
-    SELECT l.* FROM lavori l JOIN lavori_clienti lc ON lc.lavoro_id = l.id
-    WHERE l.id = ? AND lc.utente_id = ? AND l.visibile = 1`),
+    SELECT l.* FROM lavori l WHERE l.id = :l AND l.visibile = 1 AND (
+      EXISTS (SELECT 1 FROM lavori_clienti lc WHERE lc.lavoro_id = l.id AND lc.utente_id = :u)
+      OR EXISTS (SELECT 1 FROM lavori_aziende la JOIN utenti u ON u.azienda_id = la.azienda_id WHERE la.lavoro_id = l.id AND u.id = :u))`),
   inserisci: db.prepare(`
     INSERT INTO lavori (codice, titolo, descrizione, indirizzo, stato, cartella, data_inizio, data_fine, visibile)
     VALUES (:codice, :titolo, :descrizione, :indirizzo, :stato, :cartella, :data_inizio, :data_fine, :visibile)`),
@@ -25,7 +29,17 @@ const Lavori = {
   tocca: db.prepare("UPDATE lavori SET aggiornato_il = datetime('now') WHERE id = ?"),
   elimina: db.prepare('DELETE FROM lavori WHERE id = ?'),
   clienti: db.prepare('SELECT u.id, u.nome, u.email, u.attivo, lc.ruolo, lc.consenso_il FROM utenti u JOIN lavori_clienti lc ON lc.utente_id = u.id WHERE lc.lavoro_id = ? ORDER BY u.nome'),
-  ruoloCliente: db.prepare('SELECT ruolo, consenso_il FROM lavori_clienti WHERE lavoro_id = ? AND utente_id = ?'),
+  ruoloCliente: db.prepare(`SELECT ruolo, consenso_il FROM lavori_clienti WHERE lavoro_id = :l AND utente_id = :u
+    UNION ALL SELECT la.ruolo, la.consenso_il FROM lavori_aziende la JOIN utenti u ON u.azienda_id = la.azienda_id
+    WHERE la.lavoro_id = :l AND u.id = :u LIMIT 1`),
+  // Chi riceve gli avvisi: clienti diretti e persone delle aziende collegate, ciascuno con il suo ruolo
+  destinatari: db.prepare(`SELECT u.id, u.nome, u.email, u.attivo, lc.ruolo FROM utenti u JOIN lavori_clienti lc ON lc.utente_id = u.id WHERE lc.lavoro_id = :l
+    UNION SELECT u.id, u.nome, u.email, u.attivo, la.ruolo FROM utenti u JOIN lavori_aziende la ON la.azienda_id = u.azienda_id WHERE la.lavoro_id = :l
+      AND u.id NOT IN (SELECT utente_id FROM lavori_clienti WHERE lavoro_id = :l)`),
+  aziende: db.prepare(`SELECT a.*, la.ruolo, la.consenso_il FROM aziende a JOIN lavori_aziende la ON la.azienda_id = a.id WHERE la.lavoro_id = ? ORDER BY a.nome COLLATE NOCASE`),
+  rimuoviAziende: db.prepare('DELETE FROM lavori_aziende WHERE lavoro_id = ?'),
+  aggiungiAzienda: db.prepare('INSERT INTO lavori_aziende (lavoro_id, azienda_id, ruolo, consenso_il) VALUES (?, ?, ?, ?)'),
+  impostaScheda: db.prepare("UPDATE lavori SET scheda = ?, aggiornato_il = datetime('now') WHERE id = ?"),
   aggiungiConRuolo: db.prepare(`INSERT INTO lavori_clienti (lavoro_id, utente_id, ruolo, consenso_il) VALUES (?, ?, ?, ?)
     ON CONFLICT (lavoro_id, utente_id) DO UPDATE SET ruolo = excluded.ruolo, consenso_il = excluded.consenso_il`),
   rimuoviClienti: db.prepare('DELETE FROM lavori_clienti WHERE lavoro_id = ?'),
@@ -38,11 +52,24 @@ const Lavori = {
   },
 };
 
+const Aziende = {
+  tutte: db.prepare(`SELECT a.*, (SELECT COUNT(*) FROM utenti u WHERE u.azienda_id = a.id) AS n_persone,
+    (SELECT COUNT(*) FROM lavori_aziende la WHERE la.azienda_id = a.id) AS n_lavori FROM aziende a ORDER BY a.nome COLLATE NOCASE`),
+  perId: db.prepare('SELECT * FROM aziende WHERE id = ?'),
+  inserisci: db.prepare('INSERT INTO aziende (nome, tipo, piva, email, telefono) VALUES (:nome, :tipo, :piva, :email, :telefono)'),
+  aggiorna: db.prepare('UPDATE aziende SET nome = :nome, tipo = :tipo, piva = :piva, email = :email, telefono = :telefono WHERE id = :id'),
+  elimina: db.prepare('DELETE FROM aziende WHERE id = ?'),
+  persone: db.prepare("SELECT * FROM utenti WHERE azienda_id = ? AND ruolo = 'cliente' ORDER BY nome"),
+  lavori: db.prepare('SELECT l.id, l.codice, l.titolo, l.stato, la.ruolo, la.consenso_il FROM lavori l JOIN lavori_aziende la ON la.lavoro_id = l.id WHERE la.azienda_id = ? ORDER BY l.codice DESC'),
+};
+
 const Utenti = {
   clienti: db.prepare(`
-    SELECT u.*, COUNT(lc.lavoro_id) AS n_lavori FROM utenti u
+    SELECT u.*, COUNT(lc.lavoro_id) AS n_lavori, a.nome AS azienda FROM utenti u
     LEFT JOIN lavori_clienti lc ON lc.utente_id = u.id
+    LEFT JOIN aziende a ON a.id = u.azienda_id
     WHERE u.ruolo = 'cliente' GROUP BY u.id ORDER BY u.nome`),
+  impostaAzienda: db.prepare('UPDATE utenti SET azienda_id = ? WHERE id = ?'),
   perId: db.prepare('SELECT * FROM utenti WHERE id = ?'),
   perEmail: db.prepare('SELECT * FROM utenti WHERE email = ?'),
   contaAdmin: db.prepare("SELECT COUNT(*) AS n FROM utenti WHERE ruolo = 'admin'"),
@@ -85,4 +112,4 @@ const Accessi = {
     ORDER BY a.creato_il DESC LIMIT 50`),
 };
 
-module.exports = { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi };
+module.exports = { Aziende, db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi };

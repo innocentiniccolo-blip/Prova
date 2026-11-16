@@ -1,0 +1,69 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore medio">
+    <a class="indietro" href="/studio/aziende">← Agenzie e aziende</a>
+    <h1><%= titolo %></h1>
+    <% if (typeof credenziali !== 'undefined' && credenziali) { %>
+      <div class="avviso ok credenziali">
+        <strong>Credenziali da comunicare</strong> (visibili solo ora):
+        <pre id="cred">Indirizzo: <%= studio.nome %> – area clienti
+Email: <%= credenziali.email %>
+Password: <%= credenziali.password %></pre>
+        <button type="button" class="pulsante piccolo" data-copia="#cred">Copia</button>
+      </div>
+    <% } %>
+    <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+    <form method="post" action="<%= azienda.id ? `/studio/aziende/${azienda.id}` : '/studio/aziende' %>" class="modulo carta">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Ragione sociale <input name="nome" value="<%= azienda.nome || '' %>" required maxlength="200"></label>
+      <div class="riga-campi">
+        <label>Tipo
+          <select name="tipo">
+            <option value="agenzia" <%= azienda.tipo !== 'impresa' ? 'selected' : '' %>>Agenzia immobiliare</option>
+            <option value="impresa" <%= azienda.tipo === 'impresa' ? 'selected' : '' %>>Impresa</option>
+          </select></label>
+        <label>Partita IVA <input name="piva" value="<%= azienda.piva || '' %>" maxlength="20"></label>
+      </div>
+      <div class="riga-campi">
+        <label>Email <input type="email" name="email" value="<%= azienda.email || '' %>"></label>
+        <label>Telefono <input name="telefono" value="<%= azienda.telefono || '' %>"></label>
+      </div>
+      <button class="pulsante"><%= azienda.id ? 'Salva' : 'Crea azienda' %></button>
+    </form>
+
+    <% if (azienda.id) { %>
+      <div class="carta">
+        <h2>Persone che accedono</h2>
+        <p class="nota">Ognuna ha il suo accesso e vede i lavori collegati all'azienda. Se una persona lascia l'azienda, toglila qui: perde subito l'accesso.</p>
+        <% if (!persone.length) { %><p class="vuoto">Nessuna persona.</p><% } %>
+        <ul class="semplice">
+          <% persone.forEach(u => { %>
+            <li><a href="/studio/clienti/<%= u.id %>"><%= u.nome %></a> <small class="muto"><%= u.email %></small>
+              <form method="post" action="/studio/aziende/<%= azienda.id %>/persone/<%= u.id %>/togli" class="in-linea" data-conferma="Togliere <%= u.nome %> dall'azienda?"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Togli</button></form></li>
+          <% }) %>
+        </ul>
+        <form method="post" action="/studio/aziende/<%= azienda.id %>/persone" class="modulo">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <div class="riga-campi">
+            <label>Nome e cognome <input name="nome" required maxlength="200"></label>
+            <label>Email (per accedere) <input type="email" name="email" required></label>
+          </div>
+          <% if (postaAttiva) { %><label class="scelta"><input type="checkbox" name="benvenuto" value="1" checked> Invia l'email di benvenuto con il link per scegliere la password</label><% } %>
+          <button class="pulsante piccolo">Aggiungi persona</button>
+        </form>
+      </div>
+      <div class="carta">
+        <h2>Lavori collegati</h2>
+        <% if (!lavori.length) { %><p class="vuoto">Nessuno. Collega l'azienda dalla pagina «Modifica» di un lavoro.</p><% } %>
+        <ul class="semplice">
+          <% lavori.forEach(l => { %><li><a href="/studio/lavori/<%= l.id %>"><%= l.codice %> – <%= l.titolo %></a> <span class="badge"><%= (RUOLI[l.ruolo] || RUOLI.agenzia).nome %></span><% if (l.consenso_il) { %> <small class="muto">consenso del proprietario: <%= data(l.consenso_il) %></small><% } %></li><% }) %>
+        </ul>
+      </div>
+      <div class="carta azioni">
+        <form method="post" action="/studio/aziende/<%= azienda.id %>/elimina" class="in-linea" data-conferma="Eliminare l'azienda? Le persone restano tra i clienti ma perdono l'accesso ai lavori dell'azienda.">
+          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina azienda</button></form>
+      </div>
+    <% } %>
+  </div>
+</section>
+<%- include('../partials/piede') %>

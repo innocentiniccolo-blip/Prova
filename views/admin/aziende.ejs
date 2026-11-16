@@ -1,0 +1,26 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Agenzie e aziende</h1>
+      <span><a class="pulsante" href="/studio/aziende/nuova?tipo=agenzia">+ Agenzia immobiliare</a> <a class="pulsante secondario" href="/studio/aziende/nuova?tipo=impresa">+ Impresa</a></span>
+    </div>
+    <p class="nota">Un'azienda raggruppa più persone (agenti, impiegati): colleghi l'azienda a un lavoro una volta sola e tutte le sue persone lo vedono con il ruolo scelto. Le imprese della sicurezza cantiere si gestiscono in «Imprese».</p>
+    <div class="carta">
+      <% if (!aziende.length) { %><p class="vuoto">Nessuna azienda.</p><% } else { %>
+      <div class="tabella-scorri">
+      <table class="tabella">
+        <thead><tr><th>Nome</th><th>Tipo</th><th>Persone</th><th>Lavori</th><th>Email</th></tr></thead>
+        <tbody>
+          <% aziende.forEach(a => { %>
+            <tr><td><a href="/studio/aziende/<%= a.id %>"><%= a.nome %></a></td><td><%= a.tipo === 'impresa' ? 'Impresa' : 'Agenzia immobiliare' %></td>
+              <td><%= a.n_persone %></td><td><%= a.n_lavori %></td><td><%= a.email || '—' %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

@@ -55,6 +55,17 @@
           <% }) %>
           <p class="nota">Puoi inviare PDF, foto (JPG, PNG, HEIC) e documenti Word o Excel, fino a <%= limitiRichieste.fileMb %> MB per file e <%= limitiRichieste.filePerInvio %> file per volta. Dal telefono puoi anche fotografare il documento.</p>
         <% } %>
+        <% if (typeof schedaImmobile !== 'undefined' && schedaImmobile) { %>
+          <div class="carta scheda-immobile" id="scheda">
+            <h2>Scheda immobile <% if (schedaImmobile.pronto) { %><span class="badge tono-ok">Documentazione completa</span><% } %></h2>
+            <dl class="scheda-righe">
+              <% schedaImmobile.righe.forEach(r => { %><dt><%= r.voce %></dt><dd><span class="pallino tono-<%= r.tono %>"></span><%= r.testo %></dd><% }) %>
+            </dl>
+            <% if (schedaImmobile.nota) { %><p class="a-capo nota"><%= schedaImmobile.nota %></p><% } %>
+            <% if (fascicoloDisponibile) { %><a class="pulsante" href="/area/lavori/<%= lavoro.id %>/fascicolo.zip<%= utente && utente.ruolo === 'admin' ? `?come=${ruoloVista}` : '' %>">Scarica il fascicolo (ZIP)</a>
+              <small class="muto">Tutti i documenti di questa pagina in un unico file, pronto da inoltrare al notaio.</small><% } %>
+          </div>
+        <% } %>
         <h2 class="titolo-sezione" id="pratiche">Le pratiche</h2>
         <% if (!pratiche.length) { %>
           <div class="carta"><p class="vuoto">Lo studio aggiungerà qui le pratiche man mano che il lavoro procede.</p></div>

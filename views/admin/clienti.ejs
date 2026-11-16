@@ -14,7 +14,7 @@
         <tbody>
           <% clienti.forEach(c => { %>
             <tr>
-              <td><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><% if (!c.attivo) { %> <span class="badge stato-sospeso">disattivato</span><% } %></td>
+              <td><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><% if (c.azienda) { %> <small class="muto">· <%= c.azienda %></small><% } %><% if (!c.attivo) { %> <span class="badge stato-sospeso">disattivato</span><% } %></td>
               <td><%= c.email %></td>
               <td><%= c.telefono || '—' %></td>
               <td><%= c.n_lavori %></td>

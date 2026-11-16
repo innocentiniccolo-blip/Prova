@@ -15,6 +15,7 @@ const notifiche = require('../notifiche');
 const { Lavori, Pratiche, Aggiornamenti, Accessi, Utenti } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 const ruoli = require('../ruoli');
+const scheda = require('../scheda');
 
 const router = express.Router();
 router.use(auth.richiediLogin);
@@ -29,19 +30,19 @@ const caricaCliente = multer({
 /** Lo staff può vedere l'area come la vedrebbe un cliente (anteprima). */
 function lavoroAccessibile(req) {
   const id = Number(req.params.id);
-  const lavoro = req.utente.ruolo === 'admin' ? Lavori.perId.get(id) : Lavori.delCliente.get(id, req.utente.id);
+  const lavoro = req.utente.ruolo === 'admin' ? Lavori.perId.get(id) : Lavori.delCliente.get({ l: id, u: req.utente.id });
   if (!lavoro) return null;
   // Ruolo con cui si vede il lavoro: quello del collegamento; lo studio in anteprima può scegliere (?come=agenzia)
   const come = req.query.come || req.body?.come;
   lavoro.ruoloVista = req.utente.ruolo === 'admin'
     ? ruoli.ruoloValido(come)
-    : ruoli.ruoloValido(Lavori.ruoloCliente.get(id, req.utente.id)?.ruolo);
+    : ruoli.ruoloValido(Lavori.ruoloCliente.get({ l: id, u: req.utente.id })?.ruolo);
   return lavoro;
 }
 
 router.get('/', (req, res) => {
   if (req.utente.ruolo === 'admin') return res.redirect('/studio');
-  const lavori = Lavori.perCliente.all(req.utente.id);
+  const lavori = Lavori.perCliente.all({ u: req.utente.id });
   res.render('area/lavori', { titolo: 'I miei lavori', lavori });
 });
 
@@ -58,11 +59,47 @@ router.get('/lavori/:id', async (req, res, next) => {
     const impreseCantiere = (conSicurezza ? imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true }) : [])
       .map((i) => ({ ...i, nota: undefined, riepilogo: { ...i.riepilogo, altri: [] } }));
     const verbali = conSicurezza ? imprese.Q.verbali.all(lavoro.id).filter((v) => v.visibile) : [];
+    // Scheda immobile e fascicolo: per proprietario e agenzia, se lo studio l'ha attivata
+    const tutteLePratiche = Pratiche.perLavoro.all(lavoro.id);
+    const sch = scheda.righe(lavoro, tutteLePratiche, req.app.locals.data);
+    const conScheda = sch.attiva && ['proprietario', 'agenzia'].includes(lavoro.ruoloVista);
+    res.locals.schedaImmobile = conScheda ? sch : null;
+    res.locals.fascicoloDisponibile = conScheda && elenco.some((p) => p.file.length);
     res.render('area/lavoro', { titolo: lavoro.titolo, lavoro: { ...lavoro, sicurezza: conSicurezza ? 1 : 0 }, nomeRuolo: R.nome, ruoloVista: lavoro.ruoloVista, richieste: (lavoro.ruoloVista === 'proprietario' ? richieste.elenco(lavoro.id) : []).map((r) => {
       // Ogni cliente vede solo i nomi dei file che ha inviato lui; degli altri solo il numero
       const miei = req.utente.ruolo === 'admin' ? r.file : r.file.filter((f) => f.utente_id === req.utente.id);
       return { ...r, file: miei, altriFile: r.file.length - miei.length };
     }), limitiRichieste: richieste.LIMITI, estensioni: richieste.ESTENSIONI, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
+  } catch (e) { next(e); }
+});
+
+// Fascicolo: tutti i documenti visibili a questo ruolo in un unico ZIP (es. per il notaio)
+router.get('/lavori/:id/fascicolo.zip', async (req, res, next) => {
+  try {
+    const lavoro = lavoroAccessibile(req);
+    if (!lavoro || !scheda.leggi(lavoro).attiva || !['proprietario', 'agenzia'].includes(lavoro.ruoloVista)) {
+      return res.status(404).render('errore', { titolo: 'Fascicolo non disponibile', messaggio: '' });
+    }
+    const voci = [];
+    let totale = 0;
+    for (const p of await pratiche.conDocumenti(lavoro, { soloVisibili: true, ruolo: lavoro.ruoloVista })) {
+      for (const f of p.file) {
+        const abs = pubblicati.visibile(lavoro, p, f.percorso) && archivio.fileDocumento(lavoro, p.cartella, f.percorso);
+        if (!abs) continue;
+        totale += fs.statSync(abs).size;
+        if (totale > 300 * 1024 * 1024) return res.status(413).render('errore', { titolo: 'Fascicolo troppo grande', messaggio: 'Scarica i documenti uno per uno.' });
+        voci.push({ nome: `${archivio.nomeSicuro(p.nome) || 'Pratica'}/${f.percorso}`, percorso: abs });
+      }
+    }
+    if (!voci.length) return res.status(404).render('errore', { titolo: 'Fascicolo vuoto', messaggio: 'Non ci sono ancora documenti da scaricare.' });
+    const buf = require('../zip').creaZip(voci);
+    Accessi.registra.run(lavoro.id, req.utente.id, `Fascicolo (${voci.length} documenti)`);
+    const nome = `Fascicolo ${archivio.nomeSicuro(lavoro.titolo) || lavoro.codice}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(nome)}`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.end(buf);
   } catch (e) { next(e); }
 });
 

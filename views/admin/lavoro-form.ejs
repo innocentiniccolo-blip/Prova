@@ -41,6 +41,20 @@
               </select></label>
           <% }) %>
         </div>
+        <% if (tutteAziende.length) { const aRuolo = (id) => { const x = (aziendeSel || []).find(a => a.id === id); return x ? x.ruolo : ''; }; %>
+          <h3>Agenzie e aziende</h3>
+          <p class="nota">Tutte le persone dell'azienda vedono il lavoro con il ruolo scelto.</p>
+          <div class="scelte ruoli-clienti">
+            <% tutteAziende.forEach(a => { const r = aRuolo(a.id); %>
+              <label class="scelta-ruolo"><span><%= a.nome %> <small class="muto"><%= a.n_persone %> person<%= a.n_persone === 1 ? 'a' : 'e' %></small></span>
+                <select name="azienda_<%= a.id %>" aria-label="Ruolo di <%= a.nome %>">
+                  <option value="">— non collegata —</option>
+                  <option value="agenzia" <%= r === 'agenzia' ? 'selected' : '' %>>Agenzia immobiliare</option>
+                  <option value="impresa" <%= r === 'impresa' ? 'selected' : '' %>>Impresa</option>
+                </select></label>
+            <% }) %>
+          </div>
+        <% } %>
         <label class="scelta consenso"><input type="checkbox" name="consenso_agenzia" value="1">
           Se colleghi un'<strong>agenzia immobiliare</strong>: confermo di avere l'autorizzazione del proprietario a mostrarle i documenti dell'immobile (viene registrata la data).</label>
       </fieldset>

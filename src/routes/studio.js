@@ -14,9 +14,10 @@ const richieste = require('../richieste');
 const pubblicati = require('../pubblicati');
 const posta = require('../posta');
 const { inviaBenvenuto, avvisaClienti, avvisaStatoPratica } = require('../notifiche');
-const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
+const { db, Aziende, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 const ruoli = require('../ruoli');
+const scheda = require('../scheda');
 const { ruoloValido } = ruoli;
 
 const router = express.Router();
@@ -128,10 +129,22 @@ function idClienti(body) {
   return out;
 }
 
+/** Aziende scelte nel modulo: [{ id, ruolo }] (campo "azienda_<id>"). */
+function idAziende(body) {
+  const out = [];
+  for (const [k, v] of Object.entries(body)) {
+    const m = k.match(/^azienda_(\d+)$/);
+    if (m && ruoli.RUOLI[v] && v !== 'proprietario') out.push({ id: Number(m[1]), ruolo: v });
+  }
+  return out;
+}
+
 /** Un'agenzia vede i documenti di un immobile solo con il consenso del proprietario, registrato con la data. */
 function controllaConsenso(lavoroId, clienti, body) {
-  const nuoveAgenzie = clienti.filter((c) => c.ruolo === 'agenzia'
-    && !(lavoroId && Lavori.ruoloCliente.get(lavoroId, c.id)?.consenso_il));
+  const giaAgenzia = (id) => lavoroId && Lavori.clienti.all(lavoroId).find((x) => x.id === id && x.ruolo === 'agenzia')?.consenso_il;
+  const giaAzienda = (id) => lavoroId && Lavori.aziende.all(lavoroId).find((x) => x.id === id && x.ruolo === 'agenzia')?.consenso_il;
+  const nuoveAgenzie = [...clienti.filter((c) => c.ruolo === 'agenzia' && !giaAgenzia(c.id)),
+    ...idAziende(body).filter((a) => a.ruolo === 'agenzia' && !giaAzienda(a.id))];
   if (nuoveAgenzie.length && body.consenso_agenzia !== '1') {
     return 'Per collegare un\'agenzia conferma di avere l\'autorizzazione del proprietario a mostrarle i documenti.';
   }
@@ -142,6 +155,8 @@ function renderFormLavoro(res, lavoro, clientiSel, errore) {
   res.status(errore ? 400 : 200).render('admin/lavoro-form', {
     titolo: lavoro.id ? `Modifica ${lavoro.codice}` : 'Nuovo lavoro',
     lavoro, clientiSel, errore, tuttiClienti: Utenti.clienti.all(), cartelleLibere: cartelleLibere(lavoro.cartella), RUOLI: ruoli.RUOLI,
+    tutteAziende: Aziende.tutte.all(),
+    aziendeSel: lavoro.id && !errore ? Lavori.aziende.all(lavoro.id).map((a) => ({ id: a.id, ruolo: a.ruolo })) : idAziende(lavoro),
   });
 }
 
@@ -160,6 +175,17 @@ router.get('/lavori/nuovo', (req, res) => {
   const codice = Lavori.prossimoCodice();
   renderFormLavoro(res, { codice, stato: config.studio.stati[0], visibile: 1, cartella: '' }, [], null);
 });
+
+function salvaAziende(lavoroId, scelte) {
+  const prima = new Map(Lavori.aziende.all(lavoroId).map((a) => [a.id, a]));
+  Lavori.rimuoviAziende.run(lavoroId);
+  const ora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  for (const { id, ruolo } of scelte) {
+    if (!Aziende.perId.get(id)) continue;
+    const consenso = ruolo === 'agenzia' ? (prima.get(id)?.ruolo === 'agenzia' && prima.get(id)?.consenso_il) || ora : null;
+    Lavori.aggiungiAzienda.run(lavoroId, id, ruolo, consenso);
+  }
+}
 
 function salvaClienti(lavoroId, scelti) {
   const prima = new Map(Lavori.clienti.all(lavoroId).map((c) => [c.id, c]));
@@ -190,6 +216,7 @@ router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
     db.exec('BEGIN');
     const { lastInsertRowid } = Lavori.inserisci.run(dati);
     salvaClienti(lastInsertRowid, clienti);
+    salvaAziende(lastInsertRowid, idAziende(req.body));
     db.exec('COMMIT');
     if (!config.archivioSolaLettura) await archivio.creaStruttura(dati);
     await require('../sicurezzaDrive').importaLavoro(Lavori.perId.get(lastInsertRowid)).catch((e) => console.error(e));
@@ -217,6 +244,8 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       postaAttiva: posta.attiva,
       proposteStato: automazioni.proposteStatoLavoro(lavoro.id),
       clienti: Lavori.clienti.all(lavoro.id),
+      aziende: Lavori.aziende.all(lavoro.id),
+      scheda: scheda.leggi(lavoro), SCHEDA: scheda,
       RUOLI: ruoli.RUOLI,
       consigliataAgenzia: ruoli.consigliataAgenzia,
       aggiornamenti: Aggiornamenti.perLavoro.all(lavoro.id),
@@ -248,6 +277,7 @@ router.post('/lavori/:id', trovaLavoro, auth.verificaCsrf, async (req, res, next
     db.exec('BEGIN');
     Lavori.aggiorna.run(dati);
     salvaClienti(req.lavoro.id, clienti);
+    salvaAziende(req.lavoro.id, idAziende(req.body));
     db.exec('COMMIT');
     flash(req, 'ok', 'Lavoro aggiornato.');
     res.redirect(`/studio/lavori/${req.lavoro.id}`);
@@ -373,6 +403,13 @@ router.post('/lavori/:id/documenti/elimina', soloScrittura, trovaLavoro, auth.ve
 
 // ---------- Pratiche (sottocartelle del lavoro) ----------
 // Sceglie in un colpo solo quali cartelle (pratiche) del lavoro vede il cliente
+// Scheda immobile (per agenzie e proprietari)
+router.post('/lavori/:id/scheda', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  Lavori.impostaScheda.run(scheda.daModulo(req.body), req.lavoro.id);
+  flash(req, 'ok', 'Scheda immobile salvata.');
+  res.redirect(`/studio/lavori/${req.lavoro.id}#scheda`);
+});
+
 router.post('/lavori/:id/pratiche-visibili', trovaLavoro, auth.verificaCsrf, (req, res) => {
   const set = (k) => new Set([].concat(req.body[k] || []).map(Number));
   const [prop, agz, imp] = [set('visibili'), set('visibili_agenzia'), set('visibili_impresa')];
@@ -458,6 +495,78 @@ router.post('/lavori/:id/aggiornamenti', trovaLavoro, auth.verificaCsrf, (req, r
 router.post('/lavori/:id/aggiornamenti/:aid/elimina', trovaLavoro, auth.verificaCsrf, (req, res) => {
   Aggiornamenti.elimina.run(Number(req.params.aid), req.lavoro.id);
   res.redirect(`/studio/lavori/${req.lavoro.id}#aggiornamenti`);
+});
+
+// ---------- Aziende clienti (agenzie immobiliari, imprese) ----------
+function datiAzienda(body) {
+  return {
+    nome: testo(body.nome, 200), tipo: body.tipo === 'impresa' ? 'impresa' : 'agenzia',
+    piva: testo(body.piva, 20) || null, email: testo(body.email, 200).toLowerCase() || null, telefono: testo(body.telefono, 50) || null,
+  };
+}
+function paginaAzienda(res, azienda, errore = null, status = 200) {
+  res.status(status).render('admin/azienda', {
+    titolo: azienda.id ? azienda.nome : 'Nuova azienda', azienda, errore, postaAttiva: posta.attiva,
+    persone: azienda.id ? Aziende.persone.all(azienda.id) : [], lavori: azienda.id ? Aziende.lavori.all(azienda.id) : [],
+    RUOLI: ruoli.RUOLI,
+  });
+}
+router.get('/aziende', (req, res) => res.render('admin/aziende', { titolo: 'Agenzie e aziende', aziende: Aziende.tutte.all() }));
+router.get('/aziende/nuova', (req, res) => paginaAzienda(res, { tipo: req.query.tipo === 'impresa' ? 'impresa' : 'agenzia' }));
+router.post('/aziende', auth.verificaCsrf, (req, res) => {
+  const a = datiAzienda(req.body);
+  if (!a.nome) return paginaAzienda(res, a, 'Il nome è obbligatorio.', 400);
+  const id = Number(Aziende.inserisci.run(a).lastInsertRowid);
+  flash(req, 'ok', 'Azienda creata. Ora aggiungi le persone che accederanno (agenti, impiegati).');
+  res.redirect(`/studio/aziende/${id}`);
+});
+function trovaAzienda(req, res, next) {
+  const a = Aziende.perId.get(Number(req.params.id));
+  if (!a) return res.status(404).render('errore', { titolo: 'Azienda non trovata', messaggio: '' });
+  req.azienda = a; next();
+}
+router.get('/aziende/:id', trovaAzienda, (req, res) => {
+  const credenziali = req.session.credenziali; delete req.session.credenziali;
+  res.locals.credenziali = credenziali;
+  paginaAzienda(res, req.azienda);
+});
+router.post('/aziende/:id', trovaAzienda, auth.verificaCsrf, (req, res) => {
+  const a = { ...datiAzienda(req.body), id: req.azienda.id };
+  if (!a.nome) return paginaAzienda(res, a, 'Il nome è obbligatorio.', 400);
+  Aziende.aggiorna.run(a);
+  flash(req, 'ok', 'Dati dell\'azienda salvati.');
+  res.redirect(`/studio/aziende/${a.id}`);
+});
+router.post('/aziende/:id/elimina', trovaAzienda, auth.verificaCsrf, (req, res) => {
+  Aziende.elimina.run(req.azienda.id); // le persone restano come clienti, senza azienda
+  flash(req, 'ok', 'Azienda eliminata: le sue persone restano tra i clienti, senza accesso ai lavori dell\'azienda.');
+  res.redirect('/studio/aziende');
+});
+// Aggiunge una persona all'azienda: nuovo account cliente (o un cliente esistente con quella email)
+router.post('/aziende/:id/persone', trovaAzienda, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const nome = testo(req.body.nome, 200), email = testo(req.body.email, 200).toLowerCase();
+    if (!nome || !emailValida(email)) { flash(req, 'errore', 'Nome ed email valida sono obbligatori.'); return res.redirect(`/studio/aziende/${req.azienda.id}`); }
+    let u = Utenti.perEmail.get(email);
+    if (u && u.ruolo !== 'cliente') { flash(req, 'errore', 'Questa email appartiene a un account dello studio.'); return res.redirect(`/studio/aziende/${req.azienda.id}`); }
+    if (!u) {
+      const pw = auth.passwordTemporanea();
+      const id = Number(Utenti.inserisci.run(email, await auth.hashPassword(pw), nome, testo(req.body.telefono, 50) || null, 'cliente').lastInsertRowid);
+      u = Utenti.perId.get(id);
+      req.session.credenziali = { email, password: pw };
+      if (req.body.benvenuto && posta.attiva) {
+        try { await inviaBenvenuto(req, u); flash(req, 'ok', `${nome} aggiunto: email di benvenuto inviata a ${email}.`); } catch (e) { console.error(e); flash(req, 'errore', 'Persona aggiunta, ma l\'email non è partita: comunica le credenziali qui sotto.'); }
+      } else flash(req, 'ok', `${nome} aggiunto all'azienda.`);
+    } else flash(req, 'ok', `${u.nome} (cliente già registrato) ora fa parte dell'azienda.`);
+    Utenti.impostaAzienda.run(req.azienda.id, u.id);
+    res.redirect(`/studio/aziende/${req.azienda.id}`);
+  } catch (e) { next(e); }
+});
+router.post('/aziende/:id/persone/:uid/togli', trovaAzienda, auth.verificaCsrf, (req, res) => {
+  const u = Utenti.perId.get(Number(req.params.uid));
+  if (u && u.azienda_id === req.azienda.id) { Utenti.impostaAzienda.run(null, u.id); Utenti.terminaSessioni.run(u.id); }
+  flash(req, 'ok', 'Persona tolta dall\'azienda: non vede più i lavori dell\'azienda.');
+  res.redirect(`/studio/aziende/${req.azienda.id}`);
 });
 
 // ---------- Clienti ----------
@@ -711,7 +820,8 @@ router.post('/lavori/:id/richieste', trovaLavoro, auth.verificaCsrf, async (req,
     let msg = `Richiesta «${titolo}» aggiunta: il cliente la vede nella sua area.`;
     if (req.body.email) {
       const esito = await avvisaClienti(req, req.lavoro, `Documento richiesto: ${titolo}`,
-        `per proseguire con il lavoro «${req.lavoro.titolo}» mi serve questo documento:\n\n${titolo}${descrizione ? '\n' + descrizione : ''}\n\nPuoi caricarlo direttamente dall'area clienti, nella sezione "Documenti richiesti".`);
+        `per proseguire con il lavoro «${req.lavoro.titolo}» mi serve questo documento:\n\n${titolo}${descrizione ? '\n' + descrizione : ''}\n\nPuoi caricarlo direttamente dall'area clienti, nella sezione "Documenti richiesti".`,
+        (c) => c.ruolo === 'proprietario'); // i documenti richiesti riguardano il proprietario/committente
       msg += esito.inviati ? ` Email inviata a ${esito.inviati} client${esito.inviati === 1 ? 'e' : 'i'}.` : ' Nessuna email inviata (posta non configurata o lavoro non visibile).';
     }
     flash(req, 'ok', msg);

@@ -288,3 +288,10 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .ruoli-clienti { display: grid; gap: .4rem; }
 .scelta-ruolo { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
 .consenso { margin-top: .75rem; font-size: .92rem; }
+
+.scheda-righe { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; margin: .5rem 0 1rem; }
+.scheda-righe dt { font-weight: 600; }
+.pallino { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .45rem; vertical-align: middle; background: #b8b2a7; }
+.pallino.tono-ok { background: #3c8a3f; } .pallino.tono-ko { background: #c0392b; } .pallino.tono-attesa { background: #d99a1e; }
+.badge.tono-ok { background: #e6f2e4; color: #2f6b31; }
+@media (max-width: 560px) { .scheda-righe { grid-template-columns: 1fr; } .scheda-righe dd { margin: 0 0 .4rem; } }

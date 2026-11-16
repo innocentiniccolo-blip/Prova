@@ -34,3 +34,22 @@ test('ogni ruolo vede solo le sue pratiche', async () => {
   assert.deepStrictEqual(await vede('impresa'), []);
   assert.deepStrictEqual(await vede('sconosciuto'), ['Accesso atti', 'Nota tecnica'], 'ruolo non valido = proprietario');
 });
+
+test('scheda immobile: dati dello studio e stati dalle pratiche', () => {
+  const scheda = require('../src/scheda');
+  const f = (d) => d.split('-').reverse().join('/');
+  const r = scheda.righe({ scheda: JSON.stringify({ attiva: true, catastale: 'conforme' }) },
+    [{ cartella: '03 - CILA tardiva', stato: 'Presentata', data: '2026-10-01', protocollo: '123' }, { cartella: 'APE', stato: 'Completata', data: '2026-05-10' }], f);
+  assert.match(r.righe[0].testo, /Sanatoria.*presentata il 01\/10\/2026, prot\. 123/);
+  assert.strictEqual(r.righe[2].testo, 'Presente · valido fino al 10/05/2036');
+  assert.strictEqual(r.pronto, false);
+  assert.strictEqual(scheda.leggi({ scheda: '{"urbanistica":"inventato","apeClasse":"Z"}' }).urbanistica, 'da-verificare');
+});
+
+test('zip del fascicolo leggibile', () => {
+  const { creaZip } = require('../src/zip');
+  const f = path.join(tmp, 'x.txt'); fs.writeFileSync(f, 'contenuto di prova '.repeat(50));
+  const buf = creaZip([{ nome: 'Pratica è/x.txt', percorso: f }]);
+  assert.strictEqual(buf.readUInt32LE(0), 0x04034b50);
+  assert.strictEqual(buf.readUInt32LE(buf.length - 22), 0x06054b50);
+});

@@ -30,7 +30,7 @@ async function inviaBenvenuto(req, cliente) {
 async function avvisaClienti(req, lavoro, oggetto, corpo, filtro = () => true) {
   const esito = { inviati: 0, falliti: 0 };
   if (!posta.attiva || !lavoro.visibile) return esito;
-  for (const c of Lavori.clienti.all(lavoro.id).filter((x) => x.attivo && filtro(x))) {
+  for (const c of Lavori.destinatari.all({ l: lavoro.id }).filter((x) => x.attivo && filtro(x))) {
     try {
       await posta.invia({
         a: c.email,

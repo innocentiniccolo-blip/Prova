@@ -175,7 +175,7 @@ router.post('/lavori/:id/richieste/:rid/file', richiestaAperta, (req, res, next)
   // Controlli prima di accettare qualsiasi dato: richiesta ancora aperta e numero di invii
   if (req.richiesta.stato === 'completa') return tornaAlLavoro(req, res, 'errore', 'Questa richiesta è già stata chiusa dallo studio.');
   if (richieste.troppiInvii(req.utente.id)) return tornaAlLavoro(req, res, 'errore', 'Troppi invii in poco tempo. Riprova più tardi.');
-  res.on('close', () => { for (const f of req.files || []) fs.rm(f.path, { force: true }, () => {}); });
+  res.on('close', () => { for (const f of req.files || []) if (f && f.path) fs.rm(f.path, { force: true }, () => {}); });
   caricaCliente(req, res, (err) => {
     if (err) {
       const msg = err.code === 'LIMIT_FILE_SIZE' ? `Un file supera il limite di ${richieste.LIMITI.fileMb} MB.`
@@ -238,9 +238,9 @@ router.get('/profilo', (req, res) => {
   res.render('area/profilo', { titolo: 'Il mio profilo', messaggio: null, errore: null });
 });
 
-router.post('/profilo/password', auth.verificaCsrf, async (req, res, next) => {
+router.post('/profilo/password', auth.verificaCsrf, (req, res, next) => auth.inFila(`profilo|${req.utente.id}`, async () => {
   try {
-    const { attuale = '', nuova = '', conferma = '' } = req.body;
+    const [attuale, nuova, conferma] = ['attuale', 'nuova', 'conferma'].map((k) => (typeof req.body[k] === 'string' ? req.body[k] : ''));
     const u = Utenti.perId.get(req.utente.id);
     const render = (errore, messaggio = null) => res.render('area/profilo', { titolo: 'Il mio profilo', errore, messaggio });
     if (auth.loginBloccato(req, `profilo|${u.id}`)) return render('Troppi tentativi. Riprova tra un\'ora.');
@@ -255,6 +255,6 @@ router.post('/profilo/password', auth.verificaCsrf, async (req, res, next) => {
     Utenti.terminaAltreSessioni.run(u.id, req.sessionID);
     render(null, 'Password aggiornata correttamente.');
   } catch (e) { next(e); }
-});
+}));
 
 module.exports = router;

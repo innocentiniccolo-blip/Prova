@@ -19,6 +19,7 @@ const { inviaFile, anteprimaPossibile } = require('../invio-file');
 const ruoli = require('../ruoli');
 const tappe = require('../tappe');
 const scheda = require('../scheda');
+const contabilita = require('../contabilita');
 const { ruoloValido } = ruoli;
 
 const router = express.Router();
@@ -207,10 +208,10 @@ function salvaClienti(lavoroId, scelti) {
 router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
   const dati = datiLavoro(req.body);
   const clienti = idClienti(req.body);
-  if (config.archivioSolaLettura && !req.body.cartella?.trim()) {
+  if (config.archivioSolaLettura && !testo(req.body.cartella)) {
     return renderFormLavoro(res, { ...req.body }, clienti, 'Scegli la cartella del lavoro su Google Drive dall\'elenco.');
   }
-  if (!req.body.cartella?.trim() && dati.codice && dati.titolo) {
+  if (!testo(req.body.cartella) && dati.codice && dati.titolo) {
     dati.cartella = archivio.normalizzaCartella(`${dati.codice} ${archivio.nomeSicuro(dati.titolo) || ''}`);
   }
   if (!dati.codice || !dati.titolo) return renderFormLavoro(res, { ...req.body }, clienti, 'Codice e titolo sono obbligatori.');
@@ -317,7 +318,7 @@ router.post('/lavori/:id/elimina', trovaLavoro, auth.verificaCsrf, async (req, r
 /** Rimuove sempre i file temporanei di multer a fine richiesta (anche se il CSRF fallisce). */
 function pulisciTmp(req, res, next) {
   res.on('close', () => {
-    for (const f of req.files || []) fs.rm(f.path, { force: true }, () => {});
+    for (const f of req.files || []) if (f && f.path) fs.rm(f.path, { force: true }, () => {});
   });
   next();
 }
@@ -345,7 +346,7 @@ router.post('/lavori/:id/documenti', soloScrittura, trovaLavoro, pulisciTmp, upl
   const files = req.files || [];
   try {
     const pratica = trovaPratica(req, req.body.pratica);
-    if (!pratica) throw new Error('Pratica non valida');
+    if (!pratica) { flash(req, 'errore', 'Pratica non valida.'); return res.redirect(`/studio/lavori/${req.lavoro.id}`); }
     const nomi = [];
     for (const f of files) {
       // multer decodifica i nomi come latin1: riconverte in UTF-8 (accenti, ecc.)
@@ -902,6 +903,143 @@ router.get('/lavori/:id/richieste/:rid/file/:fid', trovaLavoro, (req, res) => {
   const abs = f && richieste.percorsoFile(req.lavoro, r, f);
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il file non è più nella cartella del lavoro.' });
   inviaFile(res, abs, { scarica: req.query.scarica === '1' });
+});
+
+// ---------- Contabilità: notule e proforma (visibili solo allo studio) ----------
+const oggi = () => new Date().toISOString().slice(0, 10);
+
+function datiNotula(req) {
+  const b = req.body;
+  const voci = contabilita.righe(b.voce_desc, b.voce_importo);
+  const spese = contabilita.righe(b.spesa_desc, b.spesa_importo);
+  const lavoro = Number(b.lavoro_id) ? Lavori.perId.get(Number(b.lavoro_id)) : null;
+  return {
+    lavoro_id: lavoro ? lavoro.id : null,
+    dest_nome: testo(b.dest_nome, 200), dest_indirizzo: testo(b.dest_indirizzo, 300), dest_cf: testo(b.dest_cf, 40),
+    dest_email: testo(b.dest_email, 200), oggetto: testo(b.oggetto, 300), data: dataONull(b.data) || oggi(),
+    voci: JSON.stringify(voci), spese: JSON.stringify(spese),
+    cassa_pct: contabilita.percentuale(b.cassa_pct, 5), iva_pct: contabilita.percentuale(b.iva_pct, 22),
+    sostituto: b.sostituto ? 1 : 0, note: testo(b.note, 1000),
+    _voci: voci,
+  };
+}
+
+function vistaNotula(res, notula, errore) {
+  const n = contabilita.leggi(notula);
+  res.render('admin/contabilita-form', {
+    titolo: n.id ? `Notula ${contabilita.codice(n)}` : 'Nuova notula', n, errore: errore || '',
+    totali: contabilita.calcola(n), codice: n.id ? contabilita.codice(n) : '', lavori: Lavori.tutti.all(),
+    ammAttiva: posta.ammAttiva, eur: contabilita.eur,
+  });
+}
+
+router.get('/contabilita', (req, res) => {
+  const notule = contabilita.Q.tutte.all().map((n) => {
+    const x = contabilita.leggi(n);
+    return { ...x, codice: contabilita.codice(x), totali: contabilita.calcola(x) };
+  });
+  const anno = String(new Date().getFullYear());
+  const somma = (f) => notule.filter(f).reduce((s, n) => s + n.totali.netto, 0);
+  res.render('admin/contabilita', {
+    titolo: 'Contabilità', notule, eur: contabilita.eur, ammAttiva: posta.ammAttiva,
+    daIncassare: somma((n) => n.stato === 'inviata'), bozze: notule.filter((n) => n.stato === 'bozza').length,
+    incassate: somma((n) => n.stato === 'pagata' && String(n.pagata_il || n.data).startsWith(anno)), anno,
+  });
+});
+
+router.get('/contabilita/nuova', (req, res) => {
+  const lavoro = Number(req.query.lavoro) ? Lavori.perId.get(Number(req.query.lavoro)) : null;
+  const cliente = lavoro && Lavori.clienti.all(lavoro.id).find((c) => c.ruolo === 'proprietario');
+  vistaNotula(res, {
+    id: 0, lavoro_id: lavoro ? lavoro.id : null, dest_nome: cliente ? cliente.nome : '', dest_indirizzo: '', dest_cf: '',
+    dest_email: cliente ? cliente.email : '', oggetto: lavoro ? `${lavoro.codice} – ${lavoro.titolo}` : '', data: oggi(),
+    voci: JSON.stringify([{ d: '', c: 0 }]), spese: '[]', cassa_pct: 5, iva_pct: 22, sostituto: 0, note: '', stato: 'bozza',
+  });
+});
+
+router.post('/contabilita', auth.verificaCsrf, (req, res) => {
+  const d = datiNotula(req);
+  if (!d.dest_nome || !d._voci.length) {
+    return vistaNotula(res, { ...d, id: 0, stato: 'bozza' }, 'Indica il destinatario e almeno una prestazione.');
+  }
+  const { _voci, ...dati } = d;
+  const id = contabilita.crea(dati);
+  flash(req, 'ok', 'Bozza salvata.');
+  res.redirect(`/studio/contabilita/${id}`);
+});
+
+function trovaNotula(req, res, next) {
+  const n = contabilita.Q.perId.get(Number(req.params.id));
+  if (!n) return res.status(404).render('errore', { titolo: 'Notula non trovata', messaggio: '' });
+  req.notula = n;
+  next();
+}
+
+router.get('/contabilita/:id', trovaNotula, (req, res) => vistaNotula(res, req.notula));
+
+router.post('/contabilita/:id', trovaNotula, auth.verificaCsrf, (req, res) => {
+  const d = datiNotula(req);
+  if (!d.dest_nome || !d._voci.length) {
+    return vistaNotula(res, { ...req.notula, ...d, id: req.notula.id, stato: req.notula.stato, inviata_il: req.notula.inviata_il }, 'Indica il destinatario e almeno una prestazione.');
+  }
+  const { _voci, ...dati } = d;
+  contabilita.Q.aggiorna.run({ ...dati, id: req.notula.id });
+  flash(req, 'ok', 'Notula salvata.');
+  res.redirect(`/studio/contabilita/${req.notula.id}`);
+});
+
+router.get('/contabilita/:id/notula.pdf', trovaNotula, async (req, res, next) => {
+  try {
+    const n = contabilita.leggi(req.notula);
+    const buf = await contabilita.creaPdf(n, req.app.locals.data);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${req.query.scarica === '1' ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(`Notula ${contabilita.codice(n).replace('/', '-')}.pdf`)}`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.end(buf);
+  } catch (e) { next(e); }
+});
+
+// Invio al cliente: solo quando premi il pulsante, dalla casella amministrazione
+router.post('/contabilita/:id/invia', trovaNotula, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const n = contabilita.leggi(req.notula);
+    if (!posta.ammAttiva) flash(req, 'errore', 'La casella amministrazione non è ancora configurata sul server.');
+    else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(n.dest_email)) flash(req, 'errore', 'Indica un indirizzo email valido del destinatario e salva.');
+    else if (n.stato === 'pagata') flash(req, 'errore', 'La notula risulta già pagata.');
+    else {
+      const buf = await contabilita.creaPdf(n, req.app.locals.data);
+      const cod = contabilita.codice(n);
+      await posta.inviaAmministrazione({
+        a: n.dest_email,
+        oggetto: `Notula/proforma n. ${cod}${n.oggetto ? ' – ' + n.oggetto : ''}`.slice(0, 200),
+        testo: `Gentile ${n.dest_nome},\n\nin allegato trova la notula/proforma n. ${cod} relativa alle prestazioni svolte${n.oggetto ? ` (${n.oggetto})` : ''}.\n\nResto a disposizione per qualsiasi chiarimento.\n\nCordiali saluti`,
+        allegati: [{ filename: `Notula ${cod.replace('/', '-')}.pdf`, content: buf, contentType: 'application/pdf' }],
+      });
+      contabilita.Q.segnaInviata.run(n.id);
+      flash(req, 'ok', `Notula inviata a ${n.dest_email}.`);
+    }
+    res.redirect(`/studio/contabilita/${n.id}`);
+  } catch (e) {
+    console.error('Invio notula:', e.message);
+    flash(req, 'errore', 'Invio non riuscito: controlla la casella amministrazione e riprova.');
+    res.redirect(`/studio/contabilita/${req.notula.id}`);
+  }
+});
+
+router.post('/contabilita/:id/stato', trovaNotula, auth.verificaCsrf, (req, res) => {
+  const stato = String(req.body.stato);
+  if (contabilita.STATI.includes(stato)) {
+    contabilita.Q.stato.run({ id: req.notula.id, stato, pagata: stato === 'pagata' ? oggi() : null });
+    flash(req, 'ok', `Stato: ${stato}.`);
+  }
+  res.redirect(`/studio/contabilita/${req.notula.id}`);
+});
+
+router.post('/contabilita/:id/elimina', trovaNotula, auth.verificaCsrf, (req, res) => {
+  const r = contabilita.Q.elimina.run(req.notula.id);
+  flash(req, r.changes ? 'ok' : 'errore', r.changes ? 'Bozza eliminata.' : 'Si possono eliminare solo le bozze.');
+  res.redirect('/studio/contabilita');
 });
 
 module.exports = router;

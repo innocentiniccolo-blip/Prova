@@ -44,4 +44,26 @@ async function invia({ a, oggetto, testo }) {
   return true;
 }
 
-module.exports = { attiva, invia };
+// Casella amministrazione: serve SMTP_AMM_USER e SMTP_AMM_PASS nel file .env
+const amm = posta.amministrazione;
+const ammAttiva = Boolean(posta.host && amm.user && amm.pass && amm.mittente);
+const trasportoAmm = ammAttiva
+  ? nodemailer.createTransport({ host: posta.host, port: posta.port, secure: posta.port === 465, auth: { user: amm.user, pass: amm.pass } })
+  : null;
+
+/** Invia un'email dalla casella amministrazione, con allegati (es. la notula in PDF). */
+async function inviaAmministrazione({ a, oggetto, testo, allegati = [] }) {
+  if (!ammAttiva) throw new Error('Casella amministrazione non configurata');
+  const firma = `\n\n--\n${config.studio.nome}\nAmministrazione\n${config.studio.indirizzo}\nCell. ${config.studio.telefono}`;
+  await trasportoAmm.sendMail({
+    from: `"${config.studio.nome} - Amministrazione" <${amm.mittente}>`,
+    to: a,
+    replyTo: amm.mittente,
+    subject: oggetto,
+    text: testo + firma,
+    attachments: allegati,
+  });
+  return true;
+}
+
+module.exports = { attiva, invia, ammAttiva, inviaAmministrazione };

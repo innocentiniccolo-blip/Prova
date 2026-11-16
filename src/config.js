@@ -29,6 +29,12 @@ const config = {
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
     mittente: process.env.MAIL_FROM || process.env.SMTP_USER || '',
+    // Casella amministrazione (notule e proforma): stesso server SMTP, credenziali proprie
+    amministrazione: {
+      user: process.env.SMTP_AMM_USER || '',
+      pass: process.env.SMTP_AMM_PASS || '',
+      mittente: process.env.MAIL_AMM_FROM || process.env.SMTP_AMM_USER || '',
+    },
   },
   studio: JSON.parse(fs.readFileSync(studioFile, 'utf8')),
 };

@@ -1,0 +1,38 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Contabilità</h1>
+      <a class="pulsante" href="/studio/contabilita/nuova">+ Nuova notula</a>
+    </div>
+    <p class="nota">Sezione riservata allo studio: clienti, agenzie e imprese non vedono mai importi o notule. Sono notule/proforma, non fatture.</p>
+    <% if (!ammAttiva) { %><div class="avviso info">La casella <b>amministrazione@</b> non è ancora collegata al server: puoi preparare e scaricare i PDF, ma non inviarli.</div><% } %>
+    <div class="riepilogo-conta">
+      <div class="carta"><small>Da incassare</small><strong><%= eur(daIncassare) %></strong><span>notule inviate non pagate</span></div>
+      <div class="carta"><small>Incassato <%= anno %></small><strong><%= eur(incassate) %></strong><span>notule pagate</span></div>
+      <div class="carta"><small>Bozze</small><strong><%= bozze %></strong><span>da rivedere o inviare</span></div>
+    </div>
+    <div class="carta">
+      <% if (!notule.length) { %><p class="vuoto">Nessuna notula. Premi «+ Nuova notula» oppure usa il pulsante dalla pagina di un lavoro.</p><% } else { %>
+      <div class="tabella-scorri">
+      <table class="tabella">
+        <thead><tr><th>N.</th><th>Data</th><th>Destinatario</th><th>Lavoro</th><th class="destra">Totale</th><th>Stato</th></tr></thead>
+        <tbody>
+          <% notule.forEach(n => { %>
+            <tr>
+              <td><a href="/studio/contabilita/<%= n.id %>"><%= n.codice %></a></td>
+              <td><%= data(n.data) %></td>
+              <td><%= n.dest_nome %></td>
+              <td><% if (n.lavoro_id) { %><a href="/studio/lavori/<%= n.lavoro_id %>"><%= n.lavoro_codice %></a><% } else { %>—<% } %></td>
+              <td class="destra"><%= eur(n.totali.netto) %></td>
+              <td><span class="badge stato-<%= n.stato === 'pagata' ? 'completato' : n.stato === 'inviata' ? 'in-corso' : 'sospeso' %>"><%= n.stato %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
+      <% } %>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

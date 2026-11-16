@@ -60,6 +60,17 @@ const azzeraEmail = (email) => { q.togliEmail.run(norm(email)); };
 const ipBloccato = (req) => bloccata(chiaveIp(req.ip));
 const registraErroreIp = (req) => errore(chiaveIp(req.ip), MAX_ERRORI_IP, req.ip, null);
 
+// Tentativi in fila: richieste contemporanee dalla stessa chiave vengono verificate una alla volta,
+// così una raffica in parallelo non riesce a provare più password del limite prima che scatti il blocco.
+const code = new Map();
+function inFila(k, fn) {
+  const p = (code.get(k) || Promise.resolve()).then(fn, fn);
+  const coda = p.catch(() => {});
+  code.set(k, coda);
+  coda.then(() => { if (code.get(k) === coda) code.delete(k); });
+  return p;
+}
+
 /** Blocchi in corso, per il pannello dello studio. */
 function blocchiAttivi() {
   return q.bloccati.all(Date.now() - DURATA_BLOCCO).map((t) => ({ ...t, fino: t.bloccato_dal + DURATA_BLOCCO }));
@@ -70,5 +81,5 @@ setInterval(() => { try { q.pulisci.run(Date.now() - ORA, Date.now() - DURATA_BL
 
 module.exports = {
   MAX_ERRORI, MAX_ERRORI_IP, DURATA_BLOCCO,
-  loginBloccato, registraErrore, azzeraTentativi, azzeraEmail, ipBloccato, registraErroreIp, blocchiAttivi, sblocca,
+  loginBloccato, registraErrore, azzeraTentativi, azzeraEmail, ipBloccato, registraErroreIp, blocchiAttivi, sblocca, inFila,
 };

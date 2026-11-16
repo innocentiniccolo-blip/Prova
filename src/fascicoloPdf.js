@@ -202,4 +202,4 @@ async function creaPdf(f, formattaData) {
   return Buffer.concat(parti);
 }
 
-module.exports = { creaPdf };
+module.exports = { creaPdf, intestazione, COLORI: { BLU, AZZURRO, GRIGIO, LINEA }, M };

@@ -73,7 +73,7 @@ router.get('/accedi', (req, res) => {
   res.render('accedi', { titolo: 'Area clienti', errore: null, email: '', postaAttiva: posta.attiva });
 });
 
-router.post('/accedi', auth.verificaCsrf, async (req, res, next) => {
+router.post('/accedi', auth.verificaCsrf, (req, res, next) => auth.inFila(`accedi|${req.ip}`, async () => {
   try {
     const email = String(req.body.email || '').trim();
     const password = String(req.body.password || '');
@@ -101,7 +101,7 @@ router.post('/accedi', auth.verificaCsrf, async (req, res, next) => {
       res.redirect(sicuro ? dopo : home);
     });
   } catch (e) { next(e); }
-});
+}));
 
 // ---------- Password dimenticata ----------
 router.get('/password-dimenticata', (req, res) => {

@@ -96,6 +96,8 @@ if (require.main === module) {
   // Un errore imprevisto in un'operazione in background non deve spegnere il servizio
   require('./pulizia').avvia();
   process.on('unhandledRejection', (e) => console.error('Errore non gestito:', e));
+  // Un errore sfuggito in una singola richiesta non deve far cadere il servizio per tutti
+  process.on('uncaughtException', (e) => console.error('Errore non gestito:', e));
   require('./automazioni').avvia();
   app.listen(config.port, () => {
     console.log(`Studio tecnico in ascolto su http://localhost:${config.port}`);

@@ -238,4 +238,28 @@ db.exec(`CREATE TABLE IF NOT EXISTS visure_auto (
   PRIMARY KEY (pratica_id, percorso)
 )`);
 
+db.exec(`CREATE TABLE IF NOT EXISTS notule (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  anno         INTEGER NOT NULL,
+  numero       INTEGER NOT NULL,
+  lavoro_id    INTEGER REFERENCES lavori(id) ON DELETE SET NULL,
+  dest_nome    TEXT NOT NULL DEFAULT '',
+  dest_indirizzo TEXT NOT NULL DEFAULT '',
+  dest_cf      TEXT NOT NULL DEFAULT '',
+  dest_email   TEXT NOT NULL DEFAULT '',
+  oggetto      TEXT NOT NULL DEFAULT '',
+  data         TEXT NOT NULL,
+  voci         TEXT NOT NULL DEFAULT '[]',
+  spese        TEXT NOT NULL DEFAULT '[]',
+  cassa_pct    REAL NOT NULL DEFAULT 5,
+  iva_pct      REAL NOT NULL DEFAULT 22,
+  sostituto    INTEGER NOT NULL DEFAULT 0,
+  note         TEXT NOT NULL DEFAULT '',
+  stato        TEXT NOT NULL DEFAULT 'bozza',
+  inviata_il   TEXT,
+  pagata_il    TEXT,
+  creata_il    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (anno, numero)
+)`);
+
 module.exports = db;

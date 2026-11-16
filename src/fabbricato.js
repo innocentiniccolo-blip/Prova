@@ -291,7 +291,24 @@ async function fascicolo(lavoro, elencoPratiche, formattaData) {
     ape: apeD, descrizione: descr,
     pratiche: sch.righe.filter((r) => r.voce === 'Accesso atti'),
     nota: s.nota, fonti: d.fonti,
+    allegati: tipologieFonti(d.fonti),
   };
+}
+
+/** Solo la tipologia dei documenti usati e quanti sono: mai i nomi dei file. */
+function tipologieFonti(fonti) {
+  const categorie = [
+    ['Visure e planimetrie catastali', /visur|planimetr|catast|docfa|pregeo/i],
+    ['Relazione tecnica', /relazion/i],
+    ['Attestato di prestazione energetica', /\bape\b|attestat|prestazione/i],
+    ['Titoli edilizi e pratiche comunali', /scia|cila|permesso|sanatori|agibil|titolo|comunicazion/i],
+  ];
+  const out = [];
+  for (const [voce, re] of categorie) {
+    const n = (fonti || []).filter((nome) => re.test(String(nome))).length;
+    if (n) out.push({ voce, testo: `${n} ${n === 1 ? 'documento' : 'documenti'} letti per ricavare i dati del fascicolo` });
+  }
+  return out;
 }
 
 module.exports = { leggiDocumenti, fascicolo, catasto, comune, indirizzo, titoli, esitoRelazione, ape, descrizione, pdfDaP7m, tipoFile, CATEGORIE };

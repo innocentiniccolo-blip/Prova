@@ -47,12 +47,36 @@ function spazio(doc, h) {
   if (doc.y + h > doc.page.height - 70) { doc.addPage(); }
 }
 
-function sezione(doc, titolo) {
-  spazio(doc, 60);
-  doc.moveDown(0.6);
-  doc.fillColor(BLU).font('Helvetica-Bold').fontSize(10).text(titolo.toUpperCase(), M, doc.y, { characterSpacing: 0.4 });
-  doc.moveTo(M, doc.y + 2).lineTo(doc.page.width - M, doc.y + 2).lineWidth(0.5).strokeColor(LINEA).stroke();
-  doc.y += 8;
+function sezione(doc, titolo, minimo = 120) {
+  // Il titolo non resta mai da solo in fondo alla pagina: serve spazio per almeno il primo contenuto
+  spazio(doc, minimo);
+  doc.y += 14;
+  const y = doc.y;
+  doc.rect(M, y + 1, 3, 12).fill(AZZURRO);
+  doc.fillColor(BLU).font('Helvetica-Bold').fontSize(10.5).text(titolo.toUpperCase(), M + 10, y, { characterSpacing: 0.6, lineBreak: false });
+  doc.moveTo(M, y + 19).lineTo(doc.page.width - M, y + 19).lineWidth(0.6).strokeColor(LINEA).stroke();
+  doc.x = M; doc.y = y + 28;
+}
+
+const TONO_FONDO = { ok: '#e8f5e9', ko: '#fdecea', attesa: '#fff4e0', neutro: '#eef2f6' };
+
+/** Riquadri di sintesi in cima: un colpo d'occhio su classe, conformità e rendita. */
+function riquadriSintesi(doc, voci) {
+  const W = doc.page.width - 2 * M;
+  const gap = 10;
+  const w = (W - gap * (voci.length - 1)) / voci.length;
+  const h = 62;
+  spazio(doc, h + 10);
+  const y = doc.y;
+  voci.forEach((v, i) => {
+    const x = M + i * (w + gap);
+    doc.roundedRect(x, y, w, h, 6).fill(TONO_FONDO[v.tono] || TONO_FONDO.neutro);
+    doc.rect(x, y + 10, 3, h - 20).fill(TONI[v.tono] || TONI.neutro);
+    doc.fillColor(GRIGIO).font('Helvetica').fontSize(7.5).text(v.etichetta.toUpperCase(), x + 12, y + 10, { width: w - 18, characterSpacing: 0.4 });
+    doc.fillColor('#1d2733').font('Helvetica-Bold').fontSize(v.grande ? 15 : 10.5)
+      .text(v.valore, x + 12, y + 24, { width: w - 18, height: h - 28, ellipsis: true });
+  });
+  doc.x = M; doc.y = y + h + 6;
 }
 
 /** Riga «etichetta: valore»; restituisce l'altezza usata. */
@@ -128,7 +152,19 @@ async function creaPdf(f, formattaData) {
   const conComune = f.comune && !semplice(f.indirizzo).includes(semplice(f.comune));
   const sotto = [f.indirizzo, conComune && `Comune di ${f.comune}`].filter(Boolean).join(' – ') || f.titolo;
   doc.font('Helvetica').fontSize(10).fillColor(GRIGIO).text(sotto, { align: 'center', width: doc.page.width - 2 * M });
-  doc.moveDown(0.3);
+  doc.font('Helvetica').fontSize(8).fillColor(GRIGIO).text(`Aggiornato al ${oggi}`, { align: 'center', width: doc.page.width - 2 * M });
+  doc.moveDown(0.8);
+
+  // Riquadri di sintesi
+  const cat = Array.isArray(f.catasto) ? f.catasto : [];
+  const rendita = cat.find((u) => u.rendita)?.rendita || '';
+  const superficie = cat.find((u) => u.consistenza)?.consistenza || '';
+  riquadriSintesi(doc, [
+    { etichetta: 'Classe energetica', valore: f.ape.classe || 'n.d.', tono: f.ape.classe ? (['G', 'F', 'E'].includes(f.ape.classe) ? 'attesa' : 'ok') : 'neutro', grande: true },
+    { etichetta: 'Urbanistica', valore: f.urbanistica.testo, tono: f.urbanistica.tono },
+    { etichetta: 'Catasto', valore: f.catastale ? f.catastale.testo : 'In verifica', tono: f.catastale ? f.catastale.tono : 'neutro' },
+    { etichetta: superficie ? 'Consistenza' : 'Rendita', valore: superficie || rendita || 'n.d.', tono: 'neutro' },
+  ]);
 
   // Ubicazione con QR code della posizione
   sezione(doc, 'Ubicazione');
@@ -175,13 +211,24 @@ async function creaPdf(f, formattaData) {
   if (f.ape.codice) voce(doc, 'Codice APE', f.ape.codice);
 
   // Descrizione
-  sezione(doc, "Descrizione sintetica dell'unità");
+  sezione(doc, "Descrizione sintetica dell'unità", 150);
   spazio(doc, 40);
-  doc.fillColor('#1d2733').font('Helvetica').fontSize(10).text(f.descrizione || 'In fase di redazione.', M, doc.y, { width: doc.page.width - 2 * M, align: 'justify', lineGap: 1.5 });
+  const testoDescr = f.descrizione || 'In fase di redazione.';
+  const hDescr = doc.heightOfString(testoDescr, { width: doc.page.width - 2 * M - 24, align: 'justify', lineGap: 2 }) + 16;
+  spazio(doc, hDescr);
+  doc.roundedRect(M, doc.y, doc.page.width - 2 * M, hDescr, 6).fill('#f6f8fb');
+  doc.fillColor('#1d2733').font('Helvetica').fontSize(10).text(testoDescr, M + 12, doc.y + 8, { width: doc.page.width - 2 * M - 24, align: 'justify', lineGap: 2 });
+  doc.x = M; doc.y += hDescr - 8;
 
   if (f.nota) {
     sezione(doc, 'Note dello studio');
     doc.fillColor('#1d2733').font('Helvetica').fontSize(10).text(f.nota, M, doc.y, { width: doc.page.width - 2 * M, align: 'justify' });
+  }
+
+  // Documenti a supporto (solo tipologia, senza nomi di file né dati personali)
+  if (f.allegati && f.allegati.length) {
+    sezione(doc, 'Documenti a supporto');
+    for (const x of f.allegati) voce(doc, x.voce, x.testo);
   }
 
   // Firma

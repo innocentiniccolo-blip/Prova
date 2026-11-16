@@ -69,7 +69,7 @@ router.get('/lavori/:id', async (req, res, next) => {
       // Ogni cliente vede solo i nomi dei file che ha inviato lui; degli altri solo il numero
       const miei = req.utente.ruolo === 'admin' ? r.file : r.file.filter((f) => f.utente_id === req.utente.id);
       return { ...r, file: miei, altriFile: r.file.length - miei.length };
-    }), limitiRichieste: richieste.LIMITI, estensioni: richieste.ESTENSIONI, pratiche: elenco, aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
+    }), limitiRichieste: richieste.LIMITI, estensioni: richieste.ESTENSIONI, pratiche: elenco, tappe: require('../tappe').perPratica(Pratiche.tappeLavoro.all(lavoro.id)), aggiornamenti, anteprimaPossibile, descriviStato: pratiche.descriviStato, impreseCantiere, verbali, tipiDoc: imprese.TIPI });
   } catch (e) { next(e); }
 });
 

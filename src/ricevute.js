@@ -47,13 +47,37 @@ function isoData(s) {
 const D = '(\\d{1,2}[/.-]\\d{1,2}[/.-]\\d{4}|\\d{4}-\\d{2}-\\d{2})';
 const trova = (t, re) => { const m = t.match(re); return m ? m[1].trim() : null; };
 
-// Ogni regola: test(testo, nome) → bool; estrai(testo) → { tipo, stato, data, protocollo }
+/** Inizio del documento: intestazione e oggetto, dove si dice di che comunicazione si tratta. */
+const testa = (t) => String(t).slice(0, 1500);
+/** Righe dell'oggetto («Oggetto:», «avente come oggetto:», «Tipo pratica», …) con la riga successiva. */
+function oggetto(t) {
+  const righe = String(t).split('\n');
+  const out = [];
+  righe.forEach((r, i) => { if (/oggetto|tipo\s*(di\s*)?(pratica|domanda|istanza|comunicazione)|tipologia|intervento\s*:/i.test(r)) out.push(r, righe[i + 1] || ''); });
+  return out.join(' ');
+}
+
+/**
+ * Fase della pratica a cui si riferisce la ricevuta: presentazione (di serie), integrazione,
+ * inizio lavori o fine lavori. Conta il nome del file e l'inizio/oggetto del documento,
+ * non le frasi più in basso (es. «data presunta di inizio lavori» in una SCIA).
+ */
+function faseDa(testo, nome = '') {
+  const n = String(nome).replace(/[_.-]+/g, ' ');
+  const zona = `${n}\n${testa(testo)}\n${oggetto(testo)}`;
+  if (/fine\s*(dei\s*)?lavori|ultimazione\s*(dei\s*)?lavori|regolare\s*esecuzione|struttura\s*ultimata|\bD\.?R\.?E\b/i.test(zona)) return 'fine';
+  if (/inizio\s*(dei\s*)?lavori|\bC\.?I\.?L\.?\s|comunicazione\s*di\s*avvio/i.test(zona) && !/data\s*(presunta|prevista)\s*(di\s*)?inizio/i.test(zona)) return 'inizio';
+  if (/integrazion|documentazione\s*integrativa|conformazion/i.test(zona)) return 'integrazione';
+  return 'presentazione';
+}
+
+// Ogni regola: test(testo, nome) → bool; estrai(testo) → { tipo, stato, fase, data, protocollo }
 const REGOLE = [
   {
     nome: 'APE – ricevuta di trasmissione (RIAPE)',
     test: (t, n) => /trasmesso\s*telematicamente/i.test(t) && /APE\s*id/i.test(t) || /^RIAPE_/i.test(n) && /APE/i.test(t),
     estrai: (t) => ({
-      tipo: 'ape', stato: 'Completata',
+      tipo: 'ape', stato: 'Completata', fase: 'presentazione',
       data: isoData(trova(t, new RegExp(`trasmesso\\s*telematicamente\\s*in\\s*data\\s*${D}`, 'i')) || trova(t, new RegExp(`Data\\s*Ape\\s*:?\\s*${D}`, 'i'))),
       protocollo: trova(t, /APE\s*id\s*:?\s*(\d+)/i),
     }),
@@ -62,7 +86,7 @@ const REGOLE = [
     nome: 'APE – attestato',
     test: (t) => /ATTESTATO\s*DI\s*PRESTAZIONE\s*ENERGETICA/i.test(t) && /CODICE\s*IDENTIFICATIVO/i.test(t),
     estrai: (t) => ({
-      tipo: 'ape', stato: 'Completata',
+      tipo: 'ape', stato: 'Completata', fase: 'presentazione',
       data: isoData(trova(t, new RegExp(`Data\\s*di\\s*emissione\\s*${D}`, 'i'))),
       protocollo: trova(t, /CODICE\s*IDENTIFICATIVO\s*:?\s*(\d+)/i),
     }),
@@ -71,7 +95,7 @@ const REGOLE = [
     nome: 'Catasto – ricevuta DOCFA',
     test: (t) => /Ricevuta\s*di\s*Avvenuta\s*(Denuncia|Dichiarazione)/i.test(t),
     estrai: (t) => ({
-      tipo: 'docfa', stato: 'Completata',
+      tipo: 'docfa', stato: 'Completata', fase: 'presentazione',
       data: isoData(trova(t, new RegExp(`Data\\s*:?\\s*${D}`, 'i'))),
       protocollo: trova(t, /Pratica\s*numero\s*:?\s*([A-Z]{2}\d{5,})/i),
     }),
@@ -80,7 +104,7 @@ const REGOLE = [
     nome: 'ENEA – scheda chiusa (CPID)',
     test: (t, n) => /CPID\s*(?!annullato)\d{4,}-\d{4}E-[A-Z0-9]{16}/i.test(t) || /^CPID_/i.test(n),
     estrai: (t, n) => ({
-      tipo: 'enea', stato: 'Completata',
+      tipo: 'enea', stato: 'Completata', fase: 'presentazione',
       data: isoData(trova(t, /Data\s*chiusura\s*(\d{4}-\d{2}-\d{2})/i)),
       protocollo: trova(t, /CPID\s*(?!annullato)(\d{4,}-\d{4}E-[A-Z0-9]{16})/i) || trova(n, /CPID_([0-9A-Z-]+)/i),
     }),
@@ -89,18 +113,38 @@ const REGOLE = [
     nome: 'ASL – notifica preliminare',
     test: (t) => /Notifica\s*Preliminare\s*Cantiere/i.test(t),
     estrai: (t) => ({
-      tipo: 'asl', stato: 'Presentata',
+      tipo: 'asl', stato: 'Presentata', fase: 'presentazione',
       data: isoData(trova(t, new RegExp(`N°?\\s*Notifica\\s*:?\\s*\\d+\\s*[–-]?\\s*Data\\s*:?\\s*${D}`, 'i'))),
       protocollo: trova(t, /Protocollo\s*:?\s*([A-Z0-9/]+\/\d{4})/i) || trova(t, /N°?\s*Notifica\s*:?\s*(\d+)/i),
     }),
   },
   {
-    nome: 'Regione Toscana – deposito sismico (PORTOS)',
-    test: (t) => /Settore\s*SISMICA/i.test(t) && /Attestazione\s*di\s*deposito/i.test(t),
+    // Fine lavori al Genio Civile: Dichiarazione di Regolare Esecuzione / Relazione a struttura ultimata / collaudo
+    nome: 'Regione Toscana – fine lavori sismica (PORTOS)',
+    test: (t) => /Settore\s*SISMICA/i.test(t) && /Regolare\s*Esecuzione|Fine\s*(dei\s*)?Lavori|Struttura\s*ultimata|Certificato\s*di\s*collaudo/i.test(testa(t)),
     estrai: (t) => ({
-      tipo: 'sismica', stato: 'Completata',
+      tipo: 'sismica', stato: 'Completata', fase: 'fine',
+      data: isoData(trova(t, new RegExp(`Data\\s*Invio(?:\\s*D\\.?R\\.?E\\.?)?\\s*:?\\s*${D}`, 'i')) || trova(t, new RegExp(`AOOGRT\\/SISMICA\\/\\d+[^\\n]*?del\\s*${D}`, 'i'))),
+      protocollo: trova(t, /AOOGRT\/SISMICA\/(\d{6,})/i) || trova(t, /Deposito\s*n\.?\s*(\d+)/i),
+    }),
+  },
+  {
+    nome: 'Regione Toscana – deposito sismico (PORTOS)',
+    test: (t) => /Settore\s*SISMICA/i.test(t) && /Attestazione\s*di\s*deposito/i.test(t) && !/integrazion|inizio\s*(dei\s*)?lavori/i.test(oggetto(t)),
+    estrai: (t) => ({
+      tipo: 'sismica', stato: 'Completata', fase: 'presentazione',
       data: isoData(trova(t, new RegExp(`Data\\s*Avviso\\s*${D}`, 'i'))),
-      protocollo: trova(t, /Protocollo\s*n\.?\s*(\d{6,})/i),
+      // «Protocollo n.» nell'intestazione a volte esce dal PDF in disordine: c'è anche nel testo («attribuito n. protocollo …»)
+      protocollo: trova(t, /Protocollo\s*n\.?\s*(\d{6,})/i) || trova(t, /n\.?\s*protocollo\s*(\d{6,})/i),
+    }),
+  },
+  {
+    nome: 'Regione Toscana – comunicazione sismica (PORTOS)',
+    test: (t, n) => /Settore\s*SISMICA/i.test(t) && /AOOGRT\/SISMICA\//i.test(t) && faseDa(t, n) !== 'presentazione',
+    estrai: (t, n) => ({
+      tipo: 'sismica', stato: 'Presentata', fase: faseDa(t, n),
+      data: isoData(trova(t, new RegExp(`AOOGRT\\/SISMICA\\/\\d+[^\\n]*?del\\s*${D}`, 'i')) || trova(t, new RegExp(`Data\\s*Avviso\\s*${D}`, 'i'))),
+      protocollo: trova(t, /AOOGRT\/SISMICA\/(\d{6,})/i) || trova(t, /Protocollo\s*n\.?\s*(\d{6,})/i),
     }),
   },
   {
@@ -166,6 +210,8 @@ function riconosci(testo, nomeFile = '') {
   for (const r of REGOLE) {
     if (!r.test(t, n)) continue;
     const esito = r.estrai(t, n);
+    // Ricevute generiche del Comune / SUAP: la fase si capisce dal nome del file e dall'oggetto
+    if (!esito.fase) esito.fase = faseDa(t, n);
     // Senza almeno una data o un numero la proposta non serve
     if (!esito.data && !esito.protocollo) continue;
     return { ...esito, regola: r.nome };
@@ -178,4 +224,4 @@ async function analizza(abs, nomeFile) {
   return riconosci(testo, nomeFile);
 }
 
-module.exports = { testoPdf, riconosci, analizza, isoData };
+module.exports = { testoPdf, riconosci, analizza, isoData, faseDa };

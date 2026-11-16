@@ -72,6 +72,10 @@ function preparaArchivio() {
   scrivi(`${L1}/04 - Catasto/0000000243944926DGC.pdf`, ['DGC', 'Data: 13/11/2026 Ora: 18.59.47 Ricevuta di Avvenuta Denuncia di Variazione',
     'Catasto Fabbricati Pratica numero: AR0031772 Codice di Riscontro: 000A23P3P']);
   scrivi(`${L1}/06 - Preventivi/Preventivo impresa.pdf`);
+  scrivi(`${L1}/07 - Deposito sismico/Attestazione deposito.pdf`, ['Settore SISMICA', 'Data Avviso 08/07/2026', 'Attestazione di deposito progetto', 'Progetto n. 100200', 'e stato attribuito n. protocollo 20260000001 e n.progetto 100200']);
+  scrivi(`${L1}/07 - Deposito sismico/fine_lavori_100200.pdf`, ['Settore SISMICA', 'Dichiarazione di Regolare Esecuzione, ai sensi degli articoli 65 e 67 del D.P.R. 380/2001', 'Dati Riepilogativi: Deposito n. 100200 del 08/07/2026', 'Data Invio D.R.E 30/07/2026', 'AOOGRT/SISMICA/20260011111/N.060.100 del 30/07/2026']);
+  scrivi(`${L1}/03 - CILA/Integrazione/Ricevuta integrazione.pdf`, ['Ricevuta di Protocollazione', 'CASTELFRANCO PIANDISCO, li 14/11/2026', 'alle ore 10:02 al numero 11391 avente come oggetto:', 'integrazione documentale']);
+
   const relazione = ['STUDIO TECNICO GEOM. NICCOLO INNOCENTI - Viale Marconi 38 - Pian di Sco', 'RELAZIONE TECNICA DI CONFORMITA URBANISTICA E CATASTALE',
     'Committente: Mario Rossi, residente in Via Verdi n. 5, Montevarchi', 'Immobile sito in Castelfranco Piandisco, Via Roma n. 12',
     "L'unita immobiliare e censita al Catasto Fabbricati del Comune di Castelfranco Piandisco al foglio 12,", 'particella 345, subalterno 6,',

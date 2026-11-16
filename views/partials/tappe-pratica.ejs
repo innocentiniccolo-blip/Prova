@@ -1,0 +1,12 @@
+<% if (elenco && elenco.length) { %>
+  <ul class="tappe-pratica">
+    <% elenco.forEach(t => { %>
+      <li class="tappa-<%= t.fase %>"><span class="tappa-nome"><%= t.nome %></span>
+        <%= t.data ? `${t.fase === 'integrazione' ? 'presentata' : 'comunicata'} il ${data(t.data)}` : '' %><% if (t.protocollo) { %> · prot. n. <strong><%= t.protocollo %></strong><% } %>
+        <% if (typeof elimina !== 'undefined' && elimina) { %>
+          <form method="post" action="<%= elimina %>/tappe/<%= t.id %>/elimina" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo" title="Togli questa tappa">Togli</button></form>
+        <% } %>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>

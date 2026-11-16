@@ -95,6 +95,11 @@ const Pratiche = {
       visibile = :visibile, aggiornato_il = datetime('now') WHERE id = :id AND lavoro_id = :lavoro_id`),
   elimina: db.prepare('DELETE FROM pratiche WHERE id = ? AND lavoro_id = ?'),
   visibilitaRuoli: db.prepare('UPDATE pratiche SET visibile = ?, visibile_agenzia = ?, visibile_impresa = ? WHERE id = ? AND lavoro_id = ?'),
+  // Tappe: integrazioni, inizio e fine lavori
+  tappeLavoro: db.prepare("SELECT t.* FROM pratiche_tappe t JOIN pratiche p ON p.id = t.pratica_id WHERE p.lavoro_id = ? ORDER BY COALESCE(t.data, t.creato_il), t.id"),
+  aggiungiTappa: db.prepare('INSERT INTO pratiche_tappe (pratica_id, fase, data, protocollo, file) VALUES (?, ?, ?, ?, ?)'),
+  tappaUguale: db.prepare("SELECT id FROM pratiche_tappe WHERE pratica_id = ? AND fase = ? AND COALESCE(data, '') = COALESCE(?, '') AND COALESCE(protocollo, '') = COALESCE(?, '')"),
+  eliminaTappa: db.prepare('DELETE FROM pratiche_tappe WHERE id = ? AND pratica_id IN (SELECT id FROM pratiche WHERE lavoro_id = ?)'),
 };
 
 const Aggiornamenti = {

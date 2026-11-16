@@ -195,5 +195,15 @@ CREATE TABLE IF NOT EXISTS lavori_aziende (
 if (!colonne('utenti').includes('azienda_id')) db.exec('ALTER TABLE utenti ADD COLUMN azienda_id INTEGER REFERENCES aziende(id) ON DELETE SET NULL');
 // Scheda immobile (per agenzie e proprietari): conformità e APE
 if (!colonne('lavori').includes('scheda')) db.exec('ALTER TABLE lavori ADD COLUMN scheda TEXT');
+// Tappe delle pratiche lette dalle ricevute: integrazioni, inizio e fine lavori (la presentazione resta nella pratica)
+db.exec(`CREATE TABLE IF NOT EXISTS pratiche_tappe (
+  id         INTEGER PRIMARY KEY,
+  pratica_id INTEGER NOT NULL REFERENCES pratiche(id) ON DELETE CASCADE,
+  fase       TEXT NOT NULL CHECK (fase IN ('integrazione','inizio','fine')),
+  data       TEXT,
+  protocollo TEXT,
+  file       TEXT,
+  creato_il  TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
 
 module.exports = db;

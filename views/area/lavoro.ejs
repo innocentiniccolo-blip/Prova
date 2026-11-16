@@ -82,6 +82,7 @@
             <p class="pratica-stato">
               <%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. n. <strong><%= p.protocollo %></strong><% } %>
             </p>
+            <%- include('../partials/tappe-pratica', { elenco: tappe[p.id] }) %>
             <% if (p.nota) { %><p class="pratica-nota a-capo"><%= p.nota %></p><% } %>
             <% if (p.file.length) { %>
               <details class="pratica-documenti">

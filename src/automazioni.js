@@ -42,7 +42,7 @@ const q = {
     WHERE ps.stato_proposta = 'nuova' AND p.lavoro_id = ? ORDER BY ps.creato_il`),
   propStato: db.prepare('SELECT * FROM proposte_stato WHERE id = ?'),
   esitoPropStato: db.prepare('UPDATE proposte_stato SET stato_proposta = ? WHERE id = ?'),
-  scartaAltre: db.prepare("UPDATE proposte_stato SET stato_proposta = 'scartata' WHERE pratica_id = ? AND stato_proposta = 'nuova' AND id <> ? AND stato <> ?"),
+  scartaAltre: db.prepare(`UPDATE proposte_stato SET stato_proposta = 'scartata' WHERE pratica_id = ? AND stato_proposta = 'nuova' AND id <> ? AND stato NOT IN (${Object.keys(require('./tappe').STATI).map((x) => `'${x}'`).join(', ')})`),
 };
 
 const emailRe = /[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}/i;
@@ -160,8 +160,7 @@ function scartaLavoro(id) { q.statoProposta.run('scartata', id); }
  * Legge i PDF nuovi delle pratiche visibili di un lavoro (o di tutti) e crea le proposte.
  * Per ogni pratica tiene la ricevuta più recente fra quelle nuove.
  */
-const STATO_INTEGRAZIONE = 'Integrazione presentata';
-const inIntegrazione = (rel) => String(rel).split(/[\\/]/).slice(0, -1).some((c) => /integrazion/i.test(c));
+const tappe = require('./tappe');
 
 async function scansionaRicevute(lavoro) {
   const elenco = lavoro ? [lavoro] : Lavori.tutti.all();
@@ -182,20 +181,26 @@ async function scansionaRicevute(lavoro) {
         let esito = null;
         try { esito = await ricevute.analizza(abs, f.nome); } catch (e) { console.error(`Lettura ${f.percorso}:`, e.message); }
         if (!esito) continue;
-        if (inIntegrazione(f.percorso)) {
-          // Protocollo di un'integrazione al Comune: aggiornamento a parte, il protocollo della pratica resta quello iniziale
-          if (['comune', 'suap'].includes(esito.tipo)) integrazioni.push({ ...esito, stato: STATO_INTEGRAZIONE, file: f.percorso });
+        // Fase: dal contenuto della ricevuta (oggetto, nome del file) o dalla cartella in cui sta
+        const daCartella = tappe.faseCartella(f.percorso);
+        const fase = esito.fase && esito.fase !== 'presentazione' ? esito.fase : daCartella;
+        if (fase) {
+          // Integrazione, inizio o fine lavori: tappa a parte, presentazione e protocollo della pratica restano quelli iniziali.
+          // Una ricevuta «di presentazione» di un altro ente dentro la cartella di un'integrazione non conta (es. deposito sismico).
+          if (!['comune', 'suap', 'sismica'].includes(esito.tipo) || (esito.fase === 'presentazione' && esito.tipo === 'sismica')) continue;
+          if (Pratiche.tappaUguale.get(p.id, fase, esito.data, esito.protocollo)) continue;
+          integrazioni.push({ ...esito, stato: tappe.FASI[fase].stato, file: f.percorso });
           continue;
         }
         const chiave = esito.data || new Date(mtime).toISOString().slice(0, 10);
         if (!migliore || chiave >= migliore.chiave) migliore = { ...esito, file: f.percorso, chiave };
       }
-      // Prima la presentazione principale, poi le integrazioni in ordine di data
+      // Prima la presentazione principale, poi integrazioni, inizio e fine lavori in ordine di data
       const nuove = [];
       const giaUguale = migliore && p.stato === migliore.stato && (p.data || null) === (migliore.data || null) && (p.protocollo || null) === (migliore.protocollo || null);
       if (migliore && !giaUguale) {
         const { lastInsertRowid } = q.inserisciPropStato.run(p.id, migliore.file, migliore.tipo, migliore.stato, migliore.data, migliore.protocollo);
-        q.scartaAltre.run(p.id, Number(lastInsertRowid), STATO_INTEGRAZIONE);
+        q.scartaAltre.run(p.id, Number(lastInsertRowid));
         nuove.push(Number(lastInsertRowid));
       }
       for (const i of integrazioni.sort((a, b) => String(a.data).localeCompare(String(b.data)))) {
@@ -214,8 +219,11 @@ async function applicaStato(id, req, { email = true } = {}) {
   if (!ps || ps.stato_proposta !== 'nuova') throw new Error('Proposta non trovata o già gestita');
   const p = db.prepare('SELECT * FROM pratiche WHERE id = ?').get(ps.pratica_id);
   const lavoro = Lavori.perId.get(p.lavoro_id);
-  const integrazione = ps.stato === STATO_INTEGRAZIONE;
-  if (!integrazione) {
+  const fase = tappe.STATI[ps.stato];
+  const integrazione = Boolean(fase);
+  if (fase) {
+    if (!Pratiche.tappaUguale.get(p.id, fase, ps.data, ps.protocollo)) Pratiche.aggiungiTappa.run(p.id, fase, ps.data, ps.protocollo, ps.file);
+  } else {
     Pratiche.aggiorna.run({
       id: p.id, lavoro_id: p.lavoro_id, stato: ps.stato, data: ps.data,
       protocollo: ps.protocollo || p.protocollo, nota: p.nota, visibile: p.visibile,

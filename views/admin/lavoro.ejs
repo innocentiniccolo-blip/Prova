@@ -100,6 +100,7 @@
               </span>
             </summary>
 
+            <%- include('../partials/tappe-pratica', { elenco: tappe[p.id], elimina: base }) %>
             <form method="post" action="<%= base %>/pratiche/<%= p.id %>" class="modulo pratica-modulo">
               <input type="hidden" name="_csrf" value="<%= csrf %>">
               <div class="riga-campi">
@@ -121,6 +122,22 @@
                 <button class="pulsante">Salva</button>
               </div>
             </form>
+            <details class="aggiungi-tappa">
+              <summary>+ Integrazione, inizio o fine lavori</summary>
+              <p class="nota">Di solito si aggiungono da sole leggendo le ricevute (anche del Genio Civile). Qui puoi inserirle a mano.</p>
+              <form method="post" action="<%= base %>/pratiche/<%= p.id %>/tappe" class="modulo">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <div class="riga-campi">
+                  <label>Tappa <select name="fase"><% Object.entries(FASI).forEach(([k, v]) => { %><option value="<%= k %>"><%= v.nome %></option><% }) %></select></label>
+                  <label>Data <input type="date" name="data" required></label>
+                  <label>N. protocollo <input name="protocollo" maxlength="100"></label>
+                </div>
+                <div class="azioni">
+                  <% if (postaAttiva) { %><label class="scelta"><input type="checkbox" name="email" value="1"> Avvisa il cliente via email</label><% } %>
+                  <button class="pulsante piccolo">Aggiungi tappa</button>
+                </div>
+              </form>
+            </details>
 
             <% if (p.esiste) { %>
               <% if (!archivioSolaLettura) { %>

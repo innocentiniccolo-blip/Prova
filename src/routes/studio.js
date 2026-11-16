@@ -17,6 +17,7 @@ const { inviaBenvenuto, avvisaClienti, avvisaStatoPratica } = require('../notifi
 const { db, Aziende, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 const ruoli = require('../ruoli');
+const tappe = require('../tappe');
 const scheda = require('../scheda');
 const { ruoloValido } = ruoli;
 
@@ -238,6 +239,7 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       lavoro,
       cartellaEsiste,
       pratiche: await pratiche.conDocumenti(lavoro),
+      tappe: tappe.perPratica(Pratiche.tappeLavoro.all(lavoro.id)), FASI: tappe.FASI,
       tipiPratica: archivio.tipiPratica,
       statiPratica: archivio.statiPratica,
       descriviStato: pratiche.descriviStato,
@@ -473,6 +475,32 @@ router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, async (
   flash(req, esito.falliti ? 'errore' : 'ok', `Pratica «${pratica.cartella}» aggiornata.` + fraseEsito(esito));
   res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
   } catch (e) { next(e); }
+});
+
+// Tappe a mano: integrazione, inizio o fine lavori (di solito arrivano dalle ricevute)
+router.post('/lavori/:id/pratiche/:pid/tappe', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const pratica = trovaPratica(req, req.params.pid);
+    const fase = tappe.FASI[req.body.fase] ? req.body.fase : null;
+    const dataT = dataONull(req.body.data);
+    if (!pratica || !fase || !dataT) { flash(req, 'errore', 'Indica tappa e data.'); return res.redirect(`/studio/lavori/${req.lavoro.id}`); }
+    const prot = testo(req.body.protocollo, 100) || null;
+    if (!Pratiche.tappaUguale.get(pratica.id, fase, dataT, prot)) Pratiche.aggiungiTappa.run(pratica.id, fase, dataT, prot, null);
+    Lavori.tocca.run(req.lavoro.id);
+    const nome = pratiche.nomeVisibile(pratica.cartella);
+    const statoT = { stato: tappe.FASI[fase].stato, data: dataT, protocollo: prot };
+    if (pratica.visibile) Aggiornamenti.inserisci.run(req.lavoro.id, `${nome}: ${pratiche.descriviStato(statoT, req.app.locals.data).toLowerCase()}${prot ? `, protocollo n. ${prot}` : ''}.`);
+    let esito = { inviati: 0, falliti: 0 };
+    if (req.body.email && (pratica.visibile || pratica.visibile_agenzia || pratica.visibile_impresa)) esito = await avvisaStatoPratica(req, req.lavoro, nome, statoT, pratica);
+    flash(req, esito.falliti ? 'errore' : 'ok', `${tappe.FASI[fase].nome} aggiunta a «${pratica.cartella}».` + fraseEsito(esito));
+    res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
+  } catch (e) { next(e); }
+});
+
+router.post('/lavori/:id/tappe/:tid/elimina', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  Pratiche.eliminaTappa.run(Number(req.params.tid), req.lavoro.id);
+  flash(req, 'ok', 'Tappa tolta.');
+  res.redirect(`/studio/lavori/${req.lavoro.id}`);
 });
 
 router.post('/lavori/:id/pratiche/:pid/elimina', trovaLavoro, auth.verificaCsrf, (req, res) => {

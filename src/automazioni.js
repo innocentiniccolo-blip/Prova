@@ -134,6 +134,7 @@ async function confermaLavoro(id, req, extra = {}) {
       codice: cod, titolo, descrizione: null, indirizzo: null, stato: config.studio.stati[1] || config.studio.stati[0],
       cartella: p.cartella, data_inizio: null, data_fine: null, visibile: 1,
     });
+    scriviLavoriDrive();
     lavoroId = Number(r.lastInsertRowid);
     if (cliente) Lavori.aggiungiCliente.run(lavoroId, cliente.id);
     q.statoProposta.run('confermata', id);
@@ -248,10 +249,27 @@ function scartaStato(id) { q.esitoPropStato.run('scartata', id); }
 
 /** Giro periodico: nuovi lavori e ricevute. */
 let inCorso = false;
+/**
+ * Con la cartella madre di Google Drive («Studio Innocenti») il server copia solo i lavori confermati:
+ * qui si scrive l'elenco delle loro cartelle, letto dallo script di copia ogni 5 minuti.
+ */
+function scriviLavoriDrive() {
+  if (!config.archivioSolaLettura) return;
+  try {
+    const nomi = [...new Set(db.prepare('SELECT cartella FROM lavori WHERE cartella IS NOT NULL').all()
+      .map((r) => String(r.cartella).split('/')[0].trim()).filter(Boolean))].sort();
+    const file = path.join(config.datiDir, 'drive-lavori.txt');
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, nomi.join('\n') + (nomi.length ? '\n' : ''));
+    fs.renameSync(tmp, file);
+  } catch (e) { console.error('Elenco lavori per Drive:', e.message); }
+}
+
 async function giro() {
   if (inCorso) return;
   inCorso = true;
   try {
+    scriviLavoriDrive();
     await scansionaNuoviLavori();
     await scansionaRicevute();
     await require('./sicurezzaDrive').importaTutti();
@@ -270,7 +288,7 @@ function avvia() {
 
 module.exports = {
   leggiSchedaCliente, codiceETitolo, scansionaNuoviLavori, confermaLavoro, scartaLavoro,
-  scansionaRicevute, applicaStato, scartaStato, giro, avvia,
+  scansionaRicevute, applicaStato, scartaStato, giro, avvia, scriviLavoriDrive,
   proposteLavori: () => q.proposteNuove.all(),
   proposteStato: () => q.propStatoNuove.all(),
   proposteStatoLavoro: (id) => q.propStatoPerLavoro.all(id),

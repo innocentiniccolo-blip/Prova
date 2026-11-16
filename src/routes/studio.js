@@ -163,13 +163,17 @@ function renderFormLavoro(res, lavoro, clientiSel, errore) {
 
 /** Cartelle dei lavori presenti nell'archivio e non ancora collegate a un lavoro (per sceglierle dal modulo). */
 function cartelleLibere(attuale) {
-  let nomi = [];
+  const fsn = require('node:fs');
+  const nomi = new Set();
   try {
-    nomi = require('node:fs').readdirSync(config.archivioDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && !d.name.startsWith('.')).map((d) => d.name);
-  } catch { return []; }
+    for (const d of fsn.readdirSync(config.archivioDir, { withFileTypes: true })) if (d.isDirectory() && !d.name.startsWith('.')) nomi.add(d.name);
+  } catch { /* archivio non raggiungibile */ }
+  // Con la cartella madre di Drive: tutte le cartelle di «Studio Innocenti», anche quelle non ancora copiate
+  try {
+    for (const n of fsn.readFileSync(require('node:path').join(config.datiDir, 'drive-cartelle.txt'), 'utf8').split('\n')) if (n.trim()) nomi.add(n.trim());
+  } catch { /* elenco non presente: Drive con singole cartelle condivise */ }
   const usate = new Set(db.prepare('SELECT cartella FROM lavori').all().map((r) => r.cartella));
-  return nomi.filter((n) => !usate.has(n) || n === attuale).sort((a, b) => a.localeCompare(b, 'it'));
+  return [...nomi].filter((n) => !usate.has(n) || n === attuale).sort((a, b) => a.localeCompare(b, 'it'));
 }
 
 router.get('/lavori/nuovo', (req, res) => {
@@ -204,7 +208,7 @@ router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
   const dati = datiLavoro(req.body);
   const clienti = idClienti(req.body);
   if (config.archivioSolaLettura && !req.body.cartella?.trim()) {
-    return renderFormLavoro(res, { ...req.body }, clienti, 'Scegli la cartella del lavoro su Google Drive (prima condividila con l\'account di servizio).');
+    return renderFormLavoro(res, { ...req.body }, clienti, 'Scegli la cartella del lavoro su Google Drive dall\'elenco.');
   }
   if (!req.body.cartella?.trim() && dati.codice && dati.titolo) {
     dati.cartella = archivio.normalizzaCartella(`${dati.codice} ${archivio.nomeSicuro(dati.titolo) || ''}`);
@@ -216,12 +220,13 @@ router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
   try {
     db.exec('BEGIN');
     const { lastInsertRowid } = Lavori.inserisci.run(dati);
+    automazioni.scriviLavoriDrive();
     salvaClienti(lastInsertRowid, clienti);
     salvaAziende(lastInsertRowid, idAziende(req.body));
     db.exec('COMMIT');
     if (!config.archivioSolaLettura) await archivio.creaStruttura(dati);
     await require('../sicurezzaDrive').importaLavoro(Lavori.perId.get(lastInsertRowid)).catch((e) => console.error(e));
-    flash(req, 'ok', 'Lavoro creato. Le sottocartelle della cartella del lavoro compaiono qui sotto come pratiche.');
+    flash(req, 'ok', config.archivioSolaLettura ? 'Lavoro creato. Entro 5 minuti arrivano i documenti da Google Drive e le sottocartelle compaiono qui sotto come pratiche.' : 'Lavoro creato. Le sottocartelle della cartella del lavoro compaiono qui sotto come pratiche.');
     res.redirect(`/studio/lavori/${lastInsertRowid}`);
   } catch (e) {
     if (db.isTransaction) db.exec('ROLLBACK');
@@ -278,6 +283,7 @@ router.post('/lavori/:id', trovaLavoro, auth.verificaCsrf, async (req, res, next
   try {
     db.exec('BEGIN');
     Lavori.aggiorna.run(dati);
+    automazioni.scriviLavoriDrive();
     salvaClienti(req.lavoro.id, clienti);
     salvaAziende(req.lavoro.id, idAziende(req.body));
     db.exec('COMMIT');
@@ -300,6 +306,7 @@ router.post('/lavori/:id/crea-cartelle', soloScrittura, trovaLavoro, auth.verifi
 
 router.post('/lavori/:id/elimina', trovaLavoro, auth.verificaCsrf, async (req, res) => {
   Lavori.elimina.run(req.lavoro.id);
+  automazioni.scriviLavoriDrive();
   await imprese.eliminaFileLavoro(req.lavoro.id).catch((e) => console.error(e));
   flash(req, 'ok', `Lavoro ${req.lavoro.codice} eliminato dall'app. I file sul NAS NON sono stati toccati.`);
   res.redirect('/studio');

@@ -33,12 +33,24 @@ if [ -n "$CHIAVE" ]; then
   shred -u "$CHIAVE" 2>/dev/null || rm -f "$CHIAVE"
 fi
 
+# Cartella madre facoltativa (es. «Studio Innocenti»): CARTELLA_MADRE=<id della cartella> bash configura-drive.sh
+# Una volta condivisa con il server, ogni nuova sottocartella diventa da sola un lavoro da confermare.
+if [ -n "${CARTELLA_MADRE:-}" ]; then echo "$CARTELLA_MADRE" > /etc/area-clienti/cartella-madre; fi
+MADRE="$(cat /etc/area-clienti/cartella-madre 2>/dev/null || true)"
+
 cat > /etc/area-clienti/rclone.conf <<EOF
 [drive]
 type = drive
 scope = drive.readonly
 service_account_file = /etc/area-clienti/drive-chiave.json
 shared_with_me = true
+skip_gdocs = true
+
+[studio]
+type = drive
+scope = drive.readonly
+service_account_file = /etc/area-clienti/drive-chiave.json
+root_folder_id = ${MADRE:-nessuna}
 skip_gdocs = true
 EOF
 chmod 600 /etc/area-clienti/rclone.conf
@@ -62,18 +74,70 @@ cat > /etc/area-clienti/filtro-drive.txt <<'EOF'
 # Tutto il resto resta solo su Drive
 - *
 EOF
+# Stesse regole, viste dall'interno di una singola cartella di lavoro
+sed 's#^+ /\*/\*sicurezza\*#+ /*sicurezza*#' /etc/area-clienti/filtro-drive.txt > /etc/area-clienti/filtro-lavoro.txt
 
-cat > /usr/local/bin/area-clienti-drive <<EOF
-#!/usr/bin/env bash
-# Allinea l'archivio dell'area clienti con Google Drive (sola lettura su Drive)
-exec flock -n /run/area-clienti-drive.lock \\
-  rclone sync drive: $DIR/documenti \\
-    --config /etc/area-clienti/rclone.conf \\
-    --filter-from /etc/area-clienti/filtro-drive.txt --ignore-case \\
-    --max-size 30M --create-empty-src-dirs \\
-    --fast-list --transfers 4 --checkers 8 \\
-    --log-level NOTICE
-EOF
+if [ -n "$MADRE" ]; then
+  echo "==> Controllo dell'accesso alla cartella madre"
+  if ! rclone --config /etc/area-clienti/rclone.conf lsf studio: --dirs-only --max-depth 1 >/dev/null 2>&1; then
+    echo
+    echo "!! Il server non vede ancora la cartella madre."
+    echo "   Su Google Drive: tasto destro su «Studio Innocenti» → Condividi → aggiungi"
+    echo "   $(grep -o '"client_email": *"[^"]*"' /etc/area-clienti/drive-chiave.json | sed 's/.*"\([^"]*\)"$/\1/')"
+    echo "   come Visualizzatore, poi rilancia questo comando."
+    exit 1
+  fi
+fi
+
+cat > /usr/local/bin/area-clienti-drive <<'FINE'
+#!/bin/bash
+# Copia da Google Drive per l'area clienti (lanciata ogni 5 minuti dal timer di systemd)
+set -u
+CONF=/etc/area-clienti
+DOC=/opt/area-clienti/documenti
+DATI=/opt/area-clienti/dati
+RC=(rclone --config "$CONF/rclone.conf")
+OPZ=(--ignore-case --max-size 30M --create-empty-src-dirs --fast-list --transfers 4 --checkers 8 --log-level NOTICE)
+exec 9>/run/area-clienti-drive.lock
+flock -n 9 || exit 0
+
+if [ ! -s "$CONF/cartella-madre" ]; then
+  # Modalità a cartelle condivise una per una
+  exec "${RC[@]}" sync drive: "$DOC" --filter-from "$CONF/filtro-drive.txt" "${OPZ[@]}"
+fi
+
+# Modalità cartella madre: elenco delle cartelle di lavoro (escluse quelle che iniziano con _ . @ #)
+ELENCO=$(mktemp)
+trap 'rm -f "$ELENCO"' EXIT
+if ! "${RC[@]}" lsf studio: --dirs-only --format p | sed 's#/$##' | grep -v '^[_.@#]' > "$ELENCO"; then
+  echo "Google Drive non raggiungibile: riprovo al prossimo giro"; exit 1
+fi
+[ -s "$ELENCO" ] || { echo "Nessuna cartella trovata nella cartella madre"; exit 1; }
+install -m 644 "$ELENCO" "$DATI/drive-cartelle.txt"
+
+# Le cartelle già presenti all'attivazione non vengono proposte (si aggiungono a mano dal pannello)
+[ -f "$CONF/cartelle-iniziali.txt" ] || cp "$ELENCO" "$CONF/cartelle-iniziali.txt"
+touch "$DATI/drive-lavori.txt"
+
+# Cartelle nuove: segnaposto vuoto, il pannello le propone come lavori da confermare
+while IFS= read -r n; do
+  grep -qxF -- "$n" "$CONF/cartelle-iniziali.txt" || mkdir -p -- "$DOC/$n"
+done < "$ELENCO"
+
+# Lavori confermati nel pannello: copia dei documenti (stesse regole di riservatezza)
+while IFS= read -r n; do
+  [ -n "$n" ] && grep -qxF -- "$n" "$ELENCO" || continue
+  "${RC[@]}" sync "studio:$n" "$DOC/$n" --filter-from "$CONF/filtro-lavoro.txt" "${OPZ[@]}" < /dev/null
+done < "$DATI/drive-lavori.txt"
+
+# Segnaposto di cartelle sparite da Drive e mai confermate: tolti solo se vuoti.
+# I lavori confermati restano anche se la cartella viene spostata o archiviata su Drive.
+for d in "$DOC"/*/; do
+  [ -d "$d" ] || continue
+  n=$(basename "$d")
+  grep -qxF -- "$n" "$ELENCO" || grep -qxF -- "$n" "$DATI/drive-lavori.txt" || rmdir -- "$d" 2>/dev/null || true
+done
+FINE
 chmod 700 /usr/local/bin/area-clienti-drive
 
 echo "==> Area clienti in modalità Google Drive (cartelle e file si gestiscono su Drive)"
@@ -108,6 +172,7 @@ systemctl enable --now area-clienti-drive.timer >/dev/null
 echo
 echo "=================================================================="
 echo " Collegamento con Google Drive attivo (sola lettura, ogni 5 minuti)."
+[ -n "$MADRE" ] && echo " Cartella madre attiva: le nuove cartelle compaiono da sole tra i lavori da confermare."
 echo " Lavori copiati: $(find $DIR/documenti -mindepth 1 -maxdepth 1 -type d | wc -l)"
 echo " File copiati:   $(find $DIR/documenti -type f | wc -l)"
 echo "=================================================================="

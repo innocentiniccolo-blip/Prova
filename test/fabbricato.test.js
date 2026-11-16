@@ -45,3 +45,14 @@ test('fascicolo PDF su carta intestata', async () => {
   assert.strictEqual(buf.subarray(0, 5).toString(), '%PDF-');
   assert.ok(buf.length > 3000);
 });
+
+test('cartella madre Drive: elenco dei lavori confermati per lo script di copia', () => {
+  const fs = require('node:fs'); const path = require('node:path');
+  const config = require('../src/config');
+  config.archivioSolaLettura = true;
+  const db = require('../src/db');
+  db.prepare("INSERT INTO lavori (codice, titolo, stato, cartella, visibile) VALUES ('T-1', 'Prova', 'In corso', 'Rossi Mario - Via Roma', 1), ('T-2', 'Prova 2', 'In corso', 'Bianchi/Sotto', 1)").run();
+  require('../src/automazioni').scriviLavoriDrive();
+  assert.deepStrictEqual(fs.readFileSync(path.join(config.datiDir, 'drive-lavori.txt'), 'utf8').trim().split('\n'), ['Bianchi', 'Rossi Mario - Via Roma']);
+  config.archivioSolaLettura = false;
+});

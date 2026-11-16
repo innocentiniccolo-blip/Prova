@@ -15,13 +15,13 @@
     <details class="guida-voce" id="g-lavoro" open>
       <summary><span class="guida-num">1</span> Nuovo lavoro da Google Drive</summary>
       <ol class="guida-passi">
-        <li>Su Google Drive, nella cartella <b>Studio Innocenti</b>, crea la cartella del lavoro (es. <i>Mario Rossi - Via Roma 12</i>).</li>
-        <li>Tasto destro sulla cartella → <b>Condividi</b> → aggiungi <code class="copia"><%= emailDrive %></code> come <b>Visualizzatore</b> (mai Editor) e togli la spunta «Invia notifica».</li>
-        <li>Entro 5 minuti il lavoro compare nel cruscotto in <b>«Da confermare»</b>. Se hai fretta premi <b>«Controlla <%= nomeArchivio %> ora»</b>.</li>
-        <li>Premi <b>Conferma</b>: se vuoi scrivi subito nome ed email del cliente, che riceve le credenziali.</li>
+        <li>Su Google Drive, dentro <b>Studio Innocenti</b>, crea la cartella del lavoro (es. <i>Mario Rossi - Via Roma 12</i>) con le sottocartelle delle pratiche.</li>
+        <li>Entro 5 minuti il lavoro compare da solo nel cruscotto in <b>«Da confermare»</b>. Se hai fretta premi <b>«Controlla <%= nomeArchivio %> ora»</b>.</li>
+        <li>Premi <b>Conferma</b>: se vuoi scrivi subito nome ed email del cliente, che riceve le credenziali. Solo da questo momento il server copia i documenti del lavoro (entro altri 5 minuti).</li>
         <li>Nel lavoro scegli quali pratiche rendere visibili (tabella <b>Visibilità</b>) e premi <b>Salva visibilità</b>.</li>
+        <li>Se un lavoro non ti interessa per l'area clienti premi <b>Scarta</b>: i suoi documenti non arrivano mai sul server.</li>
       </ol>
-      <p class="guida-nota">Si condividono solo i lavori che vuoi mettere nell'area clienti: tutto il resto di Drive resta invisibile al server.</p>
+      <p class="guida-nota">Le cartelle che c'erano già quando è stata attivata la cartella madre non vengono proposte: per un lavoro vecchio usa <b>Lavori → + Nuovo lavoro</b> e scegli la cartella dall'elenco. Le cartelle che iniziano con «_» (es. <i>_sito Prova</i>) vengono ignorate. Se sposti o archivi la cartella su Drive, il lavoro confermato resta nell'area clienti con i documenti già copiati.</p>
     </details>
 
     <details class="guida-voce" id="g-cartelle">

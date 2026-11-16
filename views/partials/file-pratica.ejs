@@ -13,7 +13,7 @@
           <small><% if (f.cartella) { %><%= f.cartella %> · <% } %><%= dimensione(f.dimensione) %> · <%= data(f.modificato) %></small>
         </span>
         <span class="file-azioni">
-          <% if (anteprimaPossibile(f.nome)) { %><a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener">Apri</a><% } %>
+          <% if (anteprimaPossibile(f.nome)) { %><a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener"><%= /\.html?$/i.test(f.nome) ? "Apri il modello 3D" : "Apri" %></a><% } %>
           <a href="<%= base %>/file?<%= q %>&scarica=1">Scarica</a>
           <% if (admin) { %>
             <% if (f.sensibile) { %>

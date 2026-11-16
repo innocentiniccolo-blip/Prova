@@ -79,7 +79,8 @@ sed 's#^+ /\*/\*sicurezza\*#+ /*sicurezza*#' /etc/area-clienti/filtro-drive.txt 
 
 if [ -n "$MADRE" ]; then
   echo "==> Controllo dell'accesso alla cartella madre"
-  if ! rclone --config /etc/area-clienti/rclone.conf lsf studio: --dirs-only --max-depth 1 >/dev/null 2>&1; then
+  # Drive risponde «nessuna cartella» (senza errore) se la cartella madre non è condivisa: serve almeno una cartella
+  if [ -z "$(rclone --config /etc/area-clienti/rclone.conf lsf studio: --dirs-only --max-depth 1 2>/dev/null | head -1)" ]; then
     echo
     echo "!! Il server non vede ancora la cartella madre."
     echo "   Su Google Drive: tasto destro su «Studio Innocenti» → Condividi → aggiungi"
@@ -109,10 +110,13 @@ fi
 # Modalità cartella madre: elenco delle cartelle di lavoro (escluse quelle che iniziano con _ . @ #)
 ELENCO=$(mktemp)
 trap 'rm -f "$ELENCO"' EXIT
-if ! "${RC[@]}" lsf studio: --dirs-only --format p | sed 's#/$##' | grep -v '^[_.@#]' > "$ELENCO"; then
-  echo "Google Drive non raggiungibile: riprovo al prossimo giro"; exit 1
+if ! "${RC[@]}" lsf studio: --dirs-only --format p > "$ELENCO.grezzo"; then
+  rm -f "$ELENCO.grezzo"; echo "Google Drive non raggiungibile: riprovo al prossimo giro"; exit 1
 fi
-[ -s "$ELENCO" ] || { echo "Nessuna cartella trovata nella cartella madre"; exit 1; }
+sed 's#/$##' "$ELENCO.grezzo" | grep -v '^[_.@#]' > "$ELENCO" || true
+rm -f "$ELENCO.grezzo"
+# Elenco vuoto = cartella madre non condivisa con il server: non si tocca niente
+[ -s "$ELENCO" ] || { echo "Nessuna cartella visibile in Studio Innocenti: condividila con il server come Visualizzatore"; exit 1; }
 install -m 644 "$ELENCO" "$DATI/drive-cartelle.txt"
 
 # Le cartelle già presenti all'attivazione non vengono proposte (si aggiungono a mano dal pannello)

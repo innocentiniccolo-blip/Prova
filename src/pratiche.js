@@ -43,9 +43,10 @@ async function sincronizza(lavoro) {
 }
 
 /** Pratiche con l'elenco dei documenti. Per il cliente solo quelle visibili ed esistenti. */
-async function conDocumenti(lavoro, { soloVisibili = false } = {}) {
+async function conDocumenti(lavoro, { soloVisibili = false, ruolo = 'proprietario' } = {}) {
   let elenco = await sincronizza(lavoro);
-  if (soloVisibili) elenco = elenco.filter((p) => p.visibile && p.esiste);
+  // Per il cliente "visibile" è la visibilità del suo ruolo (proprietario, agenzia, impresa)
+  if (soloVisibili) elenco = elenco.map((p) => require('./ruoli').perRuolo(p, ruolo)).filter((p) => p.visibile && p.esiste);
   for (const p of elenco) {
     const file = p.esiste ? pubblicati.annota(p, await archivio.documentiPratica(lavoro, p.cartella)) : [];
     // Il cliente vede solo i documenti pubblicati uno per uno dallo studio

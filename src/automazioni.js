@@ -228,11 +228,10 @@ async function applicaStato(id, req, { email = true } = {}) {
   const descr = pratiche.descriviStato({ stato: ps.stato, data: ps.data }, formatta);
   const prot = ps.protocollo ? `, protocollo n. ${ps.protocollo}` : '';
   let esito = { inviati: 0, falliti: 0 };
-  if (p.visibile) {
-    Aggiornamenti.inserisci.run(lavoro.id, `${nome}: ${descr.toLowerCase()}${prot}.`);
-    if (email) {
-      esito = await notifiche.avvisaStatoPratica(req, lavoro, nome, { stato: ps.stato, data: ps.data, protocollo: integrazione ? ps.protocollo : ps.protocollo || p.protocollo });
-    }
+  if (p.visibile) Aggiornamenti.inserisci.run(lavoro.id, `${nome}: ${descr.toLowerCase()}${prot}.`);
+  // Email a chi vede la pratica con il proprio ruolo (proprietario, agenzia, impresa)
+  if (email && (p.visibile || p.visibile_agenzia || p.visibile_impresa)) {
+    esito = await notifiche.avvisaStatoPratica(req, lavoro, nome, { stato: ps.stato, data: ps.data, protocollo: integrazione ? ps.protocollo : ps.protocollo || p.protocollo }, p);
   }
   return esito;
 }

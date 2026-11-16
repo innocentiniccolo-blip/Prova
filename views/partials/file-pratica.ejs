@@ -4,7 +4,7 @@
 <% } else { %>
   <ul class="file-lista">
     <% p.file.forEach(f => {
-         const q = `p=${p.id}&f=${encodeURIComponent(f.percorso)}`;
+         const q = `p=${p.id}&f=${encodeURIComponent(f.percorso)}` + (typeof come !== 'undefined' && come ? `&come=${encodeURIComponent(come)}` : '');
          const est = (f.nome.split('.').pop() || '').toUpperCase().slice(0, 4); %>
       <li>
         <span class="file-tipo"><%= est %></span>

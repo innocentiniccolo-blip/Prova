@@ -24,7 +24,10 @@ const Lavori = {
       visibile = :visibile, aggiornato_il = datetime('now') WHERE id = :id`),
   tocca: db.prepare("UPDATE lavori SET aggiornato_il = datetime('now') WHERE id = ?"),
   elimina: db.prepare('DELETE FROM lavori WHERE id = ?'),
-  clienti: db.prepare('SELECT u.id, u.nome, u.email, u.attivo FROM utenti u JOIN lavori_clienti lc ON lc.utente_id = u.id WHERE lc.lavoro_id = ? ORDER BY u.nome'),
+  clienti: db.prepare('SELECT u.id, u.nome, u.email, u.attivo, lc.ruolo, lc.consenso_il FROM utenti u JOIN lavori_clienti lc ON lc.utente_id = u.id WHERE lc.lavoro_id = ? ORDER BY u.nome'),
+  ruoloCliente: db.prepare('SELECT ruolo, consenso_il FROM lavori_clienti WHERE lavoro_id = ? AND utente_id = ?'),
+  aggiungiConRuolo: db.prepare(`INSERT INTO lavori_clienti (lavoro_id, utente_id, ruolo, consenso_il) VALUES (?, ?, ?, ?)
+    ON CONFLICT (lavoro_id, utente_id) DO UPDATE SET ruolo = excluded.ruolo, consenso_il = excluded.consenso_il`),
   rimuoviClienti: db.prepare('DELETE FROM lavori_clienti WHERE lavoro_id = ?'),
   aggiungiCliente: db.prepare('INSERT OR IGNORE INTO lavori_clienti (lavoro_id, utente_id) VALUES (?, ?)'),
   prossimoCodice() {
@@ -64,6 +67,7 @@ const Pratiche = {
     UPDATE pratiche SET stato = :stato, data = :data, protocollo = :protocollo, nota = :nota,
       visibile = :visibile, aggiornato_il = datetime('now') WHERE id = :id AND lavoro_id = :lavoro_id`),
   elimina: db.prepare('DELETE FROM pratiche WHERE id = ? AND lavoro_id = ?'),
+  visibilitaRuoli: db.prepare('UPDATE pratiche SET visibile = ?, visibile_agenzia = ?, visibile_impresa = ? WHERE id = ? AND lavoro_id = ?'),
 };
 
 const Aggiornamenti = {

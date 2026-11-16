@@ -68,14 +68,19 @@
           <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } else { %>
             <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche-visibili" class="cartelle-visibili" data-modifiche>
               <input type="hidden" name="_csrf" value="<%= csrf %>">
-              <h3>Cartelle visibili al cliente</h3>
-              <p class="nota">Spunta le cartelle che il cliente può vedere. Le cartelle nuove nascono sempre private.</p>
-              <ul>
+              <h3>Cartelle visibili</h3>
+              <p class="nota">Spunta le cartelle che ciascun ruolo può vedere. Le cartelle nuove nascono sempre private. <span class="badge consigliata">consigliata</span> = di solito serve all'agenzia per vendere.</p>
+              <table class="tabella-visibilita">
+                <thead><tr><th>Cartella</th><th title="Proprietario / committente">Proprietario</th><th>Agenzia</th><th>Impresa</th></tr></thead>
+                <tbody>
                 <% pratiche.forEach(p => { %>
-                  <li><label class="scelta"><input type="checkbox" name="visibili" value="<%= p.id %>" <%= p.visibile ? 'checked' : '' %>> <%= p.cartella %></label>
-                    <% if (!p.esiste) { %><small class="muto"> (cartella non trovata)</small><% } %></li>
+                  <tr><td><%= p.cartella %><% if (!p.esiste) { %> <small class="muto">(cartella non trovata)</small><% } %><% if (consigliataAgenzia(p.cartella)) { %> <span class="badge consigliata">consigliata</span><% } %></td>
+                    <td><input type="checkbox" name="visibili" value="<%= p.id %>" aria-label="<%= p.cartella %> visibile al proprietario" <%= p.visibile ? 'checked' : '' %>></td>
+                    <td><input type="checkbox" name="visibili_agenzia" value="<%= p.id %>" aria-label="<%= p.cartella %> visibile all'agenzia" <%= p.visibile_agenzia ? 'checked' : '' %>></td>
+                    <td><input type="checkbox" name="visibili_impresa" value="<%= p.id %>" aria-label="<%= p.cartella %> visibile all'impresa" <%= p.visibile_impresa ? 'checked' : '' %>></td></tr>
                 <% }) %>
-              </ul>
+                </tbody>
+              </table>
               <button class="pulsante piccolo">Salva visibilità</button> <small class="muto" data-suggerimento>Spunta o togli la spunta a una cartella, poi salva.</small>
             </form>
           <% } %>
@@ -303,7 +308,9 @@
           <h2>Clienti con accesso</h2>
           <% if (!clienti.length) { %><p class="vuoto">Nessun cliente associato.</p><% } %>
           <ul class="semplice">
-            <% clienti.forEach(c => { %><li><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><br><small class="muto"><%= c.email %></small></li><% }) %>
+            <% clienti.forEach(c => { %><li><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a> <span class="badge"><%= (RUOLI[c.ruolo] || RUOLI.proprietario).nome %></span><br><small class="muto"><%= c.email %></small>
+              <% if (c.ruolo === 'agenzia' && c.consenso_il) { %><br><small class="muto">Consenso del proprietario registrato il <%= data(c.consenso_il) %></small><% } %>
+              <br><a class="link" href="/area/lavori/<%= lavoro.id %>?come=<%= c.ruolo %>">Vedi come <%= c.ruolo === 'proprietario' ? 'proprietario' : c.ruolo %></a></li><% }) %>
           </ul>
         </div>
         <div class="carta">

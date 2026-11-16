@@ -280,3 +280,11 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .cartelle-visibili li { padding: .2rem 0; break-inside: avoid; }
 
 .pulsante:disabled { opacity: .45; cursor: not-allowed; }
+
+.tabella-visibilita { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem; font-size: .95rem; }
+.tabella-visibilita th, .tabella-visibilita td { padding: .35rem .5rem; border-bottom: 1px solid #e5e2dc; text-align: center; }
+.tabella-visibilita th:first-child, .tabella-visibilita td:first-child { text-align: left; }
+.badge.consigliata { background: #eef5ea; color: #3c6b2a; }
+.ruoli-clienti { display: grid; gap: .4rem; }
+.scelta-ruolo { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.consenso { margin-top: .75rem; font-size: .92rem; }

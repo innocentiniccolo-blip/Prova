@@ -14,6 +14,7 @@ const richieste = require('../richieste');
 const notifiche = require('../notifiche');
 const { Lavori, Pratiche, Aggiornamenti, Accessi, Utenti } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
+const ruoli = require('../ruoli');
 
 const router = express.Router();
 router.use(auth.richiediLogin);
@@ -28,8 +29,14 @@ const caricaCliente = multer({
 /** Lo staff può vedere l'area come la vedrebbe un cliente (anteprima). */
 function lavoroAccessibile(req) {
   const id = Number(req.params.id);
-  if (req.utente.ruolo === 'admin') return Lavori.perId.get(id);
-  return Lavori.delCliente.get(id, req.utente.id);
+  const lavoro = req.utente.ruolo === 'admin' ? Lavori.perId.get(id) : Lavori.delCliente.get(id, req.utente.id);
+  if (!lavoro) return null;
+  // Ruolo con cui si vede il lavoro: quello del collegamento; lo studio in anteprima può scegliere (?come=agenzia)
+  const come = req.query.come || req.body?.come;
+  lavoro.ruoloVista = req.utente.ruolo === 'admin'
+    ? ruoli.ruoloValido(come)
+    : ruoli.ruoloValido(Lavori.ruoloCliente.get(id, req.utente.id)?.ruolo);
+  return lavoro;
 }
 
 router.get('/', (req, res) => {
@@ -43,13 +50,15 @@ router.get('/lavori/:id', async (req, res, next) => {
     const lavoro = lavoroAccessibile(req);
     if (!lavoro) return res.status(404).render('errore', { titolo: 'Lavoro non trovato', messaggio: 'Il lavoro richiesto non esiste o non è associato al tuo account.' });
     // Anche lo studio, in anteprima, vede solo ciò che vede il cliente
-    const elenco = await pratiche.conDocumenti(lavoro, { soloVisibili: true });
-    const aggiornamenti = Aggiornamenti.perLavoro.all(lavoro.id);
+    const R = ruoli.RUOLI[lavoro.ruoloVista];
+    const elenco = await pratiche.conDocumenti(lavoro, { soloVisibili: true, ruolo: lavoro.ruoloVista });
+    const aggiornamenti = R.aggiornamenti ? Aggiornamenti.perLavoro.all(lavoro.id) : [];
     // Al cliente solo visura, DURC e patente: gli altri documenti delle imprese (POS, attestati, idoneità…) restano allo studio
-    const impreseCantiere = (lavoro.sicurezza ? imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true }) : [])
+    const conSicurezza = lavoro.sicurezza && R.sicurezza;
+    const impreseCantiere = (conSicurezza ? imprese.impreseDelLavoro(lavoro.id, { soloVisibili: true }) : [])
       .map((i) => ({ ...i, nota: undefined, riepilogo: { ...i.riepilogo, altri: [] } }));
-    const verbali = lavoro.sicurezza ? imprese.Q.verbali.all(lavoro.id).filter((v) => v.visibile) : [];
-    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro, richieste: richieste.elenco(lavoro.id).map((r) => {
+    const verbali = conSicurezza ? imprese.Q.verbali.all(lavoro.id).filter((v) => v.visibile) : [];
+    res.render('area/lavoro', { titolo: lavoro.titolo, lavoro: { ...lavoro, sicurezza: conSicurezza ? 1 : 0 }, nomeRuolo: R.nome, ruoloVista: lavoro.ruoloVista, richieste: (lavoro.ruoloVista === 'proprietario' ? richieste.elenco(lavoro.id) : []).map((r) => {
       // Ogni cliente vede solo i nomi dei file che ha inviato lui; degli altri solo il numero
       const miei = req.utente.ruolo === 'admin' ? r.file : r.file.filter((f) => f.utente_id === req.utente.id);
       return { ...r, file: miei, altriFile: r.file.length - miei.length };
@@ -59,7 +68,7 @@ router.get('/lavori/:id', async (req, res, next) => {
 
 router.get('/lavori/:id/file', (req, res) => {
   const lavoro = lavoroAccessibile(req);
-  const pratica = lavoro && Pratiche.perId.get(Number(req.query.p), lavoro.id);
+  const pratica = lavoro && ruoli.perRuolo(Pratiche.perId.get(Number(req.query.p), lavoro.id), lavoro.ruoloVista);
   const rel = String(req.query.f || '');
   // Solo documenti pubblicati dallo studio: tutto il resto della cartella non è raggiungibile
   const abs = pratica && pubblicati.visibile(lavoro, pratica, rel) && archivio.fileDocumento(lavoro, pratica.cartella, rel);
@@ -72,7 +81,7 @@ router.get('/lavori/:id/file', (req, res) => {
 router.get('/lavori/:id/imprese/:iid/documenti/:did', (req, res) => {
   const lavoro = lavoroAccessibile(req);
   const iid = Number(req.params.iid);
-  const link = lavoro && lavoro.sicurezza && imprese.Q.collegamento.get(lavoro.id, iid);
+  const link = lavoro && lavoro.sicurezza && ruoli.RUOLI[lavoro.ruoloVista].sicurezza && imprese.Q.collegamento.get(lavoro.id, iid);
   const doc = link && link.visibile && imprese.Q.documento.get(Number(req.params.did), iid);
   if (doc && doc.tipo === 'altro') return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
   const abs = doc && imprese.percorsoFile(doc);
@@ -84,7 +93,7 @@ router.get('/lavori/:id/imprese/:iid/documenti/:did', (req, res) => {
 
 router.get('/lavori/:id/verbali/:vid', (req, res) => {
   const lavoro = lavoroAccessibile(req);
-  const v = lavoro && lavoro.sicurezza && imprese.Q.verbale.get(Number(req.params.vid), lavoro.id);
+  const v = lavoro && lavoro.sicurezza && ruoli.RUOLI[lavoro.ruoloVista].sicurezza && imprese.Q.verbale.get(Number(req.params.vid), lavoro.id);
   const abs = v && v.visibile && imprese.percorsoVerbale(v);
   if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: 'Il documento richiesto non è disponibile.' });
   Accessi.registra.run(lavoro.id, req.utente.id, `Sicurezza cantiere/Verbale ${v.tipo} del ${v.data}`);
@@ -94,7 +103,8 @@ router.get('/lavori/:id/verbali/:vid', (req, res) => {
 // ---------- Documenti richiesti: il cliente carica i file ----------
 function richiestaAperta(req, res, next) {
   const lavoro = lavoroAccessibile(req);
-  const r = lavoro && richieste.Q.perId.get(Number(req.params.rid), lavoro.id);
+  // I documenti richiesti riguardano il proprietario/committente: agenzie e imprese non li vedono
+  const r = lavoro && lavoro.ruoloVista === 'proprietario' && richieste.Q.perId.get(Number(req.params.rid), lavoro.id);
   if (!r) return res.status(404).render('errore', { titolo: 'Richiesta non trovata', messaggio: 'La richiesta non esiste o non è associata al tuo account.' });
   req.lavoro = lavoro; req.richiesta = r;
   next();

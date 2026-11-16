@@ -30,11 +30,19 @@
       <fieldset>
         <legend>Clienti con accesso</legend>
         <% if (!tuttiClienti.length) { %><p class="muto">Nessun cliente registrato. <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p><% } %>
-        <div class="scelte">
-          <% tuttiClienti.forEach(c => { %>
-            <label class="scelta"><input type="checkbox" name="clienti" value="<%= c.id %>" <%= clientiSel.map(Number).includes(c.id) ? 'checked' : '' %>> <%= c.nome %> <small class="muto"><%= c.email %></small></label>
+        <p class="nota">Per ogni cliente scegli il ruolo: ognuno vede solo le cartelle spuntate per il suo ruolo.</p>
+        <% const ruoloDi = (id) => { const x = (clientiSel || []).find(c => Number(c.id ?? c) === id); return x ? (x.ruolo || 'proprietario') : ''; }; %>
+        <div class="scelte ruoli-clienti">
+          <% tuttiClienti.forEach(c => { const r = ruoloDi(c.id); %>
+            <label class="scelta-ruolo"><span><%= c.nome %> <small class="muto"><%= c.email %></small></span>
+              <select name="ruolo_<%= c.id %>" aria-label="Ruolo di <%= c.nome %>">
+                <option value="">— non collegato —</option>
+                <% Object.entries(RUOLI).forEach(([k, d]) => { %><option value="<%= k %>" <%= r === k ? 'selected' : '' %>><%= d.nome %></option><% }) %>
+              </select></label>
           <% }) %>
         </div>
+        <label class="scelta consenso"><input type="checkbox" name="consenso_agenzia" value="1">
+          Se colleghi un'<strong>agenzia immobiliare</strong>: confermo di avere l'autorizzazione del proprietario a mostrarle i documenti dell'immobile (viene registrata la data).</label>
       </fieldset>
       <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= Number(lavoro.visibile) ? 'checked' : '' %>> Visibile nell'area clienti</label>
       <button class="pulsante">Salva</button>

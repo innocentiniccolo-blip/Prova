@@ -170,5 +170,10 @@ CREATE TABLE IF NOT EXISTS sessioni (
 const colonne = (t) => db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
 if (!colonne('lavori').includes('sicurezza')) db.exec('ALTER TABLE lavori ADD COLUMN sicurezza INTEGER NOT NULL DEFAULT 0');
 if (!colonne('utenti').includes('informativa_il')) db.exec('ALTER TABLE utenti ADD COLUMN informativa_il TEXT');
+// Ruoli sul lavoro (proprietario, agenzia, impresa) e visibilità delle pratiche per ruolo
+if (!colonne('lavori_clienti').includes('ruolo')) db.exec("ALTER TABLE lavori_clienti ADD COLUMN ruolo TEXT NOT NULL DEFAULT 'proprietario'");
+if (!colonne('lavori_clienti').includes('consenso_il')) db.exec('ALTER TABLE lavori_clienti ADD COLUMN consenso_il TEXT');
+if (!colonne('pratiche').includes('visibile_agenzia')) db.exec('ALTER TABLE pratiche ADD COLUMN visibile_agenzia INTEGER NOT NULL DEFAULT 0');
+if (!colonne('pratiche').includes('visibile_impresa')) db.exec('ALTER TABLE pratiche ADD COLUMN visibile_impresa INTEGER NOT NULL DEFAULT 0');
 
 module.exports = db;

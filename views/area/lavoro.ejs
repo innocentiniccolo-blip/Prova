@@ -2,7 +2,7 @@
 <section class="sezione">
   <div class="contenitore">
     <% if (utente.ruolo === 'admin') { %>
-      <div class="avviso info">Anteprima: stai vedendo la pagina come la vede il cliente. <a href="/studio/lavori/<%= lavoro.id %>">Torna alla gestione</a></div>
+      <div class="avviso info">Anteprima: stai vedendo la pagina come la vede il ruolo «<%= nomeRuolo %>». Altri ruoli: <a href="?come=proprietario">proprietario</a> · <a href="?come=agenzia">agenzia</a> · <a href="?come=impresa">impresa</a>. <a href="/studio/lavori/<%= lavoro.id %>">Torna alla gestione</a></div>
     <% } else { %>
       <a class="indietro" href="/area">← I miei lavori</a>
     <% } %>
@@ -72,7 +72,7 @@
             <% if (p.file.length) { %>
               <details class="pratica-documenti">
                 <summary>Documenti <span class="conta"><%= p.file.length %></span></summary>
-                <%- include('../partials/file-pratica', { p, base: `/area/lavori/${lavoro.id}`, admin: false }) %>
+                <%- include('../partials/file-pratica', { p, base: `/area/lavori/${lavoro.id}`, admin: false, come: utente && utente.ruolo === 'admin' ? ruoloVista : '' }) %>
               </details>
             <% } %>
           </article>
@@ -118,6 +118,7 @@
             <% if (lavoro.data_fine) { %><dt>Fine prevista</dt><dd><%= data(lavoro.data_fine) %></dd><% } %>
           </dl>
         </div>
+        <% if (ruoloVista === 'proprietario') { %>
         <div class="carta">
           <h2>Aggiornamenti</h2>
           <% if (!aggiornamenti.length) { %><p class="vuoto">Nessun aggiornamento.</p><% } %>
@@ -127,6 +128,7 @@
             <% }) %>
           </ol>
         </div>
+        <% } %>
       </aside>
     </div>
   </div>

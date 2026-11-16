@@ -16,6 +16,8 @@ const posta = require('../posta');
 const { inviaBenvenuto, avvisaClienti, avvisaStatoPratica } = require('../notifiche');
 const { db, Lavori, Utenti, Pratiche, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
+const ruoli = require('../ruoli');
+const { ruoloValido } = ruoli;
 
 const router = express.Router();
 router.use(auth.richiediAdmin);
@@ -114,14 +116,32 @@ function datiLavoro(body) {
   };
 }
 
+/** Clienti scelti nel modulo con il loro ruolo: [{ id, ruolo }] (campo "ruolo_<id>"; vuoto = non collegato). */
 function idClienti(body) {
-  return [].concat(body.clienti || []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  const out = [];
+  for (const [k, v] of Object.entries(body)) {
+    const m = k.match(/^ruolo_(\d+)$/);
+    if (m && ruoli.RUOLI[v]) out.push({ id: Number(m[1]), ruolo: v });
+  }
+  // Compatibilità con il vecchio modulo a spunte
+  for (const id of [].concat(body.clienti || []).map(Number)) if (id > 0 && !out.some((c) => c.id === id)) out.push({ id, ruolo: 'proprietario' });
+  return out;
+}
+
+/** Un'agenzia vede i documenti di un immobile solo con il consenso del proprietario, registrato con la data. */
+function controllaConsenso(lavoroId, clienti, body) {
+  const nuoveAgenzie = clienti.filter((c) => c.ruolo === 'agenzia'
+    && !(lavoroId && Lavori.ruoloCliente.get(lavoroId, c.id)?.consenso_il));
+  if (nuoveAgenzie.length && body.consenso_agenzia !== '1') {
+    return 'Per collegare un\'agenzia conferma di avere l\'autorizzazione del proprietario a mostrarle i documenti.';
+  }
+  return null;
 }
 
 function renderFormLavoro(res, lavoro, clientiSel, errore) {
   res.status(errore ? 400 : 200).render('admin/lavoro-form', {
     titolo: lavoro.id ? `Modifica ${lavoro.codice}` : 'Nuovo lavoro',
-    lavoro, clientiSel, errore, tuttiClienti: Utenti.clienti.all(), cartelleLibere: cartelleLibere(lavoro.cartella),
+    lavoro, clientiSel, errore, tuttiClienti: Utenti.clienti.all(), cartelleLibere: cartelleLibere(lavoro.cartella), RUOLI: ruoli.RUOLI,
   });
 }
 
@@ -141,11 +161,15 @@ router.get('/lavori/nuovo', (req, res) => {
   renderFormLavoro(res, { codice, stato: config.studio.stati[0], visibile: 1, cartella: '' }, [], null);
 });
 
-function salvaClienti(lavoroId, ids) {
+function salvaClienti(lavoroId, scelti) {
+  const prima = new Map(Lavori.clienti.all(lavoroId).map((c) => [c.id, c]));
   Lavori.rimuoviClienti.run(lavoroId);
-  for (const uid of ids) {
-    const u = Utenti.perId.get(uid);
-    if (u && u.ruolo === 'cliente') Lavori.aggiungiCliente.run(lavoroId, uid);
+  const ora = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  for (const { id, ruolo } of scelti) {
+    const u = Utenti.perId.get(id);
+    if (!u || u.ruolo !== 'cliente') continue;
+    const consenso = ruolo === 'agenzia' ? (prima.get(id)?.ruolo === 'agenzia' && prima.get(id)?.consenso_il) || ora : null;
+    Lavori.aggiungiConRuolo.run(lavoroId, id, ruoloValido(ruolo), consenso);
   }
 }
 
@@ -160,6 +184,8 @@ router.post('/lavori', auth.verificaCsrf, async (req, res, next) => {
   }
   if (!dati.codice || !dati.titolo) return renderFormLavoro(res, { ...req.body }, clienti, 'Codice e titolo sono obbligatori.');
   if (!dati.cartella) return renderFormLavoro(res, { ...req.body }, clienti, 'Cartella non valida.');
+  const erroreConsenso = controllaConsenso(null, clienti, req.body);
+  if (erroreConsenso) return renderFormLavoro(res, { ...req.body }, clienti, erroreConsenso);
   try {
     db.exec('BEGIN');
     const { lastInsertRowid } = Lavori.inserisci.run(dati);
@@ -191,6 +217,8 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       postaAttiva: posta.attiva,
       proposteStato: automazioni.proposteStatoLavoro(lavoro.id),
       clienti: Lavori.clienti.all(lavoro.id),
+      RUOLI: ruoli.RUOLI,
+      consigliataAgenzia: ruoli.consigliataAgenzia,
       aggiornamenti: Aggiornamenti.perLavoro.all(lavoro.id),
       accessi: Accessi.perLavoro.all(lavoro.id),
       anteprimaPossibile,
@@ -206,7 +234,7 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
 });
 
 router.get('/lavori/:id/modifica', trovaLavoro, (req, res) => {
-  renderFormLavoro(res, req.lavoro, Lavori.clienti.all(req.lavoro.id).map((c) => c.id), null);
+  renderFormLavoro(res, req.lavoro, Lavori.clienti.all(req.lavoro.id).map((c) => ({ id: c.id, ruolo: c.ruolo })), null);
 });
 
 router.post('/lavori/:id', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
@@ -214,6 +242,8 @@ router.post('/lavori/:id', trovaLavoro, auth.verificaCsrf, async (req, res, next
   const clienti = idClienti(req.body);
   if (!dati.codice || !dati.titolo) return renderFormLavoro(res, { ...req.body, id: req.lavoro.id }, clienti, 'Codice e titolo sono obbligatori.');
   if (!dati.cartella) return renderFormLavoro(res, { ...req.body, id: req.lavoro.id }, clienti, 'Cartella non valida.');
+  const erroreConsenso = controllaConsenso(req.lavoro.id, clienti, req.body);
+  if (erroreConsenso) return renderFormLavoro(res, { ...req.body, id: req.lavoro.id }, clienti, erroreConsenso);
   try {
     db.exec('BEGIN');
     Lavori.aggiorna.run(dati);
@@ -344,13 +374,16 @@ router.post('/lavori/:id/documenti/elimina', soloScrittura, trovaLavoro, auth.ve
 // ---------- Pratiche (sottocartelle del lavoro) ----------
 // Sceglie in un colpo solo quali cartelle (pratiche) del lavoro vede il cliente
 router.post('/lavori/:id/pratiche-visibili', trovaLavoro, auth.verificaCsrf, (req, res) => {
-  const scelte = new Set([].concat(req.body.visibili || []).map(Number));
+  const set = (k) => new Set([].concat(req.body[k] || []).map(Number));
+  const [prop, agz, imp] = [set('visibili'), set('visibili_agenzia'), set('visibili_impresa')];
   let n = 0;
   for (const p of Pratiche.perLavoro.all(req.lavoro.id)) {
-    const v = scelte.has(p.id) ? 1 : 0;
-    if (v !== p.visibile) { Pratiche.aggiorna.run({ id: p.id, lavoro_id: p.lavoro_id, stato: p.stato, data: p.data, protocollo: p.protocollo, nota: p.nota, visibile: v }); n++; }
+    const v = [prop.has(p.id) ? 1 : 0, agz.has(p.id) ? 1 : 0, imp.has(p.id) ? 1 : 0];
+    if (v[0] !== p.visibile || v[1] !== p.visibile_agenzia || v[2] !== p.visibile_impresa) {
+      Pratiche.visibilitaRuoli.run(...v, p.id, p.lavoro_id); n++;
+    }
   }
-  flash(req, 'ok', n ? `Visibilità aggiornata: ${scelte.size} cartell${scelte.size === 1 ? 'a visibile' : 'e visibili'} al cliente.` : 'Nessuna modifica: le cartelle spuntate erano già visibili al cliente.');
+  flash(req, 'ok', n ? 'Visibilità aggiornata.' : 'Nessuna modifica: le cartelle spuntate erano già visibili.');
   res.redirect(`/studio/lavori/${req.lavoro.id}#pratiche`);
 });
 
@@ -396,8 +429,9 @@ router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, async (
   if (nuova.protocollo) frase += `, protocollo n. ${nuova.protocollo}`;
   if (req.body.annuncia && nuova.visibile && cambiata) Aggiornamenti.inserisci.run(req.lavoro.id, frase + '.');
   let esito = { inviati: 0, falliti: 0 };
-  if (req.body.email && nuova.visibile && cambiata) {
-    esito = await avvisaStatoPratica(req, req.lavoro, nome, nuova);
+  const perAvviso = { ...pratica, visibile: nuova.visibile };
+  if (req.body.email && cambiata && (nuova.visibile || pratica.visibile_agenzia || pratica.visibile_impresa)) {
+    esito = await avvisaStatoPratica(req, req.lavoro, nome, nuova, perAvviso);
   }
   flash(req, esito.falliti ? 'errore' : 'ok', `Pratica «${pratica.cartella}» aggiornata.` + fraseEsito(esito));
   res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);

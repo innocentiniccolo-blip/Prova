@@ -1,4 +1,5 @@
 'use strict';
+const ruoli = require('./ruoli');
 /** Email ai clienti: benvenuto e avvisi di aggiornamento. Usate dal pannello e dalle automazioni. */
 const config = require('./config');
 const posta = require('./posta');
@@ -26,10 +27,10 @@ async function inviaBenvenuto(req, cliente) {
  * Avvisa via email i clienti attivi del lavoro. Non blocca mai il salvataggio:
  * restituisce quanti avvisi sono partiti e quanti sono falliti.
  */
-async function avvisaClienti(req, lavoro, oggetto, corpo) {
+async function avvisaClienti(req, lavoro, oggetto, corpo, filtro = () => true) {
   const esito = { inviati: 0, falliti: 0 };
   if (!posta.attiva || !lavoro.visibile) return esito;
-  for (const c of Lavori.clienti.all(lavoro.id).filter((x) => x.attivo)) {
+  for (const c of Lavori.clienti.all(lavoro.id).filter((x) => x.attivo && filtro(x))) {
     try {
       await posta.invia({
         a: c.email,
@@ -49,13 +50,15 @@ async function avvisaClienti(req, lavoro, oggetto, corpo) {
  * Email al cliente quando cambia lo stato di una pratica: solo stato, data e numero di protocollo.
  * È l'unico avviso automatico sulle pratiche (nessuna email per i documenti aggiunti).
  */
-function avvisaStatoPratica(req, lavoro, nomePratica, { stato, data, protocollo }) {
+function avvisaStatoPratica(req, lavoro, nomePratica, { stato, data, protocollo }, pratica = null) {
   const dataIt = data ? String(data).slice(0, 10).split('-').reverse().join('/') : null;
   const righe = [`Stato: ${stato}`];
   if (dataIt) righe.push(`Data: ${dataIt}`);
   if (protocollo) righe.push(`Protocollo n.: ${protocollo}`);
   return avvisaClienti(req, lavoro, `Aggiornamento pratica: ${nomePratica} – ${lavoro.titolo}`,
-    `la pratica «${nomePratica}» del lavoro «${lavoro.titolo}» è stata aggiornata.\n\n${righe.join('\n')}`);
+    `la pratica «${nomePratica}» del lavoro «${lavoro.titolo}» è stata aggiornata.\n\n${righe.join('\n')}`,
+    // Solo a chi vede questa pratica con il proprio ruolo (proprietario, agenzia, impresa)
+    (c) => !pratica || Boolean(ruoli.perRuolo(pratica, c.ruolo).visibile));
 }
 
 const db = require('./db');

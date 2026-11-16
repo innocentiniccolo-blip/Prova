@@ -1,0 +1,138 @@
+<%- include('../partials/testa') %>
+<section class="sezione guida">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Guida dello studio</h1>
+      <span class="solo-schermo"><button type="button" class="pulsante secondario" id="guida-stampa">Stampa o salva in PDF</button></span>
+    </div>
+    <p class="nota">I passaggi per usare l'area clienti, dal nuovo lavoro al fascicolo per l'agenzia. Tocca un argomento per aprirlo; spunta i passaggi mentre li fai (le spunte restano solo su questo dispositivo).</p>
+    <div class="guida-cerca solo-schermo">
+      <input type="search" id="guida-filtro" placeholder="Cerca nella guida (es. password, APE, impresa)" aria-label="Cerca nella guida">
+      <button type="button" class="pulsante piccolo secondario" id="guida-apri">Apri tutto</button>
+      <button type="button" class="pulsante piccolo secondario" id="guida-azzera">Togli le spunte</button>
+    </div>
+
+    <details class="guida-voce" id="g-lavoro" open>
+      <summary><span class="guida-num">1</span> Nuovo lavoro da Google Drive</summary>
+      <ol class="guida-passi">
+        <li>Su Google Drive, nella cartella <b>Studio Innocenti</b>, crea la cartella del lavoro (es. <i>Mario Rossi - Via Roma 12</i>).</li>
+        <li>Tasto destro sulla cartella → <b>Condividi</b> → aggiungi <code class="copia"><%= emailDrive %></code> come <b>Visualizzatore</b> (mai Editor) e togli la spunta «Invia notifica».</li>
+        <li>Entro 5 minuti il lavoro compare nel cruscotto in <b>«Da confermare»</b>. Se hai fretta premi <b>«Controlla <%= nomeArchivio %> ora»</b>.</li>
+        <li>Premi <b>Conferma</b>: se vuoi scrivi subito nome ed email del cliente, che riceve le credenziali.</li>
+        <li>Nel lavoro scegli quali pratiche rendere visibili (tabella <b>Visibilità</b>) e premi <b>Salva visibilità</b>.</li>
+      </ol>
+      <p class="guida-nota">Si condividono solo i lavori che vuoi mettere nell'area clienti: tutto il resto di Drive resta invisibile al server.</p>
+    </details>
+
+    <details class="guida-voce" id="g-cartelle">
+      <summary><span class="guida-num">2</span> Come ordinare le cartelle</summary>
+      <ol class="guida-passi">
+        <li>Ogni <b>sottocartella</b> del lavoro diventa una <b>pratica</b> (es. <i>01 - Accesso atti</i>, <i>02 - CILA</i>, <i>03 - Catasto</i>).</li>
+        <li>Dentro ogni pratica crea la cartella <b>Presentazione</b>: i PDF che metti lì sono pubblicati da soli al cliente.</li>
+        <li>I file fuori da «Presentazione» restano privati.</li>
+        <li>Lascia le ricevute di protocollo nella cartella della pratica: il programma le legge e propone stato, data e protocollo.</li>
+      </ol>
+      <p class="guida-nota">Documenti d'identità, procure, deleghe, email e archivi ZIP non arrivano mai sul server, anche se finiscono per errore in «Presentazione».</p>
+    </details>
+
+    <details class="guida-voce" id="g-stato">
+      <summary><span class="guida-num">3</span> Aggiornare lo stato delle pratiche</summary>
+      <ol class="guida-passi">
+        <li>Metti la ricevuta (protocollo, DOCFA, PEC del Comune) nella cartella della pratica su Drive.</li>
+        <li>Nel cruscotto, in <b>«Da confermare»</b>, compare la proposta con il nuovo stato: controlla e premi <b>Conferma</b>.</li>
+        <li>Il cliente riceve un'email solo per i cambi di stato delle pratiche che può vedere.</li>
+        <li>In alternativa apri il lavoro e cambia a mano stato, data e protocollo della pratica.</li>
+      </ol>
+    </details>
+
+    <details class="guida-voce" id="g-richieste">
+      <summary><span class="guida-num">4</span> Chiedere documenti al cliente</summary>
+      <ol class="guida-passi">
+        <li>Apri il lavoro → <b>Documenti richiesti al cliente</b>.</li>
+        <li>Scrivi cosa ti serve (es. «Atto di provenienza») e, se vuoi, le indicazioni.</li>
+        <li>Lascia la spunta <b>«Avvisa il cliente via email»</b> e premi <b>Aggiungi richiesta</b>.</li>
+        <li>Quando il cliente carica i file ti arriva un'email; li trovi nel cruscotto e nella cartella del lavoro. Poi premi <b>Segna come ricevuto</b>.</li>
+      </ol>
+    </details>
+
+    <details class="guida-voce" id="g-sicurezza">
+      <summary><span class="guida-num">5</span> Sicurezza cantiere e imprese</summary>
+      <ol class="guida-passi">
+        <li>Nella cartella del lavoro crea <b>Sicurezza</b> e dentro una cartella per ogni impresa (es. <i>Sicurezza/Edil Rossi srl</i>).</li>
+        <li>Mettici <b>DURC, visura camerale e patente a crediti</b> in PDF: l'impresa viene creata o ritrovata da sola, con scadenze e partita IVA.</li>
+        <li>La sicurezza del lavoro si attiva da sola; puoi spegnerla dalla pagina del lavoro.</li>
+        <li>Inserisci le date dei verbali nella sezione sicurezza del lavoro con <b>Registra verbale</b>.</li>
+        <li>Gli avvisi dei documenti scaduti compaiono nel cruscotto: se non ti servono premi <b>Nascondi</b>.</li>
+      </ol>
+    </details>
+
+    <details class="guida-voce" id="g-clienti">
+      <summary><span class="guida-num">6</span> Clienti, password e accessi bloccati</summary>
+      <ol class="guida-passi">
+        <li><b>Clienti → + Nuovo cliente</b>: nome ed email. Con la spunta «email di benvenuto» il cliente riceve il link per scegliere la password.</li>
+        <li>Lo stesso cliente può avere più lavori: lo colleghi dalla pagina di modifica del lavoro.</li>
+        <li>Se il cliente dimentica la password, usa «Password dimenticata» nella pagina di accesso oppure, dalla sua scheda, <b>Invia link per la password via email</b> (oppure <b>Genera nuova password</b> da comunicargli a voce).</li>
+        <li>Dopo 5 password sbagliate l'accesso si blocca per un'ora e ricevi un'email. Puoi sbloccarlo dal cruscotto, in <b>Accessi bloccati</b>.</li>
+      </ol>
+    </details>
+
+    <details class="guida-voce" id="g-agenzie">
+      <summary><span class="guida-num">7</span> Agenzie immobiliari e imprese</summary>
+      <ol class="guida-passi">
+        <li><b>Agenzie → + Agenzia immobiliare</b>: nome, partita IVA, email.</li>
+        <li>Nella pagina dell'agenzia aggiungi le <b>persone</b> (agenti). Ognuna riceve il proprio accesso.</li>
+        <li>Apri il lavoro → <b>Modifica</b> → in «Agenzie e aziende» scegli l'agenzia con ruolo <b>Agenzia</b>.</li>
+        <li>Spunta <b>«Il proprietario ha dato il consenso»</b>: senza consenso non si salva.</li>
+        <li>Nella tabella <b>Visibilità</b> spunta, nella colonna Agenzia, le pratiche che può vedere. Il bollino «consigliata» indica accesso atti, APE, sanatorie e relazione di conformità.</li>
+        <li>Controlla con il link <b>«Vedi come agenzia»</b> che veda solo quello che vuoi.</li>
+      </ol>
+      <p class="guida-nota">L'agenzia non vede mai gli aggiornamenti per il cliente, la sicurezza cantiere né le richieste di documenti.</p>
+    </details>
+
+    <details class="guida-voce" id="g-scheda">
+      <summary><span class="guida-num">8</span> Scheda immobile e fascicoli per la vendita</summary>
+      <ol class="guida-passi">
+        <li>Apri il lavoro → <b>Scheda immobile</b> e spunta <b>«Mostra la scheda immobile nell'area clienti»</b>.</li>
+        <li>Imposta conformità urbanistica e catastale, se le conosci (altrimenti restano automatiche).</li>
+        <li>Premi <b>«Anteprima fascicolo PDF»</b> e controlla i dati letti dai documenti.</li>
+        <li>Se qualcosa è sbagliato, apri <b>«Fascicolo del fabbricato: correggi i dati»</b>, scrivi solo il dato giusto e premi <b>Salva scheda</b>.</li>
+        <li>Agenzia e proprietario trovano due pulsanti: <b>Fascicolo del fabbricato (PDF)</b> su carta intestata e <b>Scarica il fascicolo (ZIP)</b> con tutti i documenti visibili.</li>
+      </ol>
+      <p class="guida-nota">Perché l'urbanistica risulti conforme, la relazione tecnica di conformità deve essere firmata digitalmente (.p7m) o la sua pratica deve essere «Completata». Altrimenti il fascicolo scrive «In fase di valutazione».</p>
+    </details>
+
+    <details class="guida-voce" id="g-3d">
+      <summary><span class="guida-num">9</span> Modelli 3D</summary>
+      <ol class="guida-passi">
+        <li>Chiedi a Claude il modello dell'immobile, con piante e misure.</li>
+        <li>Metti il file <b>.html</b> ricevuto nella cartella <b>Presentazione</b> della pratica (es. <i>Progetto/Presentazione</i>).</li>
+        <li>Il cliente lo trova tra i documenti con il pulsante <b>«Apri il modello 3D»</b>.</li>
+      </ol>
+    </details>
+
+    <details class="guida-voce" id="g-server">
+      <summary><span class="guida-num">10</span> Server: aggiornare e risolvere i problemi</summary>
+      <ol class="guida-passi">
+        <li>Apri <b>PowerShell</b> e scrivi <code class="copia">ssh root@94.177.203.208</code>, poi la password del server (dal gestore password di Google).</li>
+        <li>Per installare subito una nuova versione (senza aspettare la notte) incolla <code class="copia">cd /opt/area-clienti &amp;&amp; docker compose pull -q &amp;&amp; docker compose up -d</code></li>
+        <li>Se il sito non risponde, riavvialo con <code class="copia">cd /opt/area-clienti &amp;&amp; docker compose restart</code></li>
+        <li>Per uscire dal server scrivi <code class="copia">exit</code>.</li>
+      </ol>
+      <p class="guida-nota">Ogni notte alle 3:30 il server salva una copia del database (tenuta 30 giorni) e installa da solo la nuova versione dell'area clienti. Le password (server, email, Google) non vanno mai scritte in chat né in documenti condivisi.</p>
+    </details>
+
+    <details class="guida-voce" id="g-no">
+      <summary><span class="guida-num">!</span> Cose da non fare</summary>
+      <ul class="guida-passi semplice">
+        <li>Non condividere le cartelle con il server come <b>Editor</b>: basta Visualizzatore.</li>
+        <li>Non rendere visibili pratiche con dati personali di altre persone (es. successioni con più eredi) senza controllarle.</li>
+        <li>Non collegare un'agenzia senza il consenso del proprietario.</li>
+        <li>Non cancellare un lavoro dall'area clienti se il cliente deve ancora consultarlo: i file su Drive restano, ma lui perde l'accesso.</li>
+      </ul>
+    </details>
+
+    <p class="nota solo-stampa">Guida stampata il <%= data(new Date().toISOString().slice(0, 10)) %> da <%= urlPubblico || 'area clienti' %>.</p>
+  </div>
+</section>
+<script src="/js/guida.js" defer></script>
+<%- include('../partials/piede') %>

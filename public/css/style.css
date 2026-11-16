@@ -300,3 +300,35 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .dati-fabbricato { margin: .6rem 0; border: 1px solid var(--linea, #d5dde6); border-radius: 8px; padding: .5rem .8rem; }
 .dati-fabbricato summary { cursor: pointer; font-weight: 600; color: var(--blu); }
 .dati-fabbricato[open] summary { margin-bottom: .4rem; }
+/* Guida dello studio */
+.guida-cerca { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.guida-cerca input { flex: 1 1 16rem; }
+.guida-voce { background: var(--bianco, #fff); border: 1px solid #d5dde6; border-radius: 10px; margin: .6rem 0; padding: .2rem 1rem; }
+.guida-voce summary { cursor: pointer; font-weight: 700; color: var(--blu, #004587); padding: .7rem 0; display: flex; align-items: center; gap: .6rem; list-style: none; }
+.guida-voce summary::-webkit-details-marker { display: none; }
+.guida-voce summary::after { content: '+'; margin-left: auto; font-size: 1.3rem; font-weight: 400; }
+.guida-voce[open] summary::after { content: '–'; }
+.guida-num { display: inline-flex; align-items: center; justify-content: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--blu, #004587); color: #fff; font-size: .9rem; flex: none; }
+.guida-passi { margin: 0 0 .8rem; padding-left: 1.4rem; }
+.guida-passi li { margin: .45rem 0; padding: .15rem .3rem; border-radius: 6px; cursor: pointer; line-height: 1.5; }
+.guida-passi li:hover { background: #f1f5f9; }
+.guida-passi li.fatto { color: #6b7684; text-decoration: line-through; text-decoration-color: #9aa5b1; }
+.guida-passi li.fatto::marker { content: '✓  '; color: #2e7d32; }
+.guida-passi.semplice li { cursor: default; }
+.guida-nota { background: #eef5fc; border-left: 3px solid #287dbe; padding: .5rem .8rem; border-radius: 0 6px 6px 0; font-size: .92rem; margin: 0 0 1rem; }
+.guida code { background: #f1f5f9; padding: .1rem .35rem; border-radius: 4px; font-size: .88em; word-break: break-all; }
+.guida code.copia { cursor: copy; }
+.guida code.copiato { background: #d9f2dc; }
+.solo-stampa { display: none; }
+@media print {
+  .testata, .piede, .solo-schermo, header, footer { display: none !important; }
+  .solo-stampa { display: block; }
+  .sezione, .guida, main { background: #fff !important; padding-top: 0 !important; }
+  .guida-voce { break-inside: auto; border-color: #bbb; }
+  .guida-voce summary { break-after: avoid; }
+  .guida-passi li { break-inside: avoid; }
+  .guida-voce summary::after, .guida-voce[open] summary::after { content: ''; }
+  .guida-passi li.fatto { color: inherit; text-decoration: none; }
+  .guida-passi li.fatto::marker { content: counter(list-item) '.  '; color: inherit; }
+  body { background: #fff; }
+}

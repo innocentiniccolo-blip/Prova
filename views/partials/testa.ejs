@@ -26,6 +26,7 @@
         <a href="/studio/clienti" class="<%= percorso.startsWith('/studio/clienti') ? 'attivo' : '' %>">Clienti</a>
         <a href="/studio/aziende" class="<%= percorso.startsWith('/studio/aziende') ? 'attivo' : '' %>">Agenzie</a>
         <a href="/studio/imprese" class="<%= percorso.startsWith('/studio/imprese') ? 'attivo' : '' %>">Imprese</a>
+        <a href="/studio/guida" class="<%= percorso === '/studio/guida' ? 'attivo' : '' %>">Guida</a>
         <form method="post" action="/esci" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Esci</button></form>
       <% } else { %>
         <a href="/area" class="<%= percorso.startsWith('/area/lavori') || percorso === '/area' ? 'attivo' : '' %>">I miei lavori</a>

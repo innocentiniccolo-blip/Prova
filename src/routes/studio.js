@@ -511,6 +511,9 @@ function paginaAzienda(res, azienda, errore = null, status = 200) {
     RUOLI: ruoli.RUOLI,
   });
 }
+// ---------- Guida dello studio ----------
+router.get('/guida', (req, res) => res.render('admin/guida', { titolo: 'Guida', emailDrive: process.env.DRIVE_SERVICE_ACCOUNT || 'area-clienti-drive@area-clienti-studio.iam.gserviceaccount.com', urlPubblico: require('../config').urlPubblico }));
+
 router.get('/aziende', (req, res) => res.render('admin/aziende', { titolo: 'Agenzie e aziende', aziende: Aziende.tutte.all() }));
 router.get('/aziende/nuova', (req, res) => paginaAzienda(res, { tipo: req.query.tipo === 'impresa' ? 'impresa' : 'agenzia' }));
 router.post('/aziende', auth.verificaCsrf, (req, res) => {

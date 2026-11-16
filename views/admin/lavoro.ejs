@@ -170,7 +170,19 @@
               <label>APE – valido fino al <input type="date" name="apeScadenza" value="<%= scheda.apeScadenza %>"></label>
             </div>
             <label>Nota per agenzia e proprietario (facoltativa) <textarea name="nota" rows="2" maxlength="1000"><%= scheda.nota %></textarea></label>
-            <button class="pulsante piccolo">Salva scheda</button>
+            <details class="dati-fabbricato" <%= scheda.indirizzo || scheda.catasto || scheda.descrizione || scheda.coordinate ? 'open' : '' %>>
+              <summary>Fascicolo del fabbricato (PDF): correggi i dati letti in automatico</summary>
+              <p class="nota">Indirizzo, dati catastali, titoli edilizi, esito della relazione tecnica, classe energetica e descrizione si leggono da soli dai PDF del lavoro (relazione tecnica, APE, visure e planimetrie). Se la relazione non è ancora firmata o completata, l'urbanistica risulta «In fase di valutazione». Scrivi qui sotto solo ciò che vuoi correggere: i campi vuoti restano automatici.</p>
+              <div class="riga-campi">
+                <label>Indirizzo <input name="indirizzo" maxlength="150" value="<%= scheda.indirizzo %>" placeholder="automatico"></label>
+                <label>Comune <input name="comune" maxlength="60" value="<%= scheda.comune %>" placeholder="automatico"></label>
+              </div>
+              <label>Coordinate per Google Maps <small>(facoltative, es. 43.6192, 11.5410)</small> <input name="coordinate" maxlength="40" value="<%= scheda.coordinate %>" placeholder="automatico dall'indirizzo"></label>
+              <label>Dati catastali <small>(sostituiscono la tabella automatica)</small> <textarea name="catasto" rows="2" maxlength="800" placeholder="automatico, es. Catasto Fabbricati, foglio 12, particella 345, sub. 6, cat. A/2"><%= scheda.catasto %></textarea></label>
+              <label>Descrizione sintetica dell'unità <textarea name="descrizione" rows="3" maxlength="1500" placeholder="automatica dalla relazione tecnica"><%= scheda.descrizione %></textarea></label>
+            </details>
+            <p class="azioni-scheda"><button class="pulsante piccolo">Salva scheda</button>
+              <a class="pulsante piccolo secondario" href="/area/lavori/<%= lavoro.id %>/fabbricato.pdf?come=agenzia" target="_blank" rel="noopener">Anteprima fascicolo PDF</a></p>
           </form>
         </div>
 

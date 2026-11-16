@@ -72,6 +72,19 @@ function preparaArchivio() {
   scrivi(`${L1}/04 - Catasto/0000000243944926DGC.pdf`, ['DGC', 'Data: 13/11/2026 Ora: 18.59.47 Ricevuta di Avvenuta Denuncia di Variazione',
     'Catasto Fabbricati Pratica numero: AR0031772 Codice di Riscontro: 000A23P3P']);
   scrivi(`${L1}/06 - Preventivi/Preventivo impresa.pdf`);
+  const relazione = ['STUDIO TECNICO GEOM. NICCOLO INNOCENTI - Viale Marconi 38 - Pian di Sco', 'RELAZIONE TECNICA DI CONFORMITA URBANISTICA E CATASTALE',
+    'Committente: Mario Rossi, residente in Via Verdi n. 5, Montevarchi', 'Immobile sito in Castelfranco Piandisco, Via Roma n. 12',
+    "L'unita immobiliare e censita al Catasto Fabbricati del Comune di Castelfranco Piandisco al foglio 12,", 'particella 345, subalterno 6,',
+    'categoria A/2, classe 3, consistenza 6,5 vani, rendita Euro 520,00.', 'PRECEDENTI EDILIZI',
+    'Licenza edilizia n. 45 del 12/03/1972', 'Concessione in sanatoria n. 112 del 05/06/1990', 'CILA n. 230 del 10/11/2026',
+    "DESCRIZIONE DELL'IMMOBILE", 'Appartamento al piano primo di un fabbricato bifamiliare, composto da ingresso, soggiorno, cucina,',
+    'due camere e bagno, con resede esclusivo e garage al piano terra.', 'CONCLUSIONI',
+    'Non sono state rilevate difformita: lo stato attuale risulta conforme ai titoli edilizi sopra elencati.'];
+  scrivi(`${L1}/02 - Relazione di conformita/Relazione tecnica di conformita.pdf`, relazione);
+  scrivi(`${L1}/02 - Relazione di conformita/Relazione tecnica di conformita.pdf.p7m`, relazione);
+  scrivi(`${L1}/05 - APE/APE Via Roma 12.pdf`, ['ATTESTATO DI PRESTAZIONE ENERGETICA DEGLI EDIFICI', 'CODICE IDENTIFICATIVO: 2026-AR-001234',
+    'VALIDO FINO AL: 15/10/2036', 'CLASSE ENERGETICA E', 'EPgl,nren 145,32 kWh/m2 anno']);
+
 
   const L2 = '2026-002 SCIA Bianchi - Montevarchi';
   scrivi(`${L2}/01 - SCIA/Presentazione/Tavola unica.pdf`);

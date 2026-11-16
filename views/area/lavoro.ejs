@@ -62,7 +62,10 @@
               <% schedaImmobile.righe.forEach(r => { %><dt><%= r.voce %></dt><dd><span class="pallino tono-<%= r.tono %>"></span><%= r.testo %></dd><% }) %>
             </dl>
             <% if (schedaImmobile.nota) { %><p class="a-capo nota"><%= schedaImmobile.nota %></p><% } %>
-            <% if (fascicoloDisponibile) { %><a class="pulsante" href="/area/lavori/<%= lavoro.id %>/fascicolo.zip<%= utente && utente.ruolo === 'admin' ? `?come=${ruoloVista}` : '' %>">Scarica il fascicolo (ZIP)</a>
+            <% const come = utente && utente.ruolo === 'admin' ? `?come=${ruoloVista}` : ''; %>
+            <p class="azioni-scheda"><a class="pulsante" href="/area/lavori/<%= lavoro.id %>/fabbricato.pdf<%= come %>" target="_blank" rel="noopener">Fascicolo del fabbricato (PDF)</a>
+              <small class="muto">Dati catastali, urbanistici, classe energetica e posizione su carta intestata dello studio, da stampare o inoltrare.</small></p>
+            <% if (fascicoloDisponibile) { %><a class="pulsante secondario" href="/area/lavori/<%= lavoro.id %>/fascicolo.zip<%= utente && utente.ruolo === 'admin' ? `?come=${ruoloVista}` : '' %>">Scarica il fascicolo (ZIP)</a>
               <small class="muto">Tutti i documenti di questa pagina in un unico file, pronto da inoltrare al notaio.</small><% } %>
           </div>
         <% } %>

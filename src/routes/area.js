@@ -103,6 +103,26 @@ router.get('/lavori/:id/fascicolo.zip', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Fascicolo del fabbricato in PDF su carta intestata: dati letti dai documenti e dalla scheda immobile
+router.get('/lavori/:id/fabbricato.pdf', async (req, res, next) => {
+  try {
+    const lavoro = lavoroAccessibile(req);
+    const admin = req.utente.ruolo === 'admin';
+    if (!lavoro || !['proprietario', 'agenzia'].includes(lavoro.ruoloVista) || (!admin && !scheda.leggi(lavoro).attiva)) {
+      return res.status(404).render('errore', { titolo: 'Fascicolo non disponibile', messaggio: '' });
+    }
+    const dati = await require('../fabbricato').fascicolo(lavoro, Pratiche.perLavoro.all(lavoro.id), req.app.locals.data);
+    const buf = await require('../fascicoloPdf').creaPdf(dati, req.app.locals.data);
+    if (!admin) Accessi.registra.run(lavoro.id, req.utente.id, 'Fascicolo del fabbricato (PDF)');
+    const nome = `Fascicolo del fabbricato ${archivio.nomeSicuro(dati.indirizzo || lavoro.titolo) || lavoro.codice}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${req.query.scarica === '1' ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(nome)}`);
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.end(buf);
+  } catch (e) { next(e); }
+});
+
 router.get('/lavori/:id/file', (req, res) => {
   const lavoro = lavoroAccessibile(req);
   const pratica = lavoro && ruoli.perRuolo(Pratiche.perId.get(Number(req.query.p), lavoro.id), lavoro.ruoloVista);

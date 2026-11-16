@@ -295,3 +295,8 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .pallino.tono-ok { background: #3c8a3f; } .pallino.tono-ko { background: #c0392b; } .pallino.tono-attesa { background: #d99a1e; }
 .badge.tono-ok { background: #e6f2e4; color: #2f6b31; }
 @media (max-width: 560px) { .scheda-righe { grid-template-columns: 1fr; } .scheda-righe dd { margin: 0 0 .4rem; } }
+.azioni-scheda { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: .8rem 0 .4rem; }
+.azioni-scheda small { flex: 1 1 14rem; }
+.dati-fabbricato { margin: .6rem 0; border: 1px solid var(--linea, #d5dde6); border-radius: 8px; padding: .5rem .8rem; }
+.dati-fabbricato summary { cursor: pointer; font-weight: 600; color: var(--blu); }
+.dati-fabbricato[open] summary { margin-bottom: .4rem; }

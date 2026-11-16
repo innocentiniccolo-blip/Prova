@@ -14,14 +14,14 @@
 const fs = require('node:fs');
 
 let pdfjs;
-/** Estrae il testo delle prime tre pagine con pdf.js (Mozilla), riga per riga. */
-async function testoPdf(abs) {
+/** Estrae il testo delle prime pagine (di serie tre) con pdf.js (Mozilla), riga per riga. */
+async function testoPdf(abs, { pagine = 3, dati } = {}) {
   pdfjs = pdfjs || await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const data = new Uint8Array(await fs.promises.readFile(abs));
+  const data = new Uint8Array(dati || await fs.promises.readFile(abs));
   const doc = await pdfjs.getDocument({ data, isEvalSupported: false, disableFontFace: true, useSystemFonts: false, verbosity: 0 }).promise;
   try {
     let testo = '';
-    for (let i = 1; i <= Math.min(3, doc.numPages); i++) {
+    for (let i = 1; i <= Math.min(pagine, doc.numPages); i++) {
       const pagina = await doc.getPage(i);
       const contenuto = await pagina.getTextContent();
       testo += contenuto.items.map((it) => (it.str || '') + (it.hasEOL ? '\n' : ' ')).join('') + '\n';

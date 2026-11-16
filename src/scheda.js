@@ -27,6 +27,12 @@ function leggi(lavoro) {
     catastale: CATASTALE[s.catastale] ? s.catastale : 'da-verificare',
     apeClasse: CLASSI_APE.includes(s.apeClasse) ? s.apeClasse : '', apeScadenza: /^\d{4}-\d{2}-\d{2}$/.test(s.apeScadenza || '') ? s.apeScadenza : '',
     nota: String(s.nota || '').slice(0, 1000),
+    // Dati del fascicolo del fabbricato: se vuoti si leggono dai documenti
+    indirizzo: String(s.indirizzo || '').trim().slice(0, 150),
+    comune: String(s.comune || '').trim().slice(0, 60),
+    coordinate: /^-?\d{1,2}\.\d+\s*,\s*-?\d{1,3}\.\d+$/.test(String(s.coordinate || '').trim()) ? String(s.coordinate).replace(/\s+/g, '') : '',
+    catasto: String(s.catasto || '').trim().slice(0, 800),
+    descrizione: String(s.descrizione || '').trim().slice(0, 1500),
   };
 }
 
@@ -34,6 +40,7 @@ function daModulo(body) {
   return JSON.stringify(leggi({ scheda: JSON.stringify({
     attiva: body.attiva === '1', urbanistica: body.urbanistica, catastale: body.catastale,
     apeClasse: body.apeClasse, apeScadenza: body.apeScadenza, nota: body.nota,
+    indirizzo: body.indirizzo, comune: body.comune, coordinate: body.coordinate, catasto: body.catasto, descrizione: body.descrizione,
   }) }));
 }
 

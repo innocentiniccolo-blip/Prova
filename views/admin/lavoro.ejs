@@ -55,6 +55,24 @@
         <div class="carta" id="pratiche">
           <h2>Pratiche</h2>
           <p class="muto">Ogni sottocartella di <code><%= lavoro.cartella %></code> è una pratica. <% if (archivioSolaLettura) { %>Le crei e le riempi su Google Drive: compaiono qui da sole entro 5 minuti.<% } else { %>Puoi crearle anche dal PC sul NAS: compaiono qui da sole.<% } %></p>
+          <% if (statoVisure && (statoVisure.documenti || statoVisure.conflitto)) { %>
+            <div class="riquadro-visure <%= statoVisure.conflitto || !statoVisure.unita.length ? 'attenzione' : '' %>" id="visure">
+              <% if (statoVisure.conflitto) { %>
+                <strong>Visure catastali: unità d'intervento da confermare.</strong> I documenti indicano unità diverse; finché non scegli, nessuna visura viene pubblicata in automatico.
+                <div class="scelte-unita">
+                  <% statoVisure.conflitto.forEach(c => { const testoU = c.testo; %>
+                    <form method="post" action="<%= base %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value="<%= testoU %>">
+                      <button class="pulsante piccolo secondario"><%= testoU %></button> <small class="muto">da «<%= c.nome %>»</small></form>
+                  <% }) %>
+                </div>
+              <% } else if (!statoVisure.unita.length) { %>
+                <strong>Visure catastali: unità d'intervento non trovata.</strong> Scrivila nella scheda immobile («Dati catastali», es. <i>foglio 12 particella 345 sub 6</i>) oppure pubblica a mano la visura giusta: da lì il programma continua da solo.
+              <% } else { %>
+                Visure e planimetrie: si pubblicano da sole quelle di <strong><%= statoVisure.unitaTesto %></strong> <small class="muto">(da <%= statoVisure.fonte %>)</small>.
+                <% if (statoVisure.fonte === 'scheda immobile') { %><form method="post" action="<%= base %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value=""><button class="link">Torna automatica</button></form><% } %>
+              <% } %>
+            </div>
+          <% } %>
           <% if (!archivioSolaLettura) { %>
           <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche" class="carica">
             <input type="hidden" name="_csrf" value="<%= csrf %>">

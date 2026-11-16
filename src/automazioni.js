@@ -281,6 +281,9 @@ async function giro() {
     await scansionaNuoviLavori();
     await scansionaRicevute();
     await require('./sicurezzaDrive').importaTutti();
+    // Visure e planimetrie catastali dell'unità d'intervento
+    const visure = require('./visure');
+    for (const l of db.prepare('SELECT * FROM lavori').all()) await visure.aggiornaLavoro(l).catch((e) => console.error(`Visure ${l.codice}:`, e.message));
   } catch (e) {
     console.error('Automazioni:', e);
   } finally {

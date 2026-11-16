@@ -28,7 +28,15 @@ const q = {
   metti: db.prepare(`INSERT INTO file_pubblicati (pratica_id, percorso, dimensione, modificato) VALUES (?, ?, ?, ?)
     ON CONFLICT (pratica_id, percorso) DO UPDATE SET dimensione = excluded.dimensione, modificato = excluded.modificato, pubblicato_il = datetime('now')`),
   togli: db.prepare('DELETE FROM file_pubblicati WHERE pratica_id = ? AND percorso = ?'),
+  // Visure e planimetrie scelte in automatico (src/visure.js)
+  visure: db.prepare('SELECT * FROM visure_auto WHERE pratica_id = ?'),
+  visura: db.prepare('SELECT * FROM visure_auto WHERE pratica_id = ? AND percorso = ?'),
+  escludi: db.prepare('UPDATE visure_auto SET escluso = ? WHERE pratica_id = ? AND percorso = ?'),
 };
+
+const SOGGETTO = 'una visura per soggetto, che elenca tutti gli immobili della persona';
+/** La visura è pubblicata in automatico ed è ancora lo stesso file? */
+const visuraAttiva = (v, dim, mtime) => Boolean(v) && v.esito === 'pubblica' && !v.escluso && v.dimensione === dim && Math.abs(v.modificato - mtime) <= 1;
 
 const norm = (t) => ` ${String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
 
@@ -69,11 +77,19 @@ const stessoFile = (riga, f) => Boolean(riga) && riga.dimensione === f.dimension
 /** Aggiunge a ogni file della pratica: pubblicato (bool), sensibile (motivo o null), cambiato (era pubblicato ma è stato modificato). */
 function annota(pratica, file) {
   const righe = new Map(q.perPratica.all(pratica.id).map((r) => [r.percorso, r]));
+  const visure = new Map(q.visure.all(pratica.id).map((r) => [r.percorso, r]));
   return file.map((f) => {
     const riga = righe.get(f.percorso);
-    const sensibile = sembraSensibile(f.percorso);
+    const v = visure.get(f.percorso);
+    const sensibile = sembraSensibile(f.percorso) || (v && v.tipo === 'soggetto' ? SOGGETTO : null);
     const auto = automatico(f.percorso);
-    return { ...f, sensibile, automatico: auto, pubblicato: !sensibile && (auto || stessoFile(riga, f)), cambiato: !auto && Boolean(riga) && !stessoFile(riga, f) };
+    const visuraAuto = !auto && visuraAttiva(v, f.dimensione, new Date(f.modificato).getTime());
+    return {
+      ...f, sensibile, automatico: auto, visuraAuto,
+      notaVisura: v && v.tipo && !auto ? (v.escluso && v.esito === 'pubblica' ? 'Nascosta da te (il programma l\'avrebbe pubblicata)' : v.motivo) : null,
+      pubblicato: !sensibile && (auto || visuraAuto || stessoFile(riga, f)),
+      cambiato: !auto && Boolean(riga) && !stessoFile(riga, f),
+    };
   });
 }
 
@@ -81,6 +97,12 @@ function annota(pratica, file) {
 function visibile(lavoro, pratica, rel) {
   if (!pratica || !pratica.visibile || sembraSensibile(rel)) return false;
   if (automatico(rel)) return Boolean(archivio.fileDocumento(lavoro, pratica.cartella, rel));
+  const v = q.visura.get(pratica.id, rel);
+  if (v && v.tipo === 'soggetto') return false;
+  if (v && v.esito === 'pubblica' && !v.escluso) {
+    const absV = archivio.fileDocumento(lavoro, pratica.cartella, rel);
+    if (absV) { const st = fs.statSync(absV); if (visuraAttiva(v, st.size, st.mtimeMs)) return true; }
+  }
   const riga = q.uno.get(pratica.id, rel);
   const abs = riga && archivio.fileDocumento(lavoro, pratica.cartella, rel);
   if (!abs) return false;
@@ -92,12 +114,21 @@ function visibile(lavoro, pratica, rel) {
 function pubblica(lavoro, pratica, rel) {
   const motivo = sembraSensibile(rel);
   if (motivo) return { ok: false, motivo: `il nome indica ${motivo}` };
+  const v = q.visura.get(pratica.id, rel);
+  if (v && v.tipo === 'soggetto') return { ok: false, motivo: `è ${SOGGETTO}` };
+  if (v) q.escludi.run(0, pratica.id, rel);
   const abs = archivio.fileDocumento(lavoro, pratica.cartella, rel);
   if (!abs) return { ok: false, motivo: 'file non trovato' };
   const st = fs.statSync(abs);
   q.metti.run(pratica.id, rel, st.size, Math.floor(st.mtimeMs));
   return { ok: true };
 }
-const nascondi = (pratica, rel) => q.togli.run(pratica.id, rel).changes === 1;
+const nascondi = (pratica, rel) => {
+  // Una visura pubblicata in automatico, se nascosta a mano, resta nascosta
+  const v = q.visura.get(pratica.id, rel);
+  const visura = Boolean(v && v.esito === 'pubblica' && !v.escluso);
+  if (v) q.escludi.run(1, pratica.id, rel);
+  return q.togli.run(pratica.id, rel).changes === 1 || visura;
+};
 
 module.exports = { automatico, sembraSensibile, annota, visibile, pubblica, nascondi };

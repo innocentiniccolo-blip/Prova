@@ -339,3 +339,9 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .tappa-fine .tappa-nome { color: #2e7d32; }
 .aggiungi-tappa { margin: .4rem 0 .8rem; }
 .aggiungi-tappa summary { cursor: pointer; color: var(--blu, #004587); font-size: .92rem; }
+/* Visure catastali automatiche */
+.riquadro-visure { background: #eef5fc; border-left: 3px solid #287dbe; border-radius: 0 8px 8px 0; padding: .6rem .9rem; margin: .6rem 0 1rem; font-size: .93rem; }
+.riquadro-visure.attenzione { background: #fff6e5; border-left-color: #ef8f00; }
+.scelte-unita { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem; }
+.nota-visura { display: block; color: #6b7684; font-style: italic; }
+.nota-visura.si { color: #2e7d32; }

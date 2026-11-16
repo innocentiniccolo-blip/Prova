@@ -11,6 +11,7 @@
         <span class="file-info">
           <a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener"><%= f.nome %></a>
           <small><% if (f.cartella) { %><%= f.cartella %> · <% } %><%= dimensione(f.dimensione) %> · <%= data(f.modificato) %></small>
+          <% if (admin && f.notaVisura) { %><small class="nota-visura<%= f.visuraAuto ? ' si' : '' %>"><%= f.notaVisura %></small><% } %>
         </span>
         <span class="file-azioni">
           <% if (anteprimaPossibile(f.nome)) { %><a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener"><%= /\.html?$/i.test(f.nome) ? "Apri il modello 3D" : "Apri" %></a><% } %>
@@ -26,7 +27,7 @@
                 <input type="hidden" name="p" value="<%= p.id %>">
                 <input type="hidden" name="f" value="<%= f.percorso %>">
                 <% if (f.pubblicato) { %>
-                  <span class="badge visibile">Visibile al cliente</span> <button class="link" name="azione" value="nascondi">Nascondi</button>
+                  <span class="badge visibile"><%= f.visuraAuto ? 'Visibile (visura automatica)' : 'Visibile al cliente' %></span> <button class="link" name="azione" value="nascondi">Nascondi</button>
                 <% } else { %>
                   <span class="badge privata"><%= f.cambiato ? 'Modificato: di nuovo privato' : 'Privato' %></span> <button class="link" name="azione" value="pubblica">Pubblica</button>
                 <% } %>

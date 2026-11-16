@@ -221,5 +221,21 @@ unaVolta('tappe-da-integrazioni', () => db.exec(`INSERT INTO pratiche_tappe (pra
       AND COALESCE(t.data, '') = COALESCE(ps.data, '') AND COALESCE(t.protocollo, '') = COALESCE(ps.protocollo, ''))`));
 // Versione delle regole con cui è stato letto ogni file: con regole nuove si rileggono le ricevute
 if (!colonne('file_letti').includes('regole')) db.exec('ALTER TABLE file_letti ADD COLUMN regole INTEGER NOT NULL DEFAULT 0');
+// Visure e planimetrie catastali lette in automatico (src/visure.js)
+db.exec(`CREATE TABLE IF NOT EXISTS visure_auto (
+  pratica_id INTEGER NOT NULL REFERENCES pratiche(id) ON DELETE CASCADE,
+  percorso   TEXT NOT NULL,
+  dimensione INTEGER NOT NULL,
+  modificato INTEGER NOT NULL,
+  tipo       TEXT,
+  storica    INTEGER NOT NULL DEFAULT 0,
+  unita      TEXT,
+  data       TEXT,
+  testo_doc  TEXT,
+  esito      TEXT NOT NULL DEFAULT 'privata',
+  motivo     TEXT,
+  escluso    INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (pratica_id, percorso)
+)`);
 
 module.exports = db;

@@ -245,6 +245,7 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       cartellaEsiste,
       pratiche: await pratiche.conDocumenti(lavoro),
       tappe: tappe.perPratica(Pratiche.tappeLavoro.all(lavoro.id)), FASI: tappe.FASI,
+      statoVisure: require('../visure').stato(lavoro.id),
       tipiPratica: archivio.tipiPratica,
       statiPratica: archivio.statiPratica,
       descriviStato: pratiche.descriviStato,
@@ -485,6 +486,18 @@ router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, async (
 });
 
 // Tappe a mano: integrazione, inizio o fine lavori (di solito arrivano dalle ricevute)
+// Unità d'intervento per le visure: scelta tra le possibilità trovate nei documenti (va nella scheda immobile)
+router.post('/lavori/:id/unita', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const valore = testo(req.body.unita, 300);
+    const attuale = scheda.leggi(req.lavoro);
+    Lavori.impostaScheda.run(JSON.stringify({ ...attuale, catasto: valore || '' }), req.lavoro.id);
+    await require('../visure').aggiornaLavoro(Lavori.perId.get(req.lavoro.id)).catch((e) => console.error(e));
+    flash(req, 'ok', valore ? `Unità d'intervento: ${valore}. Visure e planimetrie aggiornate.` : 'Unità d\'intervento tolta: torna automatica dai documenti.');
+    res.redirect(`/studio/lavori/${req.lavoro.id}#visure`);
+  } catch (e) { next(e); }
+});
+
 router.post('/lavori/:id/pratiche/:pid/tappe', trovaLavoro, auth.verificaCsrf, async (req, res, next) => {
   try {
     const pratica = trovaPratica(req, req.params.pid);

@@ -24,6 +24,14 @@ function nomeVisibile(cartella) {
   return nome;
 }
 
+// Cartelle di base del lavoro (es. «Catasto»): contengono documenti, non sono pratiche con uno stato
+const normale = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const radiciBase = (opzioni.cartelleBase || ['Catasto']).map((t) => normale(t).slice(0, 6)).filter(Boolean);
+function eBase(cartella) {
+  const nome = normale(String(cartella).replace(/^\s*\d+\s*[-–._)]\s*/, ''));
+  return radiciBase.some((r) => nome.startsWith(r));
+}
+
 /** Allinea il database alle sottocartelle presenti sul NAS e restituisce le pratiche ordinate. */
 async function sincronizza(lavoro) {
   const cartelle = await archivio.sottocartelle(lavoro);
@@ -39,7 +47,7 @@ async function sincronizza(lavoro) {
     .map((p) => ({ ...p, esiste: presenti.has(p.cartella) }))
     // Ordine delle cartelle sul NAS (rispetta la numerazione dello studio, es. "001 - Rilievo")
     .sort((a, b) => a.cartella.localeCompare(b.cartella, 'it', { numeric: true }))
-    .map((p) => ({ ...p, nome: nomeVisibile(p.cartella) }));
+    .map((p) => ({ ...p, nome: nomeVisibile(p.cartella), base: eBase(p.cartella) }));
 }
 
 /** Pratiche con l'elenco dei documenti. Per il cliente solo quelle visibili ed esistenti. */
@@ -65,4 +73,4 @@ function descriviStato(p, formattaData) {
   return p.data ? `${p.stato} il ${formattaData(p.data)}` : p.stato;
 }
 
-module.exports = { sincronizza, conDocumenti, descriviStato, nomeVisibile };
+module.exports = { eBase, sincronizza, conDocumenti, descriviStato, nomeVisibile };

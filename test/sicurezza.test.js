@@ -601,3 +601,31 @@ test('visibilità delle cartelle: nuove cartelle private, lo studio sceglie qual
   // Il cliente non può cambiare la visibilità
   assert.strictEqual((await a.post(`/studio/lavori/${id}/pratiche-visibili`, { visibili: String(scia.id) }, { da: `/area/lavori/${id}` })).status, 403);
 });
+
+test('cartella Catasto: cartella di base senza stato, né per lo studio né per il cliente', async () => {
+  const { eBase } = require('../src/pratiche');
+  assert.ok(eBase('Catasto') && eBase('02 - Catasto') && eBase('Catasto e visure'));
+  assert.ok(!eBase('DOCFA') && !eBase('Pratiche catastali') && !eBase('SCIA'));
+  const dir = path.join(process.env.ARCHIVIO_DIR, 'A-1 Anna', 'Catasto');
+  fs.mkdirSync(dir, { recursive: true });
+  const s = browser();
+  await s.accedi('studio@esempio.it', PW);
+  const pag = (await s.go(`/studio/lavori/${lavoroA}`)).text;
+  const pr = db.prepare("SELECT * FROM pratiche WHERE lavoro_id = ? AND cartella = 'Catasto'").get(lavoroA);
+  assert.ok(pr);
+  const blocco = pag.slice(pag.indexOf(`id="pratica-${pr.id}"`), pag.indexOf('</details>', pag.indexOf(`id="pratica-${pr.id}"`)));
+  assert.match(blocco, /Cartella di base del lavoro/);
+  assert.ok(!/name="stato"|name="protocollo"|Da fare/.test(blocco), 'nessuno stato per la cartella Catasto');
+  // Anche forzando il modulo lo stato non cambia
+  await s.post(`/studio/lavori/${lavoroA}/pratiche/${pr.id}`, { stato: 'Completata', protocollo: '123', data: '2026-01-01', visibile: '1' }, { da: `/studio/lavori/${lavoroA}` });
+  const dopo = db.prepare('SELECT * FROM pratiche WHERE id = ?').get(pr.id);
+  assert.strictEqual(dopo.stato, pr.stato);
+  assert.strictEqual(dopo.protocollo, null);
+  assert.strictEqual(dopo.visibile, 1);
+  const a = browser();
+  await a.accedi('anna@esempio.it', PW);
+  const area = (await a.go(`/area/lavori/${lavoroA}`)).text;
+  const b2 = area.slice(area.indexOf(`id="pratica-${pr.id}"`), area.indexOf('</article>', area.indexOf(`id="pratica-${pr.id}"`)));
+  assert.match(b2, /Catasto/);
+  assert.ok(!/badge stato-|pratica-stato/.test(b2), 'il cliente non vede uno stato per il Catasto');
+});

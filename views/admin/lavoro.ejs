@@ -109,18 +109,19 @@
             <summary class="pratica-testa">
               <span class="pratica-titolo">
                 <strong><%= p.cartella %></strong>
-                <small class="muto"><%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. <%= p.protocollo %><% } %> · <%= p.file.length %> file</small>
+                <small class="muto"><% if (p.base) { %>Cartella di base del lavoro<% } else { %><%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. <%= p.protocollo %><% } %><% } %> · <%= p.file.length %> file</small>
               </span>
               <span class="azioni">
                 <% if (!p.esiste) { %><span class="badge stato-sospeso">Cartella non trovata</span><% } %>
                 <span class="badge <%= p.visibile ? 'visibile' : 'privata' %>"><%= p.visibile ? 'Visibile al cliente' : 'Privata' %></span>
-                <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+                <% if (!p.base) { %><span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span><% } %>
               </span>
             </summary>
 
             <%- include('../partials/tappe-pratica', { elenco: tappe[p.id], elimina: base }) %>
             <form method="post" action="<%= base %>/pratiche/<%= p.id %>" class="modulo pratica-modulo">
               <input type="hidden" name="_csrf" value="<%= csrf %>">
+<% if (!p.base) { %>
               <div class="riga-campi">
                 <label>Stato
                   <select name="stato">
@@ -130,17 +131,18 @@
                 <label>Data <input type="date" name="data" value="<%= p.data || '' %>"></label>
                 <label>N. protocollo <input name="protocollo" maxlength="100" value="<%= p.protocollo || '' %>"></label>
               </div>
+              <% } %>
               <label>Nota per il cliente <small>(es. cosa serve da lui)</small>
                 <textarea name="nota" rows="2" maxlength="2000"><%= p.nota || '' %></textarea>
               </label>
               <div class="azioni">
                 <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= p.visibile ? 'checked' : '' %>> Visibile al cliente</label>
-                <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label>
-                <% if (postaAttiva) { %><label class="scelta" title="Email con stato, data e numero di protocollo, solo se cambiano"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente via email</label><% } %>
+                <% if (!p.base) { %><label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label><% } %>
+                <% if (postaAttiva && !p.base) { %><label class="scelta" title="Email con stato, data e numero di protocollo, solo se cambiano"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente via email</label><% } %>
                 <button class="pulsante">Salva</button>
               </div>
             </form>
-            <details class="aggiungi-tappa">
+            <% if (!p.base) { %><details class="aggiungi-tappa">
               <summary>+ Integrazione, inizio o fine lavori</summary>
               <p class="nota">Di solito si aggiungono da sole leggendo le ricevute (anche del Genio Civile). Qui puoi inserirle a mano.</p>
               <form method="post" action="<%= base %>/pratiche/<%= p.id %>/tappe" class="modulo">
@@ -155,7 +157,7 @@
                   <button class="pulsante piccolo">Aggiungi tappa</button>
                 </div>
               </form>
-            </details>
+            </details><% } %>
 
             <% if (p.esiste) { %>
               <% if (!archivioSolaLettura) { %>

@@ -77,11 +77,11 @@
           <article class="carta pratica" id="pratica-<%= p.id %>">
             <div class="pratica-testa">
               <h3><%= p.nome %></h3>
-              <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+              <% if (!p.base) { %><span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span><% } %>
             </div>
-            <p class="pratica-stato">
+            <% if (!p.base) { %><p class="pratica-stato">
               <%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. n. <strong><%= p.protocollo %></strong><% } %>
-            </p>
+            </p><% } %>
             <%- include('../partials/tappe-pratica', { elenco: tappe[p.id] }) %>
             <% if (p.nota) { %><p class="pratica-nota a-capo"><%= p.nota %></p><% } %>
             <% if (p.file.length) { %>

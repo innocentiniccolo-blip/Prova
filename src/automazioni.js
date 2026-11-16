@@ -168,7 +168,7 @@ async function scansionaRicevute(lavoro) {
   let create = 0;
   for (const l of elenco) {
     for (const p of await pratiche.sincronizza(l)) {
-      if (!p.esiste) continue;
+      if (!p.esiste || p.base) continue; // cartelle di base (Catasto): nessuno stato da leggere
       let migliore = null;
       const integrazioni = [];
       for (const f of await archivio.documentiPratica(l, p.cartella)) {

@@ -71,6 +71,9 @@
       "Presentata",
       "Integrazione richiesta",
       "Completata"
+    ],
+    "cartelleBase": [
+      "Catasto"
     ]
   }
 }

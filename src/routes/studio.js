@@ -460,18 +460,19 @@ router.post('/lavori/:id/pratiche/:pid', trovaLavoro, auth.verificaCsrf, async (
   try {
   const pratica = trovaPratica(req, req.params.pid);
   if (!pratica) return res.status(404).render('errore', { titolo: 'Pratica non trovata', messaggio: '' });
+  const base = pratiche.eBase(pratica.cartella);
   const nuova = {
     id: pratica.id,
     lavoro_id: req.lavoro.id,
-    stato: archivio.statiPratica.includes(req.body.stato) ? req.body.stato : pratica.stato,
-    data: dataONull(req.body.data),
-    protocollo: testo(req.body.protocollo, 100) || null,
+    stato: !base && archivio.statiPratica.includes(req.body.stato) ? req.body.stato : pratica.stato,
+    data: base ? null : dataONull(req.body.data),
+    protocollo: base ? null : testo(req.body.protocollo, 100) || null,
     nota: testo(req.body.nota, 2000) || null,
     visibile: req.body.visibile ? 1 : 0,
   };
   Pratiche.aggiorna.run(nuova);
   Lavori.tocca.run(req.lavoro.id);
-  const cambiata = nuova.stato !== pratica.stato || nuova.data !== pratica.data || nuova.protocollo !== pratica.protocollo;
+  const cambiata = !base && (nuova.stato !== pratica.stato || nuova.data !== pratica.data || nuova.protocollo !== pratica.protocollo);
   const nome = pratiche.nomeVisibile(pratica.cartella);
   let frase = `${nome}: ${pratiche.descriviStato(nuova, req.app.locals.data).toLowerCase()}`;
   if (nuova.protocollo) frase += `, protocollo n. ${nuova.protocollo}`;
@@ -504,6 +505,7 @@ router.post('/lavori/:id/pratiche/:pid/tappe', trovaLavoro, auth.verificaCsrf, a
     const pratica = trovaPratica(req, req.params.pid);
     const fase = tappe.FASI[req.body.fase] ? req.body.fase : null;
     const dataT = dataONull(req.body.data);
+    if (pratica && pratiche.eBase(pratica.cartella)) { flash(req, 'errore', 'Le cartelle di base (es. Catasto) non hanno tappe.'); return res.redirect(`/studio/lavori/${req.lavoro.id}`); }
     if (!pratica || !fase || !dataT) { flash(req, 'errore', 'Indica tappa e data.'); return res.redirect(`/studio/lavori/${req.lavoro.id}`); }
     const prot = testo(req.body.protocollo, 100) || null;
     if (!Pratiche.tappaUguale.get(pratica.id, fase, dataT, prot)) Pratiche.aggiungiTappa.run(pratica.id, fase, dataT, prot, null);

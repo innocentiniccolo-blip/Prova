@@ -206,4 +206,20 @@ db.exec(`CREATE TABLE IF NOT EXISTS pratiche_tappe (
   creato_il  TEXT NOT NULL DEFAULT (datetime('now'))
 )`);
 
+// Migrazioni da fare una volta sola
+db.exec('CREATE TABLE IF NOT EXISTS migrazioni (nome TEXT PRIMARY KEY, il TEXT NOT NULL DEFAULT (datetime(\'now\')))');
+function unaVolta(nome, fn) {
+  if (db.prepare('SELECT 1 FROM migrazioni WHERE nome = ?').get(nome)) return;
+  fn();
+  db.prepare('INSERT INTO migrazioni (nome) VALUES (?)').run(nome);
+}
+// Integrazioni confermate prima che esistessero le tappe: diventano tappe
+unaVolta('tappe-da-integrazioni', () => db.exec(`INSERT INTO pratiche_tappe (pratica_id, fase, data, protocollo, file)
+  SELECT ps.pratica_id, 'integrazione', ps.data, ps.protocollo, ps.file FROM proposte_stato ps
+  WHERE ps.stato = 'Integrazione presentata' AND ps.stato_proposta = 'applicata'
+    AND NOT EXISTS (SELECT 1 FROM pratiche_tappe t WHERE t.pratica_id = ps.pratica_id AND t.fase = 'integrazione'
+      AND COALESCE(t.data, '') = COALESCE(ps.data, '') AND COALESCE(t.protocollo, '') = COALESCE(ps.protocollo, ''))`));
+// Versione delle regole con cui è stato letto ogni file: con regole nuove si rileggono le ricevute
+if (!colonne('file_letti').includes('regole')) db.exec('ALTER TABLE file_letti ADD COLUMN regole INTEGER NOT NULL DEFAULT 0');
+
 module.exports = db;

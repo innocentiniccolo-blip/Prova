@@ -224,4 +224,7 @@ async function analizza(abs, nomeFile) {
   return riconosci(testo, nomeFile);
 }
 
-module.exports = { testoPdf, riconosci, analizza, isoData, faseDa };
+/** Da aumentare quando si aggiungono o correggono regole: le ricevute già lette vengono rilette. */
+const VERSIONE_REGOLE = 2;
+
+module.exports = { testoPdf, riconosci, analizza, isoData, faseDa, VERSIONE_REGOLE };

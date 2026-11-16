@@ -531,19 +531,23 @@ test('caso reale: integrazioni, doppioni firmati, email salvate e documento del 
   await automazioni.scansionaRicevute(L.perId.get(id));
   const pr = db.prepare('SELECT * FROM pratiche WHERE lavoro_id = ?').get(id);
   const prop = db.prepare("SELECT * FROM proposte_stato WHERE pratica_id = ? AND stato_proposta = 'nuova' ORDER BY id").all(pr.id);
-  assert.deepStrictEqual(prop.map((x) => [x.stato, x.protocollo, x.data]), [
-    ['Presentata', '10912', '2026-07-07'],
-    ['Integrazione presentata', '11391', '2026-07-14'],
-    ['Integrazione presentata', '12148', '2026-07-28'],
-  ], 'la ricevuta sismica dentro un\'integrazione non diventa una proposta per la SCIA');
+  assert.deepStrictEqual(prop.map((x) => [x.stato, x.protocollo, x.data]), [['Presentata', '10912', '2026-07-07']],
+    'solo la presentazione resta da confermare; la ricevuta sismica dentro un\'integrazione non diventa una proposta');
+  // Le integrazioni sono già registrate come tappe, senza toccare la presentazione
+  const tp = db.prepare('SELECT fase, protocollo, data FROM pratiche_tappe WHERE pratica_id = ? ORDER BY data').all(pr.id);
+  assert.deepStrictEqual(tp.map((t) => [t.fase, t.protocollo, t.data]), [['integrazione', '11391', '2026-07-14'], ['integrazione', '12148', '2026-07-28']]);
   db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id); // lo studio rende visibile la SCIA
   for (const x of prop) await automazioni.applicaStato(x.id, null, { email: false });
   const dopo = db.prepare('SELECT * FROM pratiche WHERE id = ?').get(pr.id);
   assert.strictEqual(dopo.protocollo, '10912', 'il protocollo della SCIA resta quello della presentazione');
   assert.strictEqual(dopo.stato, 'Presentata');
   const diario = db.prepare('SELECT testo FROM aggiornamenti WHERE lavoro_id = ? ORDER BY id').all(id).map((r) => r.testo);
-  assert.match(diario[0], /presentata il 07\/07\/2026, protocollo n\. 10912/);
-  assert.match(diario[2], /integrazione presentata il 28\/07\/2026, protocollo n\. 12148/);
+  assert.ok(diario.some((t) => /presentata il 07\/07\/2026, protocollo n\. 10912/.test(t)));
+  // Ricevute lette con regole vecchie: con regole nuove si rileggono, senza doppioni né nuove proposte di presentazione
+  db.prepare('UPDATE file_letti SET regole = 0').run();
+  await automazioni.scansionaRicevute(L.perId.get(id));
+  assert.strictEqual(db.prepare('SELECT COUNT(*) n FROM pratiche_tappe WHERE pratica_id = ?').get(pr.id).n, 2);
+  assert.strictEqual(db.prepare("SELECT COUNT(*) n FROM proposte_stato WHERE pratica_id = ? AND stato_proposta = 'nuova'").get(pr.id).n, 0);
   // Cosa vede il cliente nella presentazione
   db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id);
   const elenco = (await pratiche.conDocumenti(L.perId.get(id), { soloVisibili: true })).find((x) => x.id === pr.id).file.map((f) => f.nome).sort();

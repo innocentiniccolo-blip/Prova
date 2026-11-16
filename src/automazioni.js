@@ -30,8 +30,8 @@ const q = {
   proposteNuove: db.prepare("SELECT * FROM proposte_lavori WHERE stato = 'nuova' ORDER BY creato_il"),
   proposta: db.prepare('SELECT * FROM proposte_lavori WHERE id = ?'),
   statoProposta: db.prepare('UPDATE proposte_lavori SET stato = ? WHERE id = ?'),
-  fileLetto: db.prepare('SELECT modificato FROM file_letti WHERE pratica_id = ? AND percorso = ?'),
-  segnaLetto: db.prepare('INSERT OR REPLACE INTO file_letti (pratica_id, percorso, modificato) VALUES (?, ?, ?)'),
+  fileLetto: db.prepare('SELECT modificato, regole FROM file_letti WHERE pratica_id = ? AND percorso = ?'),
+  segnaLetto: db.prepare('INSERT OR REPLACE INTO file_letti (pratica_id, percorso, modificato, regole) VALUES (?, ?, ?, ?)'),
   inserisciPropStato: db.prepare('INSERT INTO proposte_stato (pratica_id, file, tipo, stato, data, protocollo) VALUES (?, ?, ?, ?, ?, ?)'),
   propStatoNuove: db.prepare(`
     SELECT ps.*, p.cartella, p.lavoro_id, l.codice, l.titolo FROM proposte_stato ps
@@ -175,8 +175,10 @@ async function scansionaRicevute(lavoro) {
         if (!/\.pdf$/i.test(f.nome)) continue;
         const mtime = new Date(f.modificato).getTime();
         const visto = q.fileLetto.get(p.id, f.percorso);
-        if (visto && visto.modificato === mtime) continue;
-        q.segnaLetto.run(p.id, f.percorso, mtime);
+        // Stesso file già letto: si rilegge solo se nel frattempo sono arrivate regole nuove
+        const rilettura = Boolean(visto && visto.modificato === mtime);
+        if (rilettura && visto.regole >= ricevute.VERSIONE_REGOLE) continue;
+        q.segnaLetto.run(p.id, f.percorso, mtime, ricevute.VERSIONE_REGOLE);
         const abs = archivio.fileDocumento(l, p.cartella, f.percorso);
         if (!abs || fs.statSync(abs).size > 15 * 1024 * 1024) continue;
         let esito = null;
@@ -193,6 +195,8 @@ async function scansionaRicevute(lavoro) {
           integrazioni.push({ ...esito, stato: tappe.FASI[fase].stato, file: f.percorso });
           continue;
         }
+        // Una ricevuta di presentazione già vista con le regole vecchie non ripropone lo stato (già gestito allora)
+        if (rilettura) continue;
         const chiave = esito.data || new Date(mtime).toISOString().slice(0, 10);
         if (!migliore || chiave >= migliore.chiave) migliore = { ...esito, file: f.percorso, chiave };
       }
@@ -204,11 +208,15 @@ async function scansionaRicevute(lavoro) {
         q.scartaAltre.run(p.id, Number(lastInsertRowid));
         nuove.push(Number(lastInsertRowid));
       }
-      for (const i of integrazioni.sort((a, b) => String(a.data).localeCompare(String(b.data)))) {
-        nuove.push(Number(q.inserisciPropStato.run(p.id, i.file, i.tipo, i.stato, i.data, i.protocollo).lastInsertRowid));
-      }
       create += nuove.length;
       if (AUTO) for (const id of nuove) await applicaStato(id, null).catch((e) => console.error(e));
+      // Integrazioni, inizio e fine lavori: vengono da ricevute ufficiali e non cambiano stato né protocollo
+      // della pratica, quindi si registrano subito (senza email: l'avviso al cliente si manda dal pannello)
+      for (const i of integrazioni.sort((a, b) => String(a.data).localeCompare(String(b.data)))) {
+        const id = Number(q.inserisciPropStato.run(p.id, i.file, i.tipo, i.stato, i.data, i.protocollo).lastInsertRowid);
+        await applicaStato(id, null, { email: false }).catch((e) => console.error(e));
+        create += 1;
+      }
     }
   }
   return create;

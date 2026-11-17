@@ -173,11 +173,13 @@ test('modulo del lavoro: si vedono solo i collegati, si aggiunge dal menu con il
   await st.post('/accedi', { email: 'studio@esempio.it', password: PW }, '/accedi');
   const form = (await st.go(`/studio/lavori/${id}/modifica`)).testo;
   assert.match(form, /name="ruolo_\d+" value="proprietario" checked/);
+  assert.match(form, /data-rimuovi aria-label="Rimuovi Bruno Bianchi dal lavoro"/);
+  assert.ok(!/> Togli</.test(form));
   assert.match(form, /<option value="\d+" data-email="carla@esempio\.it">Carla Verdi/); // Carla solo nel menu
   assert.ok(!/Carla Verdi <small class="muto">carla/.test(form)); // ...e non tra i collegati
   const base = { codice: 'M-1', titolo: 'Menu clienti', stato: 'In corso', cartella: 'M-1 Menu', visibile: '1' };
   await st.post(`/studio/lavori/${id}`, { ...base, [`ruolo_${bruno}`]: 'proprietario', aggiungi_cliente: String(carla), aggiungi_ruolo: 'impresa' }, `/studio/lavori/${id}/modifica`);
   assert.deepStrictEqual(Lavori.clienti.all(id).map((c) => [c.nome, c.ruolo]), [['Bruno Bianchi', 'proprietario'], ['Carla Verdi', 'impresa']]);
-  await st.post(`/studio/lavori/${id}`, { ...base, [`ruolo_${bruno}`]: '', [`ruolo_${carla}`]: 'impresa' }, `/studio/lavori/${id}/modifica`);
+  await st.post(`/studio/lavori/${id}`, { ...base, [`ruolo_${carla}`]: 'impresa' }, `/studio/lavori/${id}/modifica`);
   assert.deepStrictEqual(Lavori.clienti.all(id).map((c) => c.nome), ['Carla Verdi']);
 });

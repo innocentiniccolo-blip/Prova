@@ -40,8 +40,8 @@
               <span class="collegato-nome"><%= c.nome %> <small class="muto"><%= c.email %></small></span>
               <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo di <%= c.nome %>">
                 <% Object.entries(RUOLI).forEach(([k, d]) => { %><label><input type="radio" name="ruolo_<%= c.id %>" value="<%= k %>" <%= r === k ? 'checked' : '' %>> <%= d.nome %></label><% }) %>
-                <label class="togli"><input type="radio" name="ruolo_<%= c.id %>" value=""> Togli</label>
               </span>
+              <button type="button" class="rimuovi" data-rimuovi aria-label="Rimuovi <%= c.nome %> dal lavoro">✕ Rimuovi</button>
             </div>
           <% }) %>
         </div>
@@ -58,7 +58,7 @@
             <button type="button" class="pulsante piccolo secondario" data-aggiungi-btn hidden>Aggiungi</button>
           </div>
         <% } %>
-        <p class="nota">Ognuno vede solo le cartelle spuntate per il suo ruolo. Non trovi la persona? <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p>
+        <p class="nota">Per togliere una persona premi <b>✕ Rimuovi</b> sulla sua riga, poi <b>Salva</b>. Ognuno vede solo le cartelle spuntate per il suo ruolo. Non trovi la persona? <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p>
         <% if (tutteAziende.length) { const aRuolo = (id) => { const x = (aziendeSel || []).find(a => a.id === id); return x ? x.ruolo : ''; };
              const RA = { agenzia: 'Agenzia immobiliare', impresa: 'Impresa' };
              const azColl = tutteAziende.filter(a => aRuolo(a.id)); const azLib = tutteAziende.filter(a => !aRuolo(a.id)); %>
@@ -71,8 +71,8 @@
                 <span class="collegato-nome"><%= a.nome %> <small class="muto"><%= a.n_persone %> person<%= a.n_persone === 1 ? 'a' : 'e' %></small></span>
                 <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo di <%= a.nome %>">
                   <% Object.entries(RA).forEach(([k, n]) => { %><label><input type="radio" name="azienda_<%= a.id %>" value="<%= k %>" <%= r === k ? 'checked' : '' %>> <%= n %></label><% }) %>
-                  <label class="togli"><input type="radio" name="azienda_<%= a.id %>" value=""> Togli</label>
                 </span>
+                <button type="button" class="rimuovi" data-rimuovi aria-label="Rimuovi <%= a.nome %> dal lavoro">✕ Rimuovi</button>
               </div>
             <% }) %>
           </div>

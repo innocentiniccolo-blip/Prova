@@ -367,6 +367,12 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 .collegato-nome { font-weight: 600; }
 .ruoli-spunte { display: flex; flex-wrap: wrap; gap: .3rem .9rem; font-size: .92rem; }
 .ruoli-spunte label { display: inline-flex; flex-direction: row; align-items: center; gap: .3rem; font-weight: normal; margin: 0; }
-.ruoli-spunte .togli { color: var(--rosso); }
+.collegato .rimuovi { background: none; border: 1px solid #f3c3be; color: var(--rosso); border-radius: 6px; padding: .3rem .7rem; font: inherit; font-size: .88rem; cursor: pointer; }
+.collegato .rimuovi:hover { background: #fdf0ef; }
+.collegato.tolto { background: #fdf0ef; border-radius: 6px; padding: .55rem .6rem; }
+.collegato.tolto .collegato-nome { text-decoration: line-through; color: var(--muto); }
+.collegato.tolto .ruoli-spunte { opacity: .4; }
+.nota-tolto { flex-basis: 100%; color: var(--rosso); }
+.nota-nuovo { flex-basis: 100%; color: var(--blu); }
 .aggiungi-collegato { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem 1rem; padding: .8rem; border: 1px solid var(--bordo); border-radius: 8px; background: #fafbfc; }
 .aggiungi-collegato > label { flex: 1 1 260px; margin: 0; }

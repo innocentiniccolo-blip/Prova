@@ -397,6 +397,7 @@
             <br><a class="link" href="/area/lavori/<%= lavoro.id %>?come=<%= a.ruolo %>">Vedi come <%= a.ruolo %></a></li><% }) %></ul><% } %>
           <ul class="semplice">
             <% clienti.forEach(c => { %><li><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a> <span class="badge"><%= (RUOLI[c.ruolo] || RUOLI.proprietario).nome %></span><br><small class="muto"><%= c.email %></small>
+              <% if (c.telefono) { %><br><%- include('../partials/contatti-tel', { numero: c.telefono, testoWa: `Buongiorno ${c.nome}, la contatto per il lavoro ${lavoro.codice} – ${lavoro.titolo}. `, piccolo: true }) %><% } %>
               <% if (c.ruolo === 'agenzia' && c.consenso_il) { %><br><small class="muto">Consenso del proprietario registrato il <%= data(c.consenso_il) %></small><% } %>
               <br><a class="link" href="/area/lavori/<%= lavoro.id %>?come=<%= c.ruolo %>">Vedi come <%= c.ruolo === 'proprietario' ? 'proprietario' : c.ruolo %></a></li><% }) %>
           </ul>

@@ -56,7 +56,7 @@
           <% if (!daSollecitare.length) { %>
             <p class="vuoto">Tutti i documenti sono in regola: nessun promemoria da inviare.</p>
           <% } else if (!destinatario) { %>
-            <p class="avviso">Per inviare promemoria aggiungi l'email (o la PEC) dell'impresa in «Modifica dati».</p>
+            <p class="avviso">Per inviare promemoria via email aggiungi l'email (o la PEC) dell'impresa in «Modifica dati»<%= telefono.cellulare(impresa.telefono) ? ', oppure usa WhatsApp qui sotto' : '' %>.</p>
           <% } else { %>
             <ul class="promemoria-lista">
               <% daSollecitare.forEach(v => { %>
@@ -77,7 +77,14 @@
                 <button class="pulsante">Invia promemoria per tutti i documenti (<%= daSollecitare.length %>)</button>
               </form>
             <% } %>
-            <p class="nota">La mail parte da info@ verso <strong><%= destinatario %></strong><%= impresa.email ? '' : ' (PEC: alcune caselle PEC rifiutano la posta normale, meglio aggiungere un\'email)' %>. Chiede di rispondere con il documento aggiornato: nessun link né caricamento.</p>
+            <p class="nota">La mail parte da info@ verso <strong><%= destinatario %></strong><%= impresa.email ? '' : ' (PEC: alcune caselle PEC rifiutano la posta normale, meglio aggiungere un\'email)' %>. Contiene un link per caricare i documenti (valido 14 giorni) e si può anche rispondere alla mail con gli allegati.</p>
+          <% } %>
+          <% if (daSollecitare.length && telefono.cellulare(impresa.telefono)) { %>
+            <form method="post" action="/studio/imprese/<%= impresa.id %>/promemoria-whatsapp" target="_blank" class="promemoria-wa">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="pulsante whatsapp">Promemoria su WhatsApp (<%= daSollecitare.length === 1 ? '1 documento' : `${daSollecitare.length} documenti` %>)</button>
+              <small class="muto">Apre WhatsApp con il messaggio già scritto e il link per caricare: lo invii tu.</small>
+            </form>
           <% } %>
         </div>
 
@@ -146,7 +153,8 @@
             <% if (impresa.email) { %><dt>Email</dt><dd><%= impresa.email %></dd><% } %>
             <% if (impresa.pec) { %><dt>PEC</dt><dd><%= impresa.pec %></dd><% } %>
             <% if (impresa.telefono) { %><dt>Telefono</dt><dd><%= impresa.telefono %></dd><% } %>
-          </dl><% if (impresa.nota) { %><p class="a-capo muto"><%= impresa.nota %></p><% } %></div>
+          </dl>
+          <% if (impresa.telefono) { %><%- include('../partials/contatti-tel', { numero: impresa.telefono, piccolo: true }) %><% } %><% if (impresa.nota) { %><p class="a-capo muto"><%= impresa.nota %></p><% } %></div>
         <% } %>
         <form method="post" action="/studio/imprese/<%= impresa.id %>/elimina" data-conferma="Eliminare l'impresa, tutti i suoi documenti e i collegamenti ai cantieri?">
           <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina impresa</button>

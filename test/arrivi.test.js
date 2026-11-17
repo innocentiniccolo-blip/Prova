@@ -187,3 +187,19 @@ test('modulo del lavoro: si vedono solo i collegati, si aggiunge dal menu con il
   await st.post(`/studio/lavori/${id}`, { ...base, [`ruolo_${carla}`]: 'impresa' }, `/studio/lavori/${id}/modifica`);
   assert.deepStrictEqual(Lavori.clienti.all(id).map((c) => c.nome), ['Carla Verdi']);
 });
+
+test('telefono: link per chiamare e WhatsApp, promemoria via WhatsApp', async () => {
+  const t = require('../src/telefono');
+  assert.strictEqual(t.tel('339 123 4567'), 'tel:+393391234567');
+  assert.strictEqual(t.whatsapp('+39 339-1234567', 'Ciao è'), 'https://wa.me/393391234567?text=Ciao%20%C3%A8');
+  assert.strictEqual(t.cellulare('055 123456'), false);
+  assert.strictEqual(t.tel('abc'), '');
+  const id = nuova({ telefono: '333 0000000' });
+  const st = browser();
+  await st.post('/accedi', { email: 'studio@esempio.it', password: PW }, '/accedi');
+  assert.match((await st.go(`/studio/imprese/${id}`)).testo, /Promemoria su WhatsApp/);
+  const r = await st.post(`/studio/imprese/${id}/promemoria-whatsapp`, {}, `/studio/imprese/${id}`);
+  assert.strictEqual(r.status, 303);
+  assert.match(r.loc, /^https:\/\/wa\.me\/393330000000\?text=.*carica/);
+  assert.ok(imprese.daSollecitare(id).every((v) => v.ultimo));
+});

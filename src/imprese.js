@@ -192,7 +192,7 @@ function rigaDocumento(v) {
 }
 
 /** Testo dell'email di promemoria (solo testo, nessun link). */
-function testoPromemoria(impresa, voci, link = '') {
+function testoPromemoria(impresa, voci, link = '', canale = 'email') {
   const cantieri = Q.lavoriImpresa.all(impresa.id).filter((l) => !['Completato', 'Sospeso'].includes(l.stato));
   const uno = voci.length === 1;
   return [
@@ -205,7 +205,9 @@ function testoPromemoria(impresa, voci, link = '') {
     ...(cantieri.length ? [`${uno ? 'Il documento serve' : 'I documenti servono'} per ${cantieri.length === 1 ? 'il cantiere' : 'i cantieri'}: ${cantieri.map((l) => l.titolo).join('; ')}.`, ``] : []),
     ...(link
       ? [`Potete caricare ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} da questo link (valido 14 giorni, solo PDF, JPG o PNG):`, link, ``,
-        `In alternativa rispondete a questa email allegando ${uno ? 'il documento' : 'i documenti'}, senza cambiare l'oggetto.`]
+        canale === 'whatsapp'
+          ? `In alternativa potete mandarci ${uno ? 'il documento' : 'i documenti'} rispondendo qui.`
+          : `In alternativa rispondete a questa email allegando ${uno ? 'il documento' : 'i documenti'}, senza cambiare l'oggetto.`]
       : [`Vi chiediamo di inviarci ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} rispondendo a questa email, senza cambiare l'oggetto.`]),
     ``,
     `Grazie e buon lavoro.`,
@@ -230,6 +232,18 @@ async function inviaPromemoria(impresa, tipo, invia) {
   if (!inviata) return { ok: false, motivo: 'Email non inviata: la posta del sito non è configurata.' };
   for (const v of voci) Q.registraPromemoria.run(impresa.id, v.tipo, a);
   return { ok: true, a, n: voci.length };
+}
+
+/** Promemoria via WhatsApp: prepara il link wa.me con il testo (lo invia lo studio, a mano) e registra la data. */
+function promemoriaWhatsapp(impresa) {
+  const { whatsapp } = require('./telefono');
+  const voci = daSollecitare(impresa.id);
+  if (!voci.length) return { ok: false, motivo: 'Nessun documento da sollecitare: risultano tutti in regola.' };
+  const testo = testoPromemoria(impresa, voci, require('./arrivi').creaLink(impresa.id), 'whatsapp');
+  const url = whatsapp(impresa.telefono, testo);
+  if (!url) return { ok: false, motivo: 'Numero di telefono non valido: correggilo in «Modifica dati».' };
+  for (const v of voci) Q.registraPromemoria.run(impresa.id, v.tipo, `WhatsApp ${impresa.telefono}`);
+  return { ok: true, url };
 }
 
 function percorsoFile(doc) {
@@ -307,7 +321,7 @@ async function eliminaFileLavoro(lavoroId) {
 }
 
 module.exports = {
-  destinatario, daSollecitare, testoPromemoria, inviaPromemoria,
+  promemoriaWhatsapp, destinatario, daSollecitare, testoPromemoria, inviaPromemoria,
   TIPI_VERBALE, percorsoVerbale, salvaVerbale, eliminaVerbale, eliminaFileLavoro,
   TIPI, PRINCIPALI, CREDITI_MINIMI, Q,
   scadenzaPredefinita, statoDocumento, riepilogo, impreseDelLavoro, avvisiScadenze, nascondiAvviso,

@@ -66,6 +66,7 @@
       <p>Descrivi brevemente l'intervento: ti ricontatteremo per un primo sopralluogo.</p>
       <div class="azioni">
         <a class="pulsante" href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>">Chiama <%= studio.telefono %></a>
+        <a class="pulsante whatsapp" href="<%= telefono.whatsapp(studio.telefono, 'Buongiorno, vi contatto dal sito dello studio. ') %>" target="_blank" rel="noopener">Scrivi su WhatsApp</a>
         <% if (studio.email) { %><a class="pulsante secondario" href="mailto:<%= studio.email %>?subject=Richiesta%20informazioni">Invia una email</a><% } %>
       </div>
     </div>

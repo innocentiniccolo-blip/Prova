@@ -21,6 +21,7 @@ Password: <%= credenziali.password %></pre>
         <label>Email (usata per accedere) <input type="email" name="email" value="<%= cliente.email || '' %>" required></label>
         <label>Telefono <input name="telefono" value="<%= cliente.telefono || '' %>"></label>
       </div>
+      <% if (cliente.id && cliente.telefono) { %><p><%- include('../partials/contatti-tel', { numero: cliente.telefono, testoWa: `Buongiorno ${cliente.nome}, sono Niccolò Innocenti dello studio tecnico. `, piccolo: true }) %></p><% } %>
       <% if (cliente.id) { %>
         <label class="scelta"><input type="checkbox" name="attivo" value="1" <%= cliente.attivo ? 'checked' : '' %>> Accesso attivo</label>
       <% } else { %>

@@ -789,6 +789,13 @@ router.get('/imprese/:iid', trovaImpresa, (req, res) => {
   });
 });
 
+router.post('/imprese/:iid/promemoria-whatsapp', trovaImpresa, auth.verificaCsrf, (req, res) => {
+  const r = imprese.promemoriaWhatsapp(req.impresa);
+  if (r.ok) return res.redirect(303, r.url);
+  flash(req, 'errore', r.motivo);
+  res.redirect(`/studio/imprese/${req.impresa.id}#promemoria`);
+});
+
 // Promemoria all'impresa: un documento (tipo) o tutti quelli da sistemare. Parte solo su clic.
 router.post('/imprese/:iid/promemoria', trovaImpresa, auth.verificaCsrf, async (req, res, next) => {
   try {

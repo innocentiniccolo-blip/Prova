@@ -125,6 +125,13 @@
         <% } %>
       </div>
       <aside>
+        <% if (utente.ruolo !== 'admin') { %>
+        <div class="carta contatta-studio">
+          <h2>Hai una domanda?</h2>
+          <p class="muto">Chiama o scrivi allo studio su WhatsApp: il messaggio parte già con il riferimento a questo lavoro.</p>
+          <%- include('../partials/contatti-tel', { numero: studio.telefono, testoWa: `Buongiorno, sono ${utente.nome}. Vi scrivo per il lavoro ${lavoro.codice} – ${lavoro.titolo}: ` }) %>
+        </div>
+        <% } %>
         <div class="carta">
           <h2>Dati del lavoro</h2>
           <dl class="dati">

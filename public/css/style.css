@@ -397,3 +397,9 @@ details.sezione > summary.sezione-testa::after { content: '▸ Apri'; margin-lef
 details.sezione[open] > summary.sezione-testa::after { content: '▾ Chiudi'; }
 details.sezione[open] > summary.sezione-testa { margin-bottom: .8rem; }
 details.visibili > summary { cursor: pointer; } details.visibili > summary h3 { display: inline; }
+/* Pulsanti Chiama / WhatsApp */
+.contatti-tel { display: inline-flex; flex-wrap: wrap; gap: .4rem; }
+.pulsante.whatsapp { background: #1f9d55; border-color: #1f9d55; color: #fff; }
+.pulsante.whatsapp:hover { background: #17834a; }
+.promemoria-wa { margin-top: .8rem; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; }
+.contatta-studio .contatti-tel .pulsante { flex: 1 1 auto; text-align: center; }

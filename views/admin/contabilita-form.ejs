@@ -78,8 +78,8 @@
         <% } else if (n.stato === 'pagata') { %>
           <form method="post" action="/studio/contabilita/<%= n.id %>/stato" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="stato" value="inviata"><button class="pulsante secondario">Riapri</button></form>
         <% } %>
-        <% if (n.stato === 'bozza') { %>
-          <form method="post" action="/studio/contabilita/<%= n.id %>/elimina" class="in-linea" data-conferma="Eliminare questa bozza?"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante pericolo">Elimina bozza</button></form>
+        <% if (n.stato === 'bozza' || n.stato === 'inviata') { %>
+          <form method="post" action="/studio/contabilita/<%= n.id %>/elimina" class="in-linea" data-conferma="<%= n.stato === 'inviata' ? 'Eliminare questa notula già inviata? La mail al cliente resta comunque spedita.' : 'Eliminare questa bozza?' %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante pericolo"><%= n.stato === 'inviata' ? 'Elimina notula' : 'Elimina bozza' %></button></form>
         <% } %>
       </div>
       <p class="muto">Salva prima di inviare: l'email contiene l'ultima versione salvata.</p>

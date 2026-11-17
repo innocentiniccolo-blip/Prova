@@ -109,3 +109,19 @@ test('senza casella amministrazione l\'invio non parte e la bozza resta bozza', 
   assert.strictEqual(r.status, 302);
   assert.strictEqual(c.Q.perId.get(id).stato, 'bozza');
 });
+
+test('le notule inviate si possono eliminare, quelle pagate no', async () => {
+  const b = browser();
+  await b.post('/accedi', { email: 'studio@esempio.it', password: PW }, '/accedi');
+  const nuova = () => c.crea({ lavoro_id: null, dest_nome: 'Y', dest_indirizzo: '', dest_cf: '', dest_email: 'y@esempio.it', oggetto: '', data: '2026-11-16',
+    voci: JSON.stringify([{ d: 'a', c: 100 }]), spese: '[]', cassa_pct: 5, iva_pct: 22, sostituto: 0, note: '' });
+  const inviata = nuova();
+  c.Q.segnaInviata.run(inviata);
+  await b.post(`/studio/contabilita/${inviata}/elimina`, {}, `/studio/contabilita/${inviata}`);
+  assert.strictEqual(c.Q.perId.get(inviata), undefined);
+  const pagata = nuova();
+  c.Q.segnaInviata.run(pagata);
+  c.Q.stato.run({ id: pagata, stato: 'pagata', pagata: '2026-11-17' });
+  await b.post(`/studio/contabilita/${pagata}/elimina`, {}, `/studio/contabilita/${pagata}`);
+  assert.strictEqual(c.Q.perId.get(pagata).stato, 'pagata');
+});

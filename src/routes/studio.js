@@ -1040,7 +1040,7 @@ router.post('/contabilita/:id/stato', trovaNotula, auth.verificaCsrf, (req, res)
 
 router.post('/contabilita/:id/elimina', trovaNotula, auth.verificaCsrf, (req, res) => {
   const r = contabilita.Q.elimina.run(req.notula.id);
-  flash(req, r.changes ? 'ok' : 'errore', r.changes ? 'Bozza eliminata.' : 'Si possono eliminare solo le bozze.');
+  flash(req, r.changes ? 'ok' : 'errore', r.changes ? 'Notula eliminata.' : 'Le notule già pagate non si possono eliminare: premi prima «Riapri».');
   res.redirect('/studio/contabilita');
 });
 

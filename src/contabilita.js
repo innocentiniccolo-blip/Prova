@@ -26,7 +26,7 @@ const Q = {
     sostituto = :sostituto, note = :note WHERE id = :id`),
   segnaInviata: db.prepare("UPDATE notule SET stato = 'inviata', inviata_il = datetime('now') WHERE id = ? AND stato = 'bozza'"),
   stato: db.prepare('UPDATE notule SET stato = :stato, pagata_il = :pagata WHERE id = :id'),
-  elimina: db.prepare("DELETE FROM notule WHERE id = ? AND stato = 'bozza'"),
+  elimina: db.prepare("DELETE FROM notule WHERE id = ? AND stato IN ('bozza', 'inviata')"),
 };
 
 /** «1.234,56», «1234,56» o «1234.56» → centesimi (null se non valido). */

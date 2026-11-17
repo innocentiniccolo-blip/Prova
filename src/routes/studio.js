@@ -49,7 +49,10 @@ router.get('/', async (req, res, next) => {
   const perStato = {};
   for (const l of lavori) perStato[l.stato] = (perStato[l.stato] || 0) + 1;
   const clienti = Utenti.clienti.all();
+  const daIncassare = contabilita.Q.tutte.all().filter((n) => n.stato === 'inviata')
+    .map((n) => contabilita.calcola(contabilita.leggi(n)).netto);
   res.render('admin/cruscotto', {
+    notuleDaIncassare: { n: daIncassare.length, totale: daIncassare.reduce((s, x) => s + x, 0) }, eur: contabilita.eur,
     titolo: 'Studio', lavori, perStato, nClienti: clienti.length,
     proposteLavori: automazioni.proposteLavori(), proposteStato: automazioni.proposteStato(),
     avvisiImprese: imprese.avvisiScadenze(),
@@ -248,7 +251,7 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
   try {
     const lavoro = req.lavoro;
     const cartellaEsiste = fs.existsSync(archivio.cartellaLavoro(lavoro) || '');
-    res.render('admin/lavoro', {
+    const v = {
       titolo: `${lavoro.codice} – ${lavoro.titolo}`,
       lavoro,
       cartellaEsiste,
@@ -275,9 +278,29 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       tipiVerbale: imprese.TIPI_VERBALE,
       tutteImprese: imprese.Q.tutte.all(),
       tipiDoc: imprese.TIPI,
-    });
+    };
+    v.daFare = cosaFareLavoro(lavoro, v);
+    res.render('admin/lavoro', v    );
   } catch (e) { next(e); }
 });
+
+/** Cose da fare su un lavoro, per il riquadro in cima e per decidere quali sezioni aprire. */
+function cosaFareLavoro(lavoro, v) {
+  const voci = [];
+  const richiesteInviate = v.richieste.filter((r) => r.stato === 'inviata').length;
+  const impreseDaSistemare = lavoro.sicurezza
+    ? v.impreseCantiere.filter((i) => ['visura', 'durc', 'patente'].some((t) => i.riepilogo[t].stato.codice !== 'ok')).length : 0;
+  const cartelleNuove = v.pratiche.filter((p) => !p.base && p.file.length && !p.visibile && !p.visibile_agenzia && !p.visibile_impresa).length;
+  const pl = (n, uno, molti) => `${n} ${n === 1 ? uno : molti}`;
+  if (!v.cartellaEsiste) voci.push({ testo: 'La cartella del lavoro non si trova su Drive', link: `/studio/lavori/${lavoro.id}/modifica` });
+  if (v.proposteStato.length) voci.push({ testo: `Conferma ${pl(v.proposteStato.length, 'aggiornamento letto', 'aggiornamenti letti')} dalle ricevute`, link: '#ricevute' });
+  if (richiesteInviate) voci.push({ testo: `Controlla ${pl(richiesteInviate, 'documento arrivato', 'documenti arrivati')} dal cliente`, link: '#richieste' });
+  if (v.statoVisure && (v.statoVisure.conflitto || (v.statoVisure.documenti && !v.statoVisure.unita.length))) voci.push({ testo: "Indica l'unità d'intervento per le visure", link: '#visure' });
+  if (impreseDaSistemare) voci.push({ testo: `${pl(impreseDaSistemare, 'impresa ha', 'imprese hanno')} documenti da sistemare`, link: '#sicurezza' });
+  if (cartelleNuove) voci.push({ testo: `${pl(cartelleNuove, 'cartella con file è', 'cartelle con file sono')} ancora private: decidi chi le vede`, link: '#visibili' });
+  if (!v.clienti.length && !v.aziende.length) voci.push({ testo: 'Nessun cliente collegato', link: `/studio/lavori/${lavoro.id}/modifica` });
+  return { voci, richiesteInviate, impreseDaSistemare, cartelleNuove };
+}
 
 router.get('/lavori/:id/modifica', trovaLavoro, (req, res) => {
   renderFormLavoro(res, req.lavoro, Lavori.clienti.all(req.lavoro.id).map((c) => ({ id: c.id, ruolo: c.ruolo })), null);

@@ -24,10 +24,16 @@
       </div>
     <% } %>
 
+    <div class="da-fare-lavoro <%= daFare.voci.length ? '' : 'tutto-ok' %>">
+      <% if (!daFare.voci.length) { %><strong>✓ Niente da fare su questo lavoro</strong><% } else { %>
+        <strong>Da fare:</strong>
+        <ul><% daFare.voci.forEach(v => { %><li><a href="<%= v.link %>"><%= v.testo %></a></li><% }) %></ul>
+      <% } %>
+    </div>
     <div class="layout-lavoro">
       <div>
         <% if (proposteStato.length) { %>
-          <div class="carta proposte">
+          <div class="carta proposte" id="ricevute">
             <h2>Aggiornamenti letti dalle ricevute</h2>
             <% proposteStato.forEach(p => { %>
               <div class="proposta">
@@ -86,7 +92,8 @@
           <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } else { %>
             <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche-visibili" class="cartelle-visibili" data-modifiche>
               <input type="hidden" name="_csrf" value="<%= csrf %>">
-              <h3>Cartelle visibili</h3>
+              <details class="visibili" id="visibili"<%= daFare.cartelleNuove ? ' open' : '' %>>
+              <summary><h3>Cartelle visibili</h3> <small class="muto"><%= pratiche.filter(p => p.visibile || p.visibile_agenzia || p.visibile_impresa).length %> su <%= pratiche.length %> visibili a qualcuno</small></summary>
               <p class="nota">Spunta le cartelle che ciascun ruolo può vedere. Le cartelle nuove nascono sempre private. <span class="badge consigliata">consigliata</span> = di solito serve all'agenzia per vendere.</p>
               <table class="tabella-visibilita">
                 <thead><tr><th>Cartella</th><th title="Proprietario / committente">Proprietario</th><th>Agenzia</th><th>Impresa</th></tr></thead>
@@ -100,6 +107,7 @@
                 </tbody>
               </table>
               <button class="pulsante piccolo">Salva visibilità</button> <small class="muto" data-suggerimento>Spunta o togli la spunta a una cartella, poi salva.</small>
+              </details>
             </form>
           <% } %>
         </div>
@@ -194,8 +202,8 @@
           <a class="pulsante secondario piccolo" href="/studio/contabilita/nuova?lavoro=<%= lavoro.id %>">+ Notula / proforma per questo lavoro</a>
         </div>
 
-        <div class="carta" id="scheda">
-          <h2>Scheda immobile</h2>
+        <details class="carta sezione" id="scheda">
+          <summary class="sezione-testa"><h2>Scheda immobile</h2><small class="muto"><%= scheda.attiva ? 'Mostrata ad agenzia e proprietario' : 'Non mostrata ai clienti' %></small></summary>
           <p class="nota">Per agenzie e proprietari: in una riga se l'immobile è pronto per la vendita. Accesso atti, sanatorie e APE completato si aggiornano da soli dalle pratiche. Con la scheda attiva compare anche il pulsante «Scarica il fascicolo», con tutti i documenti visibili a quel ruolo.</p>
           <form method="post" action="/studio/lavori/<%= lavoro.id %>/scheda" class="modulo">
             <input type="hidden" name="_csrf" value="<%= csrf %>">
@@ -226,10 +234,10 @@
             <p class="azioni-scheda"><button class="pulsante piccolo">Salva scheda</button>
               <a class="pulsante piccolo secondario" href="/area/lavori/<%= lavoro.id %>/fabbricato.pdf?come=agenzia" target="_blank" rel="noopener">Anteprima fascicolo PDF</a></p>
           </form>
-        </div>
+        </details>
 
-        <div class="carta" id="richieste">
-          <h2>Documenti richiesti al cliente</h2>
+        <details class="carta sezione" id="richieste"<%= daFare.richiesteInviate ? ' open' : '' %>>
+          <summary class="sezione-testa"><h2>Documenti richiesti al cliente</h2><small class="muto"><% if (daFare.richiesteInviate) { %><span class="badge richiesta-inviata"><%= daFare.richiesteInviate %> da controllare</span> <% } %><%= richieste.length ? `${richieste.length} richiest${richieste.length === 1 ? 'a' : 'e'}` : 'Nessuna richiesta' %></small></summary>
           <p class="muto">Chiedi al cliente un documento: lo carica dalla sua area e lo trovi nella cartella del lavoro, in «Documenti dal cliente». Ti arriva un'email quando invia qualcosa.</p>
           <% richieste.forEach(r => { %>
             <div class="impresa-cantiere">
@@ -268,11 +276,12 @@
               <button class="pulsante">Aggiungi richiesta</button>
             </div>
           </form>
-        </div>
+        </details>
 
-        <div class="carta" id="sicurezza">
+        <details class="carta sezione" id="sicurezza"<%= daFare.impreseDaSistemare ? ' open' : '' %>>
+          <summary class="sezione-testa"><h2>Sicurezza cantiere</h2><small class="muto"><% if (!lavoro.sicurezza) { %>Non attiva<% } else { %><%= impreseCantiere.length %> impres<%= impreseCantiere.length === 1 ? 'a' : 'e' %><% if (daFare.impreseDaSistemare) { %> · <span class="badge doc-in-scadenza"><%= daFare.impreseDaSistemare %> con documenti da sistemare</span><% } %><% } %></small></summary>
           <div class="pratica-testa">
-            <h2>Sicurezza cantiere</h2>
+            <span class="muto"><%= lavoro.sicurezza ? 'Sezione attiva' : '' %></span>
             <form method="post" action="/studio/lavori/<%= lavoro.id %>/sicurezza" class="in-linea"<%- lavoro.sicurezza ? ' data-conferma="Disattivare la sezione? Il cliente non la vedrà più; i dati restano salvati."' : '' %>>
               <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="attiva" value="<%= lavoro.sicurezza ? 0 : 1 %>">
               <button class="<%= lavoro.sicurezza ? 'link' : 'pulsante piccolo' %>"><%= lavoro.sicurezza ? 'Disattiva' : 'Attiva per questo lavoro' %></button>
@@ -356,10 +365,10 @@
             </div>
           </form>
           <% } %>
-        </div>
+        </details>
 
-        <div class="carta" id="aggiornamenti">
-          <h2>Aggiornamenti per il cliente</h2>
+        <details class="carta sezione" id="aggiornamenti">
+          <summary class="sezione-testa"><h2>Aggiornamenti per il cliente</h2><small class="muto"><%= aggiornamenti.length ? `${aggiornamenti.length} pubblicat${aggiornamenti.length === 1 ? 'o' : 'i'} · ultimo il ${data(aggiornamenti[0].creato_il)}` : 'Nessun aggiornamento pubblicato' %></small></summary>
           <form method="post" action="/studio/lavori/<%= lavoro.id %>/aggiornamenti" class="modulo">
             <input type="hidden" name="_csrf" value="<%= csrf %>">
             <textarea name="testo" rows="3" required placeholder="Es. Depositata la SCIA in Comune, protocollo n. …"></textarea>
@@ -376,7 +385,7 @@
               </li>
             <% }) %>
           </ol>
-        </div>
+        </details>
       </div>
 
       <aside>

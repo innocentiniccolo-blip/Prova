@@ -149,6 +149,7 @@ test('lo studio controlla: registra con i dati corretti o scarta; il cliente non
   const pagina = (await st.go(`/studio/imprese/${id}`)).testo;
   assert.match(pagina, /da controllare \(2\)/);
   assert.match((await st.go('/studio')).testo, /Documenti arrivati dalle imprese/);
+  assert.match((await st.go('/studio')).testo, /class="oggi"[^]*Da controllare o confermare/);
   // non controllato dall'antivirus: si scarica soltanto
   const file = await st.go(`/studio/imprese/${id}/arrivi/${a1.id}`);
   assert.match(file.headers.get('content-disposition'), /attachment/);
@@ -171,6 +172,9 @@ test('modulo del lavoro: si vedono solo i collegati, si aggiunge dal menu con il
   Lavori.aggiungiConRuolo.run(id, bruno, 'proprietario', null);
   const st = browser();
   await st.post('/accedi', { email: 'studio@esempio.it', password: PW }, '/accedi');
+  const pag = (await st.go(`/studio/lavori/${id}`)).testo;
+  assert.match(pag, /class="da-fare-lavoro/);
+  assert.match(pag, /<details class="carta sezione" id="aggiornamenti">/);
   const form = (await st.go(`/studio/lavori/${id}/modifica`)).testo;
   assert.match(form, /name="ruolo_\d+" value="proprietario" checked/);
   assert.match(form, /data-rimuovi aria-label="Rimuovi Bruno Bianchi dal lavoro"/);

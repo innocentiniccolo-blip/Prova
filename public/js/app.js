@@ -1,6 +1,16 @@
 // Apre la pratica indicata nell'indirizzo (es. dopo un salvataggio)
-const daAprire = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-if (daAprire && daAprire.tagName === 'DETAILS') daAprire.open = true;
+// (apre anche le sezioni ripiegate che la contengono, e lo stesso per i link interni alla pagina)
+function apriSezione(hash) {
+  const el = hash && hash.length > 1 && document.getElementById(decodeURIComponent(hash.slice(1)));
+  if (!el) return;
+  for (let d = el; d; d = d.parentElement) if (d.tagName === 'DETAILS') d.open = true;
+  el.scrollIntoView({ block: 'start' });
+}
+apriSezione(location.hash);
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (a) apriSezione(a.getAttribute('href'));
+});
 
 // Conferma prima di azioni distruttive
 document.addEventListener('submit', (e) => {

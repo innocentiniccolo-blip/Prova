@@ -9,6 +9,15 @@
       </div>
     </div>
     <% const nomeTipo = { comune: 'Protocollo comunale', docfa: 'Catasto (DOCFA)', ape: 'APE – Regione', enea: 'ENEA', pregeo: 'Catasto (PREGEO)', suap: 'SUAP / STAR', asl: 'ASL – notifica preliminare', sismica: 'Regione – deposito sismico', altro: 'Ricevuta' }; %>
+    <% const daControllare = proposteLavori.length + proposteStato.length + documentiRicevuti.length + arriviImprese.reduce((t, a) => t + a.n, 0);
+       const inCorso = lavori.filter(l => !['Completato', 'Sospeso'].includes(l.stato)).length; %>
+    <div class="oggi">
+      <a class="oggi-voce" href="#tabella-lavori"><strong><%= inCorso %></strong><span>Lavori aperti</span></a>
+      <a class="oggi-voce <%= daControllare ? 'da-fare' : 'ok' %>" href="#da-fare"><strong><%= daControllare %></strong><span><%= daControllare ? 'Da controllare o confermare' : 'Niente da controllare' %></span></a>
+      <a class="oggi-voce <%= avvisiImprese.length ? 'attenzione' : 'ok' %>" href="#scadenze"><strong><%= avvisiImprese.length %></strong><span><%= avvisiImprese.length ? 'Documenti imprese da sistemare' : 'Imprese in regola' %></span></a>
+      <a class="oggi-voce <%= notuleDaIncassare.n ? 'attenzione' : 'ok' %>" href="/studio/contabilita"><strong><%= notuleDaIncassare.n %></strong><span><%= notuleDaIncassare.n ? `Notule da incassare · ${eur(notuleDaIncassare.totale)}` : 'Nessuna notula da incassare' %></span></a>
+    </div>
+    <div id="da-fare"></div>
     <% if (blocchi.length) { %>
       <div class="carta proposte">
         <h2>Accessi bloccati</h2>
@@ -49,7 +58,7 @@
       </div>
     <% } %>
     <% if (avvisiImprese.length) { %>
-      <div class="carta proposte">
+      <div class="carta proposte" id="scadenze">
         <h2>Sicurezza cantiere: documenti da sistemare</h2>
         <ul class="semplice">
           <% avvisiImprese.forEach(a => { %>
@@ -101,13 +110,15 @@
         <% }) %>
       </div>
     <% } %>
-    <div class="riepilogo">
-      <div class="carta numero"><strong><%= lavori.length %></strong><span>Lavori totali</span></div>
-      <% studio.stati.forEach(s => { %>
-        <div class="carta numero"><strong><%= perStato[s] || 0 %></strong><span><%= s %></span></div>
-      <% }) %>
-      <a class="carta numero" href="/studio/clienti"><strong><%= nClienti %></strong><span>Clienti</span></a>
-    </div>
+    <details class="per-stato">
+      <summary>Lavori per stato · <%= lavori.length %> in tutto · <%= nClienti %> clienti</summary>
+      <div class="riepilogo">
+        <% studio.stati.forEach(s => { %>
+          <div class="carta numero"><strong><%= perStato[s] || 0 %></strong><span><%= s %></span></div>
+        <% }) %>
+        <a class="carta numero" href="/studio/clienti"><strong><%= nClienti %></strong><span>Clienti</span></a>
+      </div>
+    </details>
 
     <div class="carta">
       <input type="search" class="filtro" placeholder="Cerca per codice, titolo, cliente, indirizzo…" data-filtro="#tabella-lavori tbody tr">

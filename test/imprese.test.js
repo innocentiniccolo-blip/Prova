@@ -36,3 +36,15 @@ test('riepilogo usa il documento più recente di ogni tipo', async () => {
   assert.strictEqual(r.visura.stato.codice, 'mancante');
   assert.strictEqual(r.problemi, 2);
 });
+
+test('patente a crediti stampata dal portale INL (testo a colonne, anche da OCR)', () => {
+  const sd = require('../src/sicurezzaDrive');
+  const t = [
+    'Esito ricerca', 'Riepilogo impresa', 'Ragione sociale/Nome e cognome Codice fiscale Paese',
+    'lav. autonomo RSSMRA70A01A390X ITALIA', 'ROSSI MARIO', 'Data di interrogazione del portale: 03/03/2026',
+    'Dati patente', 'Numero patente Data di rilascio Stato patente', 'PAC-AB-123-CD 15/02/2025 Attiva',
+    'Punteggio patente', 'Punteggio iniziale Punteggio attuale', '30 28',
+  ].join('\n');
+  const d = sd.leggiDocumento('ricevuta.pdf', t);
+  assert.deepStrictEqual([d.tipo, d.numero, d.rilascio, d.crediti], ['patente', 'PAC-AB-123-CD', '2025-02-15', 28]);
+});

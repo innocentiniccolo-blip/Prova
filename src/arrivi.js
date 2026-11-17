@@ -102,9 +102,9 @@ function leggiRiferimento(oggetto) {
 async function leggi(percorso, nome) {
   if (path.extname(nome).toLowerCase() !== '.pdf') return { tipo: 'altro' };
   try {
-    const { testoPdf } = require('./ricevute');
+    const { testoDocumento } = require('./ocr');
     const { leggiDocumento } = require('./sicurezzaDrive');
-    const d = leggiDocumento(nome, await testoPdf(percorso));
+    const d = leggiDocumento(nome, await testoDocumento(percorso));
     return { tipo: d.tipo, rilascio: d.rilascio || null, scadenza: d.scadenza || null, numero: d.numero || null, crediti: d.crediti ?? null };
   } catch { return { tipo: 'altro' }; }
 }

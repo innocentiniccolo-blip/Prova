@@ -16,7 +16,8 @@ const config = require('./config');
 const db = require('./db');
 const archivio = require('./archivio');
 const imprese = require('./imprese');
-const { testoPdf, isoData } = require('./ricevute');
+const { isoData } = require('./ricevute');
+const { testoDocumento } = require('./ocr');
 const { Lavori } = require('./modelli');
 
 db.exec(`CREATE TABLE IF NOT EXISTS import_sicurezza (
@@ -65,13 +66,17 @@ function leggiDocumento(nome, testo) {
     if (pec) dati.anagrafica.pec = pec[1];
     const sede = t.match(/1 Sede\s+Indirizzo Sede\s+(.+?)\s+(.+?)\s+CAP\s+(\d{5})/i);
     if (sede) dati.anagrafica.sede = pulisci(`${sede[2]}, ${sede[3]} ${sede[1]}`);
-  } else if (/patente|crediti/.test(n) || /Patente a Crediti/i.test(t)) {
+  } else if (/patente|crediti/.test(n) || /Patente a Crediti|Numero patente\s|\bPAC-[A-Z0-9]{2,4}-/i.test(t)) {
     dati.tipo = 'patente';
     const num = t.match(/\b(PAC-[A-Z0-9]{2,4}-[A-Z0-9]{2,4}-[A-Z0-9]{2,4})\b/i);
     if (num) dati.numero = num[1].toUpperCase();
-    const cr = t.match(/Punteggio attuale\s+(\d{1,3})/i);
+    // portale INL stampato: "Punteggio iniziale Punteggio attuale" e sotto "40 38" (conta il secondo, l'attuale)
+    const cr = t.match(/Punteggio iniziale\s+Punteggio attuale\s+\d{1,3}\s+(\d{1,3})\b/i)
+      || t.match(/Punteggio attuale\s+(\d{1,3})\b/i);
     if (cr) dati.crediti = Number(cr[1]);
-    dati.rilascio = data(t, /Data (?:di )?rilascio(?: Patente Associata)?:?\s+(\d{2}\/\d{2}\/\d{4})/i);
+    dati.rilascio = data(t, /Data (?:di )?rilascio(?: Patente Associata)?:?\s+(\d{2}\/\d{2}\/\d{4})/i)
+      // a colonne: "Numero patente  Data di rilascio  Stato patente" e sotto "PAC-… 01/10/2024 Attiva"
+      || data(t, /Data (?:di )?rilascio[^\d]{0,60}?\n[^\n]*?(\d{2}\/\d{2}\/\d{4})/i);
     const den = t.match(/Ragione (?:sociale|Sociale)(?:\/Nome e cognome lav\. autonomo)?:?\s+(.+?)\s+Codice Fiscale/i);
     if (den) dati.anagrafica.nome = pulisci(den[1]);
   }
@@ -119,7 +124,7 @@ async function importaLavoro(lavoro) {
       const firma = `${st.size}:${Math.floor(st.mtimeMs)}`;
       const visto = q.visto.get(lavoro.id, rel);
       let testo = '';
-      if (st.size <= 15 * 1024 * 1024) { try { testo = await testoPdf(abs); } catch { /* PDF illeggibile: resta "altro" */ } }
+      if (st.size <= 15 * 1024 * 1024) { try { testo = await testoDocumento(abs); } catch { /* PDF illeggibile: resta "altro" */ } }
       letti.push({ abs, rel, firma, visto, nome: f.name, dati: leggiDocumento(f.name, testo) });
     }
     const anagrafica = Object.assign({}, ...letti.map((x) => x.dati.anagrafica).reverse(),

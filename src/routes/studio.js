@@ -804,11 +804,26 @@ router.post('/imprese/:iid/documenti', trovaImpresa, pulisciTmp, upload.array('f
     const b = req.body;
     const crediti = b.crediti === '' || b.crediti == null ? null : Number.parseInt(b.crediti, 10);
     if (!f && b.tipo !== 'patente') { flash(req, 'errore', 'Seleziona il file da caricare.'); return res.redirect(`/studio/imprese/${req.impresa.id}`); }
-    await imprese.salvaDocumento(req.impresa.id, {
+    const nomeFile = f && Buffer.from(f.originalname, 'latin1').toString('utf8');
+    const dati = {
       tipo: b.tipo, descrizione: testo(b.descrizione, 200), rilascio: dataONull(b.rilascio), scadenza: dataONull(b.scadenza),
       numero: testo(b.numero, 100), crediti: Number.isInteger(crediti) && crediti >= 0 && crediti <= 200 ? crediti : null,
-    }, f && f.path, f && Buffer.from(f.originalname, 'latin1').toString('utf8'));
-    flash(req, 'ok', `${imprese.TIPI[b.tipo] || 'Documento'} registrato.`);
+    };
+    // Campi lasciati vuoti: li legge dal PDF (anche se è una stampa/scansione), se il tipo coincide
+    const letti = [];
+    if (f && /\.pdf$/i.test(nomeFile) && (!dati.rilascio || !dati.numero || (dati.tipo === 'patente' && dati.crediti == null) || (dati.tipo !== 'patente' && !dati.scadenza))) {
+      const { testoDocumento } = require('../ocr');
+      const { leggiDocumento } = require('../sicurezzaDrive');
+      let l = null;
+      try { l = leggiDocumento(nomeFile, await testoDocumento(f.path)); } catch { /* PDF illeggibile */ }
+      if (l && (l.tipo === dati.tipo || l.tipo === 'altro')) {
+        for (const [k, nome] of [['rilascio', 'data di rilascio'], ['scadenza', 'scadenza'], ['numero', 'numero'], ['crediti', 'crediti']]) {
+          if ((dati[k] == null || dati[k] === '') && l[k] != null && l[k] !== '') { dati[k] = l[k]; letti.push(nome); }
+        }
+      }
+    }
+    await imprese.salvaDocumento(req.impresa.id, dati, f && f.path, nomeFile);
+    flash(req, 'ok', `${imprese.TIPI[b.tipo] || 'Documento'} registrato.` + (letti.length ? ` Letti dal PDF: ${letti.join(', ')} — controlla che siano giusti.` : ''));
     res.redirect(`/studio/imprese/${req.impresa.id}`);
   } catch (e) { next(e); }
 });

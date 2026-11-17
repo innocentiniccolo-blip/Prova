@@ -11,6 +11,7 @@ const q = {
 function esegui() {
   const n = q.consultazioni.run(`-${MESI_CONSULTAZIONI} months`).changes;
   q.link.run(Date.now());
+  require('./arrivi').pulisci(); // registro dei documenti arrivati dalle imprese: 12 mesi
   if (n) console.log(`[privacy] Cancellate ${n} consultazioni più vecchie di ${MESI_CONSULTAZIONI} mesi`);
   return n;
 }

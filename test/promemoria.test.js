@@ -65,7 +65,7 @@ test('un documento o tutti: testo chiaro, senza link, e registro degli invii', a
   assert.match(inviate[0].oggetto, /DURC/);
   assert.match(inviate[0].testo, /DURC: scade il/);
   assert.ok(!/patente/i.test(inviate[0].testo));
-  assert.ok(!/https?:\/\//.test(inviate[0].testo));
+  assert.match(inviate[0].testo, /\/carica\//);
   const tutti = await imprese.inviaPromemoria(imprese.Q.perId.get(id), '', finto);
   assert.strictEqual(tutti.n, 2);
   assert.match(inviate[1].testo, /Patente a crediti: non ci risulta/);

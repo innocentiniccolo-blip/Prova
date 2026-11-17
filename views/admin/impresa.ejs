@@ -18,6 +18,39 @@
           <%- include('../partials/riepilogo-impresa', { i: { riepilogo }, tipiDoc, linkDoc: (d) => `/studio/imprese/${impresa.id}/documenti/${d.id}` }) %>
         </div>
 
+        <% if (arrivi.length) { %>
+        <div class="carta evidenza" id="arrivi">
+          <h2>Arrivati dall'impresa: da controllare (<%= arrivi.length %>)</h2>
+          <p class="nota">Controlla il file e i dati letti in automatico, poi premi <b>Registra</b>: diventa il documento valido dell'impresa. Se non va bene, <b>Scarta</b> lo cancella.</p>
+          <% arrivi.forEach(a => { const l = a.letto || {}; %>
+            <form method="post" action="/studio/imprese/<%= impresa.id %>/arrivi/<%= a.id %>" class="modulo arrivo">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <p><strong><%= a.nome %></strong> <small class="muto">(<%= dimensione(a.dimensione) %>)</small><br>
+                <small class="muto">Arrivato <%= a.origine === 'email' ? `per email da ${a.mittente}` : 'dal link di caricamento' %> il <%= dataOra(a.ricevuto_il) %></small><br>
+                <% if (a.antivirus === 'pulito') { %><span class="badge doc-ok">Antivirus: nessuna minaccia</span>
+                <% } else { %><span class="badge doc-in-scadenza" title="<%= a.antivirus_dettaglio %>">Antivirus: non controllato</span> <small class="muto">si può solo scaricare: aprilo se ti aspettavi questo file</small><% } %>
+                · <a href="/studio/imprese/<%= impresa.id %>/arrivi/<%= a.id %>" target="_blank" rel="noopener"><%= a.antivirus === 'pulito' ? 'Apri' : 'Scarica' %></a></p>
+              <div class="riga-campi">
+                <label>Tipo
+                  <select name="tipo"><% Object.entries(tipiDoc).forEach(([k, v]) => { %><option value="<%= k %>" <%= l.tipo === k ? 'selected' : '' %>><%= v %></option><% }) %></select></label>
+                <label>Data di rilascio <input type="date" name="rilascio" value="<%= l.rilascio || '' %>"></label>
+                <label>Scadenza <input type="date" name="scadenza" value="<%= l.scadenza || '' %>"></label>
+              </div>
+              <div class="riga-campi">
+                <label>Numero / codice <input name="numero" maxlength="100" value="<%= l.numero || '' %>"></label>
+                <label>Crediti <small>(solo patente)</small> <input type="number" name="crediti" min="0" max="200" value="<%= l.crediti ?? '' %>"></label>
+                <label>Descrizione <small>(per «Altro»)</small> <input name="descrizione" maxlength="200"></label>
+              </div>
+              <div class="azioni">
+                <button class="pulsante" name="azione" value="approva">Registra</button>
+                <button class="link pericolo" name="azione" value="scarta" data-conferma="Scartare e cancellare questo file?">Scarta</button>
+              </div>
+            </form>
+          <% }) %>
+          <% if (!antivirusAttivo) { %><p class="nota">L'antivirus sul server non è ancora attivo: vedi la guida, punto «Sicurezza cantiere».</p><% } %>
+        </div>
+        <% } %>
+
         <div class="carta" id="promemoria">
           <h2>Promemoria all'impresa</h2>
           <% if (!daSollecitare.length) { %>

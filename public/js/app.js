@@ -4,7 +4,7 @@ if (daAprire && daAprire.tagName === 'DETAILS') daAprire.open = true;
 
 // Conferma prima di azioni distruttive
 document.addEventListener('submit', (e) => {
-  const msg = e.target.dataset.conferma;
+  const msg = (e.submitter && e.submitter.dataset.conferma) || e.target.dataset.conferma;
   if (msg && !confirm(msg)) e.preventDefault();
 });
 

@@ -157,6 +157,62 @@ router.post('/imposta-password/:token', auth.verificaCsrf, async (req, res, next
   } catch (e) { next(e); }
 });
 
+// ---------- Caricamento documenti delle imprese (link personale del promemoria) ----------
+const arrivi = require('../arrivi');
+const tmpCarica = require('node:path').join(config.datiDir, 'tmp');
+require('node:fs').mkdirSync(tmpCarica, { recursive: true });
+const caricaImpresa = require('multer')({
+  dest: tmpCarica,
+  limits: { fileSize: arrivi.LIMITI.fileMb * 1024 * 1024, files: arrivi.LIMITI.filePerInvio, fields: 5, fieldSize: 500 },
+}).array('file', arrivi.LIMITI.filePerInvio);
+
+function paginaCarica(res, stato, dati) {
+  const v = dati.v;
+  res.status(stato).render('carica', {
+    titolo: 'Invia documenti allo studio', v, esito: dati.esito || null, errore: dati.errore || null,
+    documenti: v ? imprese.daSollecitare(v.impresa.id) : [], limiti: arrivi.LIMITI,
+  });
+}
+const imprese = require('../imprese');
+
+router.get('/carica/:token', (req, res) => {
+  const v = arrivi.verificaLink(req.params.token);
+  paginaCarica(res, v ? 200 : 410, { v });
+});
+
+router.post('/carica/:token', (req, res, next) => {
+  // I file temporanei si cancellano sempre a fine richiesta
+  res.on('close', () => { for (const f of req.files || []) if (f && f.path) require('node:fs').rm(f.path, { force: true }, () => {}); });
+  const v = arrivi.verificaLink(req.params.token);
+  if (!v) return paginaCarica(res, 410, { v: null });
+  if (arrivi.troppiInvii(req.ip)) return paginaCarica(res, 429, { v, errore: 'Troppi invii in poco tempo: riprova tra un\'ora o contatta lo studio.' });
+  caricaImpresa(req, res, (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? `Ogni file può essere al massimo di ${arrivi.LIMITI.fileMb} MB.`
+        : err.code === 'LIMIT_FILE_COUNT' ? `Puoi inviare al massimo ${arrivi.LIMITI.filePerInvio} file alla volta.` : 'Invio non riuscito: riprova.';
+      return paginaCarica(res, 400, { v, errore: msg });
+    }
+    auth.verificaCsrf(req, res, async () => {
+      try {
+        const files = req.files || [];
+        if (!files.length) return paginaCarica(res, 400, { v, errore: 'Scegli almeno un file.' });
+        const esito = { salvati: [], rifiutati: [] };
+        for (const f of files) {
+          const nome = Buffer.from(f.originalname, 'latin1').toString('utf8');
+          const r = await arrivi.ricevi(v.impresa.id, { percorso: f.path, nome, dimensione: f.size }, { origine: 'link' });
+          if (r.ok) esito.salvati.push(nome); else esito.rifiutati.push({ nome, motivo: r.motivo });
+          if (r.infetto) notifiche.avvisaStudio(`Antivirus: file scartato da ${v.impresa.ragione_sociale}`, `Il file «${nome}» caricato dal link dell'impresa ${v.impresa.ragione_sociale} è stato scartato dall'antivirus (${r.dettaglio}).\nNon è stato salvato. Se l'impresa ti contatta, chiedile di rimandarlo.`);
+        }
+        if (esito.salvati.length) {
+          notifiche.avvisaStudio(`Documenti da ${v.impresa.ragione_sociale}`,
+            `${v.impresa.ragione_sociale} ha caricato dal link del promemoria:\n\n${esito.salvati.map((n) => `- ${n}`).join('\n')}\n\nLi trovi da controllare nella scheda dell'impresa: ${notifiche.baseUrl(req)}/studio/imprese/${v.impresa.id}#arrivi`);
+        }
+        paginaCarica(res, 200, { v, esito });
+      } catch (e) { next(e); }
+    });
+  });
+});
+
 router.post('/esci', auth.verificaCsrf, (req, res) => {
   req.session.destroy(() => {
     res.clearCookie('studio.sid');

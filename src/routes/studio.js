@@ -10,6 +10,8 @@ const archivio = require('../archivio');
 const pratiche = require('../pratiche');
 const automazioni = require('../automazioni');
 const imprese = require('../imprese');
+const arrivi = require('../arrivi');
+const antivirus = require('../antivirus');
 const richieste = require('../richieste');
 const pubblicati = require('../pubblicati');
 const posta = require('../posta');
@@ -51,6 +53,7 @@ router.get('/', async (req, res, next) => {
     titolo: 'Studio', lavori, perStato, nClienti: clienti.length,
     proposteLavori: automazioni.proposteLavori(), proposteStato: automazioni.proposteStato(),
     avvisiImprese: imprese.avvisiScadenze(),
+    arriviImprese: arrivi.Q.tuttiInAttesa.all(),
     documentiRicevuti: richieste.Q.daControllare.all(),
     blocchi: auth.blocchiAttivi().filter((b) => !/\|(reset|profilo|configura)/.test(b.chiave) || b.chiave.includes('|profilo|')),
   });
@@ -126,6 +129,9 @@ function idClienti(body) {
     const m = k.match(/^ruolo_(\d+)$/);
     if (m && ruoli.RUOLI[v]) out.push({ id: Number(m[1]), ruolo: v });
   }
+  // Cliente scelto dal menu «Aggiungi un cliente» (senza premere «Aggiungi», o con JavaScript spento)
+  const nuovo = Number(body.aggiungi_cliente);
+  if (nuovo > 0 && !out.some((c) => c.id === nuovo)) out.push({ id: nuovo, ruolo: ruoli.RUOLI[body.aggiungi_ruolo] ? body.aggiungi_ruolo : 'proprietario' });
   // Compatibilità con il vecchio modulo a spunte
   for (const id of [].concat(body.clienti || []).map(Number)) if (id > 0 && !out.some((c) => c.id === id)) out.push({ id, ruolo: 'proprietario' });
   return out;
@@ -138,6 +144,8 @@ function idAziende(body) {
     const m = k.match(/^azienda_(\d+)$/);
     if (m && ruoli.RUOLI[v] && v !== 'proprietario') out.push({ id: Number(m[1]), ruolo: v });
   }
+  const nuova = Number(body.aggiungi_azienda);
+  if (nuova > 0 && !out.some((a) => a.id === nuova)) out.push({ id: nuova, ruolo: body.aggiungi_azienda_ruolo === 'impresa' ? 'impresa' : 'agenzia' });
   return out;
 }
 
@@ -754,6 +762,7 @@ router.get('/imprese/:iid', trovaImpresa, (req, res) => {
     riepilogo: imprese.riepilogo(req.impresa.id), lavori: imprese.Q.lavoriImpresa.all(req.impresa.id),
     creditiMinimi: imprese.CREDITI_MINIMI,
     daSollecitare: imprese.daSollecitare(req.impresa.id), destinatario: imprese.destinatario(req.impresa),
+    arrivi: arrivi.inAttesa(req.impresa.id), antivirusAttivo: antivirus.attivo,
   });
 });
 
@@ -815,6 +824,41 @@ router.post('/imprese/:iid/documenti/:did/elimina', trovaImpresa, auth.verificaC
     const ok = await imprese.eliminaDocumento(req.impresa.id, Number(req.params.did));
     flash(req, ok ? 'ok' : 'errore', ok ? 'Documento eliminato.' : 'Documento non trovato.');
     res.redirect(`/studio/imprese/${req.impresa.id}`);
+  } catch (e) { next(e); }
+});
+
+// Documenti arrivati dall'impresa (link o email): da controllare, poi approvati o scartati
+function trovaArrivo(req, res, next) {
+  const a = arrivi.Q.perId.get(Number(req.params.aid), req.impresa.id);
+  if (!a) return res.status(404).render('errore', { titolo: 'Documento non trovato', messaggio: '' });
+  req.arrivo = a;
+  next();
+}
+
+router.get('/imprese/:iid/arrivi/:aid', trovaImpresa, trovaArrivo, (req, res) => {
+  const abs = arrivi.percorso(req.arrivo);
+  if (!abs) return res.status(404).render('errore', { titolo: 'File non trovato', messaggio: '' });
+  // Se l'antivirus non l'ha controllato, si scarica soltanto (niente anteprima nel browser)
+  inviaFile(res, abs, { scarica: req.query.scarica === '1' || req.arrivo.antivirus !== 'pulito' });
+});
+
+router.post('/imprese/:iid/arrivi/:aid', trovaImpresa, trovaArrivo, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const b = req.body;
+    if (b.azione === 'scarta') {
+      await arrivi.scarta(req.arrivo);
+      flash(req, 'ok', `«${req.arrivo.nome}» scartato e cancellato.`);
+    } else {
+      const crediti = b.crediti === '' || b.crediti == null ? null : Number.parseInt(b.crediti, 10);
+      const tipo = typeof b.tipo === 'string' && imprese.TIPI[b.tipo] ? b.tipo : 'altro';
+      const ok = await arrivi.approva(req.arrivo, {
+        tipo, descrizione: testo(b.descrizione, 200) || (tipo === 'altro' ? req.arrivo.nome.replace(/\.[a-z]+$/i, '') : null),
+        rilascio: dataONull(b.rilascio), scadenza: dataONull(b.scadenza), numero: testo(b.numero, 100),
+        crediti: Number.isInteger(crediti) && crediti >= 0 && crediti <= 200 ? crediti : null,
+      });
+      flash(req, ok ? 'ok' : 'errore', ok ? `${imprese.TIPI[tipo]} registrato nella scheda dell'impresa.` : 'Documento già controllato o file non più disponibile.');
+    }
+    res.redirect(`/studio/imprese/${req.impresa.id}#arrivi`);
   } catch (e) { next(e); }
 });
 

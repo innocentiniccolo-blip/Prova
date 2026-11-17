@@ -38,6 +38,16 @@
         </ul>
       </div>
     <% } %>
+    <% if (arriviImprese.length) { %>
+      <div class="carta proposte">
+        <h2>Documenti arrivati dalle imprese</h2>
+        <ul class="semplice">
+          <% arriviImprese.forEach(a => { %>
+            <li><a href="/studio/imprese/<%= a.impresa_id %>#arrivi"><%= a.ragione_sociale %></a> · <%= a.n %> file da controllare <small class="muto">(ultimo <%= dataOra(a.ultimo) %>)</small></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
     <% if (avvisiImprese.length) { %>
       <div class="carta proposte">
         <h2>Sicurezza cantiere: documenti da sistemare</h2>

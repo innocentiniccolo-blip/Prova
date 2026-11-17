@@ -114,6 +114,7 @@ if (require.main === module) {
   // Un errore sfuggito in una singola richiesta non deve far cadere il servizio per tutti
   process.on('uncaughtException', (e) => console.error('Errore non gestito:', e));
   require('./automazioni').avvia();
+  require('./posta-in-arrivo').avvia();
   app.listen(config.port, () => {
     console.log(`Studio tecnico in ascolto su http://localhost:${config.port}`);
     console.log(`Archivio lavori: ${config.archivioDir}`);

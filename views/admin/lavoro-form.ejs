@@ -30,30 +30,65 @@
       <fieldset>
         <legend>Clienti con accesso</legend>
         <% if (!tuttiClienti.length) { %><p class="muto">Nessun cliente registrato. <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p><% } %>
-        <p class="nota">Per ogni cliente scegli il ruolo: ognuno vede solo le cartelle spuntate per il suo ruolo.</p>
-        <% const ruoloDi = (id) => { const x = (clientiSel || []).find(c => Number(c.id ?? c) === id); return x ? (x.ruolo || 'proprietario') : ''; }; %>
-        <div class="scelte ruoli-clienti">
-          <% tuttiClienti.forEach(c => { const r = ruoloDi(c.id); %>
-            <label class="scelta-ruolo"><span><%= c.nome %> <small class="muto"><%= c.email %></small></span>
-              <select name="ruolo_<%= c.id %>" aria-label="Ruolo di <%= c.nome %>">
-                <option value="">— non collegato —</option>
-                <% Object.entries(RUOLI).forEach(([k, d]) => { %><option value="<%= k %>" <%= r === k ? 'selected' : '' %>><%= d.nome %></option><% }) %>
-              </select></label>
+        <% const ruoloDi = (id) => { const x = (clientiSel || []).find(c => Number(c.id ?? c) === id); return x ? (x.ruolo || 'proprietario') : ''; };
+           const collegati = tuttiClienti.filter(c => ruoloDi(c.id));
+           const liberi = tuttiClienti.filter(c => !ruoloDi(c.id)); %>
+        <div class="collegati" data-collegati="ruolo">
+          <% if (!collegati.length) { %><p class="vuoto" data-vuoto>Nessun cliente collegato.</p><% } %>
+          <% collegati.forEach(c => { const r = ruoloDi(c.id); %>
+            <div class="collegato">
+              <span class="collegato-nome"><%= c.nome %> <small class="muto"><%= c.email %></small></span>
+              <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo di <%= c.nome %>">
+                <% Object.entries(RUOLI).forEach(([k, d]) => { %><label><input type="radio" name="ruolo_<%= c.id %>" value="<%= k %>" <%= r === k ? 'checked' : '' %>> <%= d.nome %></label><% }) %>
+                <label class="togli"><input type="radio" name="ruolo_<%= c.id %>" value=""> Togli</label>
+              </span>
+            </div>
           <% }) %>
         </div>
-        <% if (tutteAziende.length) { const aRuolo = (id) => { const x = (aziendeSel || []).find(a => a.id === id); return x ? x.ruolo : ''; }; %>
+        <% if (liberi.length) { %>
+          <div class="aggiungi-collegato" data-aggiungi="ruolo">
+            <label>Aggiungi un cliente
+              <select name="aggiungi_cliente">
+                <option value="">— scegli dall'elenco —</option>
+                <% liberi.forEach(c => { %><option value="<%= c.id %>" data-email="<%= c.email %>"><%= c.nome %> (<%= c.email %>)</option><% }) %>
+              </select></label>
+            <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo del cliente da aggiungere">
+              <% Object.entries(RUOLI).forEach(([k, d], i) => { %><label><input type="radio" name="aggiungi_ruolo" value="<%= k %>" <%= i === 0 ? 'checked' : '' %>> <%= d.nome %></label><% }) %>
+            </span>
+            <button type="button" class="pulsante piccolo secondario" data-aggiungi-btn hidden>Aggiungi</button>
+          </div>
+        <% } %>
+        <p class="nota">Ognuno vede solo le cartelle spuntate per il suo ruolo. Non trovi la persona? <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p>
+        <% if (tutteAziende.length) { const aRuolo = (id) => { const x = (aziendeSel || []).find(a => a.id === id); return x ? x.ruolo : ''; };
+             const RA = { agenzia: 'Agenzia immobiliare', impresa: 'Impresa' };
+             const azColl = tutteAziende.filter(a => aRuolo(a.id)); const azLib = tutteAziende.filter(a => !aRuolo(a.id)); %>
           <h3>Agenzie e aziende</h3>
           <p class="nota">Tutte le persone dell'azienda vedono il lavoro con il ruolo scelto.</p>
-          <div class="scelte ruoli-clienti">
-            <% tutteAziende.forEach(a => { const r = aRuolo(a.id); %>
-              <label class="scelta-ruolo"><span><%= a.nome %> <small class="muto"><%= a.n_persone %> person<%= a.n_persone === 1 ? 'a' : 'e' %></small></span>
-                <select name="azienda_<%= a.id %>" aria-label="Ruolo di <%= a.nome %>">
-                  <option value="">— non collegata —</option>
-                  <option value="agenzia" <%= r === 'agenzia' ? 'selected' : '' %>>Agenzia immobiliare</option>
-                  <option value="impresa" <%= r === 'impresa' ? 'selected' : '' %>>Impresa</option>
-                </select></label>
+          <div class="collegati" data-collegati="azienda">
+            <% if (!azColl.length) { %><p class="vuoto" data-vuoto>Nessuna azienda collegata.</p><% } %>
+            <% azColl.forEach(a => { const r = aRuolo(a.id); %>
+              <div class="collegato">
+                <span class="collegato-nome"><%= a.nome %> <small class="muto"><%= a.n_persone %> person<%= a.n_persone === 1 ? 'a' : 'e' %></small></span>
+                <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo di <%= a.nome %>">
+                  <% Object.entries(RA).forEach(([k, n]) => { %><label><input type="radio" name="azienda_<%= a.id %>" value="<%= k %>" <%= r === k ? 'checked' : '' %>> <%= n %></label><% }) %>
+                  <label class="togli"><input type="radio" name="azienda_<%= a.id %>" value=""> Togli</label>
+                </span>
+              </div>
             <% }) %>
           </div>
+          <% if (azLib.length) { %>
+            <div class="aggiungi-collegato" data-aggiungi="azienda">
+              <label>Aggiungi un'azienda
+                <select name="aggiungi_azienda">
+                  <option value="">— scegli dall'elenco —</option>
+                  <% azLib.forEach(a => { %><option value="<%= a.id %>" data-email="<%= a.n_persone %> person<%= a.n_persone === 1 ? 'a' : 'e' %>"><%= a.nome %></option><% }) %>
+                </select></label>
+              <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo dell'azienda da aggiungere">
+                <% Object.entries(RA).forEach(([k, n], i) => { %><label><input type="radio" name="aggiungi_azienda_ruolo" value="<%= k %>" <%= i === 0 ? 'checked' : '' %>> <%= n %></label><% }) %>
+              </span>
+              <button type="button" class="pulsante piccolo secondario" data-aggiungi-btn hidden>Aggiungi</button>
+            </div>
+          <% } %>
         <% } %>
         <label class="scelta consenso"><input type="checkbox" name="consenso_agenzia" value="1">
           Se colleghi un'<strong>agenzia immobiliare</strong>: confermo di avere l'autorizzazione del proprietario a mostrarle i documenti dell'immobile (viene registrata la data).</label>
@@ -63,4 +98,5 @@
     </form>
   </div>
 </section>
+<script src="/js/clienti-lavoro.js" defer></script>
 <%- include('../partials/piede') %>

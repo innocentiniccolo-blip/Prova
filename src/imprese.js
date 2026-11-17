@@ -192,7 +192,7 @@ function rigaDocumento(v) {
 }
 
 /** Testo dell'email di promemoria (solo testo, nessun link). */
-function testoPromemoria(impresa, voci) {
+function testoPromemoria(impresa, voci, link = '') {
   const cantieri = Q.lavoriImpresa.all(impresa.id).filter((l) => !['Completato', 'Sospeso'].includes(l.stato));
   const uno = voci.length === 1;
   return [
@@ -203,7 +203,10 @@ function testoPromemoria(impresa, voci) {
     ...voci.map(rigaDocumento),
     ``,
     ...(cantieri.length ? [`${uno ? 'Il documento serve' : 'I documenti servono'} per ${cantieri.length === 1 ? 'il cantiere' : 'i cantieri'}: ${cantieri.map((l) => l.titolo).join('; ')}.`, ``] : []),
-    `Vi chiediamo di inviarci ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} rispondendo a questa email.`,
+    ...(link
+      ? [`Potete caricare ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} da questo link (valido 14 giorni, solo PDF, JPG o PNG):`, link, ``,
+        `In alternativa rispondete a questa email allegando ${uno ? 'il documento' : 'i documenti'}, senza cambiare l'oggetto.`]
+      : [`Vi chiediamo di inviarci ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} rispondendo a questa email, senza cambiare l'oggetto.`]),
     ``,
     `Grazie e buon lavoro.`,
   ].join('\n');
@@ -219,10 +222,11 @@ async function inviaPromemoria(impresa, tipo, invia) {
   let voci = daSollecitare(impresa.id);
   if (tipo) voci = voci.filter((v) => v.tipo === tipo);
   if (!voci.length) return { ok: false, motivo: 'Nessun documento da sollecitare: risultano tutti in regola.' };
-  const oggetto = voci.length === 1
+  const arrivi = require('./arrivi'); // caricato qui per evitare dipendenze circolari
+  const oggetto = (voci.length === 1
     ? `Promemoria: ${voci[0].nome} da aggiornare – ${impresa.ragione_sociale}`
-    : `Promemoria: documenti da aggiornare – ${impresa.ragione_sociale}`;
-  const inviata = await invia({ a, oggetto, testo: testoPromemoria(impresa, voci) });
+    : `Promemoria: documenti da aggiornare – ${impresa.ragione_sociale}`) + ` ${arrivi.riferimento(impresa.id)}`;
+  const inviata = await invia({ a, oggetto, testo: testoPromemoria(impresa, voci, arrivi.creaLink(impresa.id)) });
   if (!inviata) return { ok: false, motivo: 'Email non inviata: la posta del sito non è configurata.' };
   for (const v of voci) Q.registraPromemoria.run(impresa.id, v.tipo, a);
   return { ok: true, a, n: voci.length };

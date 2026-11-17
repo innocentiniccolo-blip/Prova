@@ -218,13 +218,13 @@ test('CSRF: ogni POST dell\'app rifiuta richieste senza token, con token altrui 
     const p = concreto(r.percorso);
     for (const corpo of [{}, { _csrf: altro }, { _csrf: '' }, { _csrf: 'x'.repeat(48) }]) {
       const risp = await studio.go(p, { method: 'POST', body: new URLSearchParams({ ...corpo, nome: 'x', stato: 'pagata', email: 'x@x.it' }), headers: { origin: 'https://sito-cattivo.example' } });
-      assert.ok([403, 404, 302].includes(risp.status), `${p} ${JSON.stringify(corpo)} → ${risp.status}`);
+      assert.ok([403, 404, 302, 410].includes(risp.status), `${p} ${JSON.stringify(corpo)} → ${risp.status}`);
       if (risp.status === 302) assert.ok(!/ok/.test(risp.loc || ''), p);
     }
     // multipart senza token
     const fd = new FormData(); fd.append('file', new Blob([PDF]), 'x.pdf'); fd.append('tipo', 'durc');
     const m = await studio.go(p, { method: 'POST', body: fd });
-    assert.ok(m.status === 403 || m.status === 404 || m.status === 302 || m.status === 400, `multipart ${p} → ${m.status}`);
+    assert.ok([403, 404, 302, 400, 410].includes(m.status), `multipart ${p} → ${m.status}`);
   }
   assert.deepStrictEqual({ lavori: Lavori.tutti.all().length, clienti: Utenti.clienti.all().length, notule: contabilita.Q.tutte.all().length }, prima);
   assert.strictEqual(contabilita.Q.perId.get(notulaId).stato, 'bozza');

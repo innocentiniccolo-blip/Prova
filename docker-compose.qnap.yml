@@ -1,0 +1,23 @@
+# Da incollare in Container Station → Applicazioni → Crea.
+# Prova: legge in SOLA LETTURA la cartella dei lavori cartacei 2026.
+services:
+  studio:
+    image: ghcr.io/innocentiniccolo-blip/prova:latest
+    container_name: area-clienti
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      SOLO_AREA: "true"
+      URL_PUBBLICO: "http://192.168.1.10:3000"
+      COOKIE_SECURE: "false"
+      TRUST_PROXY: "false"
+      # Email: da attivare dopo la prova inserendo la password della casella
+      SMTP_HOST: ""
+      SMTP_PORT: "465"
+      SMTP_USER: "info@geometrainnocenti.it"
+      SMTP_PASS: ""
+      MAIL_FROM: "info@geometrainnocenti.it"
+    volumes:
+      - "/share/Niccolo/Archivio Lavori/LAVORI CONCLUSI/2026/Cartacee:/archivio:ro"
+      - "/share/Container/area-clienti:/dati"

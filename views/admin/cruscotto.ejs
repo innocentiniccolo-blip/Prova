@@ -3,15 +3,122 @@
   <div class="contenitore">
     <div class="barra-titolo">
       <h1>Lavori</h1>
-      <a class="pulsante" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
+      <div class="azioni">
+        <form method="post" action="/studio/automazioni/esegui" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante secondario">Controlla <%= nomeArchivio %> ora</button></form>
+        <a class="pulsante" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
+      </div>
     </div>
-    <div class="riepilogo">
-      <div class="carta numero"><strong><%= lavori.length %></strong><span>Lavori totali</span></div>
-      <% studio.stati.forEach(s => { %>
-        <div class="carta numero"><strong><%= perStato[s] || 0 %></strong><span><%= s %></span></div>
-      <% }) %>
-      <a class="carta numero" href="/studio/clienti"><strong><%= nClienti %></strong><span>Clienti</span></a>
+    <% const nomeTipo = { comune: 'Protocollo comunale', docfa: 'Catasto (DOCFA)', ape: 'APE – Regione', enea: 'ENEA', pregeo: 'Catasto (PREGEO)', suap: 'SUAP / STAR', asl: 'ASL – notifica preliminare', sismica: 'Regione – deposito sismico', altro: 'Ricevuta' }; %>
+    <% const daControllare = proposteLavori.length + proposteStato.length + documentiRicevuti.length + arriviImprese.reduce((t, a) => t + a.n, 0);
+       const inCorso = lavori.filter(l => !['Completato', 'Sospeso'].includes(l.stato)).length; %>
+    <div class="oggi">
+      <a class="oggi-voce" href="#tabella-lavori"><strong><%= inCorso %></strong><span>Lavori aperti</span></a>
+      <a class="oggi-voce <%= daControllare ? 'da-fare' : 'ok' %>" href="#da-fare"><strong><%= daControllare %></strong><span><%= daControllare ? 'Da controllare o confermare' : 'Niente da controllare' %></span></a>
+      <a class="oggi-voce <%= avvisiImprese.length ? 'attenzione' : 'ok' %>" href="#scadenze"><strong><%= avvisiImprese.length %></strong><span><%= avvisiImprese.length ? 'Documenti imprese da sistemare' : 'Imprese in regola' %></span></a>
+      <a class="oggi-voce <%= notuleDaIncassare.n ? 'attenzione' : 'ok' %>" href="/studio/contabilita"><strong><%= notuleDaIncassare.n %></strong><span><%= notuleDaIncassare.n ? `Notule da incassare · ${eur(notuleDaIncassare.totale)}` : 'Nessuna notula da incassare' %></span></a>
     </div>
+    <div id="da-fare"></div>
+    <% if (blocchi.length) { %>
+      <div class="carta proposte">
+        <h2>Accessi bloccati</h2>
+        <p class="muto">Bloccati per un'ora dopo troppi errori di password. Puoi sbloccarli subito se riconosci la persona.</p>
+        <ul class="semplice">
+          <% blocchi.forEach(b => { const perIp = b.chiave.startsWith('ip|'); %>
+            <li>
+              <strong><%= perIp ? 'Indirizzo ' + b.ip : (b.email || '').replace(/^profilo\|\d+$/, 'Cambio password dal profilo') %></strong>
+              <small class="muto"><% if (!perIp) { %>da <%= b.ip %> · <% } %>fino alle <%= new Date(b.fino).toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' }) %></small>
+              <form method="post" action="/studio/blocchi/sblocca" class="in-linea">
+                <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="chiave" value="<%= b.chiave %>">
+                <button class="link">Sblocca</button>
+              </form>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+    <% if (documentiRicevuti.length) { %>
+      <div class="carta proposte">
+        <h2>Documenti ricevuti dai clienti</h2>
+        <ul class="semplice">
+          <% documentiRicevuti.forEach(r => { %>
+            <li><a href="/studio/lavori/<%= r.lavoro_id %>#richieste"><%= r.titolo %></a> · <%= r.codice %> – <%= r.lavoro_titolo %>
+              <span class="badge richiesta-inviata"><%= r.n_file %> file da controllare</span></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+    <% if (arriviImprese.length) { %>
+      <div class="carta proposte">
+        <h2>Documenti arrivati dalle imprese</h2>
+        <ul class="semplice">
+          <% arriviImprese.forEach(a => { %>
+            <li><a href="/studio/imprese/<%= a.impresa_id %>#arrivi"><%= a.ragione_sociale %></a> · <%= a.n %> file da controllare <small class="muto">(ultimo <%= dataOra(a.ultimo) %>)</small></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+    <% if (avvisiImprese.length) { %>
+      <div class="carta proposte" id="scadenze">
+        <h2>Sicurezza cantiere: documenti da sistemare</h2>
+        <ul class="semplice">
+          <% avvisiImprese.forEach(a => { %>
+            <li><a href="/studio/imprese/<%= a.impresa.id %>"><%= a.impresa.ragione_sociale %></a> · <%= a.tipo %> <span class="badge doc-<%= a.stato.codice %>"><%= a.stato.testo %></span>
+              <form method="post" action="/studio/avvisi-imprese/nascondi" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="impresa" value="<%= a.impresa.id %>"><input type="hidden" name="tipo" value="<%= a.chiaveTipo %>"><button class="link" title="Nascondi questo avviso">Nascondi</button></form>
+              <% if (a.impresa.email || a.impresa.pec) { %><form method="post" action="/studio/imprese/<%= a.impresa.id %>/promemoria" class="in-linea" data-conferma="Inviare a <%= a.impresa.email || a.impresa.pec %> il promemoria per: <%= a.tipo %>?"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="tipo" value="<%= a.chiaveTipo %>"><input type="hidden" name="da" value="cruscotto"><button class="link">Invia promemoria</button></form><% } %></li>
+          <% }) %>
+        </ul>
+        <form method="post" action="/studio/avvisi-imprese/nascondi" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Nascondi tutti</button></form>
+        <small class="muto">Un avviso nascosto ricompare da solo se arriva un documento nuovo o cambia la scadenza.</small>
+      </div>
+    <% } %>
+    <% if (proposteLavori.length || proposteStato.length) { %>
+      <div class="carta proposte">
+        <h2>Da confermare</h2>
+        <% proposteLavori.forEach(p => { %>
+          <div class="proposta">
+            <div>
+              <strong>Nuovo lavoro trovato su <%= nomeArchivio %></strong><br>
+              <span class="muto"><%= p.cartella %></span><br>
+              <% if (p.email) { %>Cliente: <%= p.nome %> · <%= p.email %><% if (p.telefono) { %> · <%= p.telefono %><% } %><% } else { %><span class="muto">Cliente da indicare (facoltativo: puoi collegarlo anche dopo)</span><% } %>
+            </div>
+            <div class="azioni">
+              <form method="post" action="/studio/proposte-lavori/<%= p.id %>/conferma" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>">
+                <% if (!p.email) { %><input name="nome" maxlength="200" placeholder="Nome cliente" aria-label="Nome del cliente"> <input type="email" name="email" maxlength="200" placeholder="Email cliente" aria-label="Email del cliente"><% } %>
+                <button class="pulsante piccolo">Conferma</button></form>
+              <form method="post" action="/studio/proposte-lavori/<%= p.id %>/scarta" class="in-linea" data-conferma="Scartare? La cartella non verrà più proposta."><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Scarta</button></form>
+            </div>
+          </div>
+        <% }) %>
+        <% proposteStato.forEach(p => { %>
+          <div class="proposta">
+            <div>
+              <strong><%= p.codice %> – <%= p.titolo %></strong> · <%= p.cartella %><br>
+              Proposta: <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+              <% if (p.data) { %> il <%= data(p.data) %><% } %><% if (p.protocollo) { %> · prot. n. <strong><%= p.protocollo %></strong><% } %><br>
+              <small class="muto"><%= nomeTipo[p.tipo] || p.tipo %> · letto da «<%= p.file %>»</small>
+            </div>
+            <div class="azioni">
+              <form method="post" action="/studio/proposte-stato/<%= p.id %>/applica" class="in-linea">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <label class="scelta"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente</label>
+                <button class="pulsante piccolo">Conferma</button>
+              </form>
+              <a class="link" href="/studio/lavori/<%= p.lavoro_id %>#pratica-<%= p.pratica_id %>">Modifica</a>
+              <form method="post" action="/studio/proposte-stato/<%= p.id %>/scarta" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Scarta</button></form>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+    <details class="per-stato">
+      <summary>Lavori per stato · <%= lavori.length %> in tutto · <%= nClienti %> clienti</summary>
+      <div class="riepilogo">
+        <% studio.stati.forEach(s => { %>
+          <div class="carta numero"><strong><%= perStato[s] || 0 %></strong><span><%= s %></span></div>
+        <% }) %>
+        <a class="carta numero" href="/studio/clienti"><strong><%= nClienti %></strong><span>Clienti</span></a>
+      </div>
+    </details>
 
     <div class="carta">
       <input type="search" class="filtro" placeholder="Cerca per codice, titolo, cliente, indirizzo…" data-filtro="#tabella-lavori tbody tr">

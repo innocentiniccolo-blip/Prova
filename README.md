@@ -3,32 +3,34 @@
 L'app ha tre parti:
 
 1. **Sito di presentazione** dello studio: servizi, chi siamo, contatti.
-2. **Area clienti**: ogni cliente accede con email e password e vede i propri lavori. Per ogni lavoro trova i documenti divisi per categoria (Progetti, Computi, Contratti, Pratiche, Foto cantiere), lo stato e il diario degli aggiornamenti.
-3. **Pannello dello studio** (`/studio`): qui crei clienti e lavori, carichi documenti, pubblichi aggiornamenti e vedi quando il cliente ha aperto un file.
+2. **Area clienti**: ogni cliente accede con email e password e vede i propri lavori. Per ogni lavoro trova l'elenco delle pratiche (Accesso atti, Rilievo, CILA, Fine lavori…), ciascuna con stato, data, numero di protocollo, eventuale nota e i suoi documenti, più il diario degli aggiornamenti.
+3. **Pannello dello studio** (`/studio`): qui crei clienti e lavori, aggiorni lo stato di ogni pratica, carichi documenti, pubblichi aggiornamenti e vedi quando il cliente ha aperto un file.
 
 I file **restano sul NAS QNAP**, nelle normali cartelle condivise. L'app non li copia altrove: legge direttamente la cartella del lavoro. Puoi quindi continuare a salvare i file dal PC dello studio (rete/SMB) e il cliente li vede subito.
 
 ## Come sono organizzati i file sul NAS
 
 ```
-/share/Lavori/                       ← cartella "archivio" (ARCHIVIO_NAS)
-└── 2026-001 Rossi Ristrutturazione/ ← cartella del lavoro
-    ├── Progetti/                    ← visibile al cliente
-    │   ├── Tavola 01 - Pianta.pdf
-    │   └── Variante/Tavola 01b.pdf  ← anche le sottocartelle sono visibili
-    ├── Computi/                     ← visibile al cliente
-    ├── Contratti/                   ← visibile al cliente
-    ├── Pratiche/                    ← visibile al cliente
-    ├── Foto/                        ← visibile al cliente
-    └── Interno/                     ← NON visibile (qualsiasi altra cartella è privata)
+/share/Lavori/                          ← cartella "archivio" (ARCHIVIO_NAS)
+└── Ristrutturazione Mario Rossi/       ← cartella del lavoro
+    ├── Accesso atti/                   ← pratica (visibile: nome riconosciuto)
+    ├── Rilievo/                        ← pratica
+    ├── CILA/                           ← pratica
+    │   ├── CILA depositata.pdf
+    │   ├── Variante/Tavola 01b.pdf     ← anche le sottocartelle sono visibili
+    │   └── _bozza relazione.docx       ← nascosto (inizia con "_")
+    ├── Fine lavori/                    ← pratica
+    └── Parcelle/                       ← privata (nome non riconosciuto)
 ```
 
 Regole:
 
-- Il cliente vede **solo** le sottocartelle elencate in `config/studio.json` → `categorie`. Tutto il resto (parcelle, corrispondenza, appunti…) resta privato.
-- I file e le cartelle che iniziano con `_` o `.` sono **sempre nascosti** (es. `_bozza computo.xlsx`). È comodo per tenere le bozze nella stessa cartella.
-- Quando crei un lavoro, l'app crea da sola la cartella e le sottocartelle. Puoi anche collegare una cartella già esistente, ad esempio `2025/2025-018 Bianchi`.
-- Se elimini un lavoro dall'app, **i file sul NAS non vengono toccati**.
+- **Ogni sottocartella del lavoro è una pratica.** Puoi crearle dal PC come fai oggi, oppure dal pannello con "Aggiungi pratica": compaiono da sole.
+- Le cartelle il cui nome contiene un tipo riconosciuto (`config/studio.json` → `pratiche.tipi`: Accesso atti, Rilievo, CILA, SCIA, Catasto, APE, Fine lavori…) sono **visibili al cliente** da subito. Tutte le altre (Parcelle, Corrispondenza, Appunti…) restano **private** finché non spunti "Visibile al cliente". Per rendere tutto privato di default metti `"visibiliDiDefault": false`.
+- Per ogni pratica imposti dal pannello **stato** (Da fare, In corso, Presentata, Integrazione richiesta, Completata), **data**, **numero di protocollo** e una **nota per il cliente**. Il cliente legge, ad esempio, "Presentata il 28/10/2026 · Prot. n. 24517".
+- I file e le cartelle che iniziano con `_` o `.` sono **sempre nascosti** (es. `_bozza computo.xlsx`).
+- Quando crei un lavoro puoi collegare una cartella già esistente, ad esempio `Ristrutturazione Mario Rossi` o `2025/Bianchi`.
+- Se elimini un lavoro o togli una pratica dall'app, **i file sul NAS non vengono toccati**.
 
 ## Installazione sul QNAP
 
@@ -53,7 +55,7 @@ Requisiti: **Container Station** installato dall'App Center.
    ```sh
    docker exec -it studio-tecnico node --disable-warning=ExperimentalWarning scripts/crea-admin.js tua@email.it "Niccolò Innocenti"
    ```
-6. Apri `http://IP-DEL-NAS:3000`, accedi e vai su **Clienti → Nuovo cliente**. L'app genera una password temporanea da comunicare al cliente, che potrà cambiarla dal suo profilo.
+6. Apri `http://IP-DEL-NAS:3000`, accedi e vai su **Clienti → Nuovo cliente**. Se le email sono configurate (vedi sotto), il cliente riceve un'email di benvenuto con il link per scegliere la sua password. In ogni caso l'app genera anche una password temporanea, da comunicare a voce se l'email non arriva.
 
 ### Permessi
 
@@ -72,7 +74,8 @@ I clienti devono raggiungere l'app da fuori: **usa sempre HTTPS** e non esporre 
 **A. Cloudflare Tunnel (consigliata).** Non apre nessuna porta sul router.
 1. Registra un dominio (es. `studioinnocenti.it`) e gestiscilo con Cloudflare (piano gratuito).
 2. Avvia sul QNAP il container `cloudflare/cloudflared` con il token del tunnel e punta `area.tuodominio.it` → `http://studio-tecnico:3000`.
-3. Nel `.env` imposta `COOKIE_SECURE=true` e `TRUST_PROXY=true`.
+3. Nel `.env` imposta `COOKIE_SECURE=true`, `TRUST_PROXY=true` e `SOLO_AREA=true` (l'indirizzo apre subito la pagina di accesso; la presentazione resta sul sito dello studio).
+4. Sul sito geometrainnocenti.it aggiungi al menu il link **Area clienti** → `https://area.geometrainnocenti.it`.
 
 **B. Reverse proxy del QNAP + Let's Encrypt.**
 1. In QTS: Pannello di controllo → Applicazioni → Server web → **Proxy inverso**: crea una regola `HTTPS 443 → localhost:3000`.
@@ -82,6 +85,30 @@ I clienti devono raggiungere l'app da fuori: **usa sempre HTTPS** e non esporre 
 
 In entrambi i casi tieni QTS e Container Station aggiornati e attiva la verifica in due passaggi sull'account admin del NAS.
 
+## Email (password dimenticata e benvenuto)
+
+L'app può inviare email dalla casella dello studio **info@geometrainnocenti.it**:
+
+- **Password dimenticata?** nella pagina di accesso: il cliente riceve un link valido 1 ora per sceglierne una nuova.
+- **Email di benvenuto** quando crei un cliente (o con il pulsante nella sua scheda): link valido 7 giorni per scegliere la password, così non devi dettargliela.
+
+- **Avviso di aggiornamento**: quando cambi stato, data o protocollo di una pratica visibile, con "Avvisa il cliente via email" spuntato, i clienti del lavoro ricevono un'email con il nuovo stato, l'eventuale nota e il link all'area clienti. Lo stesso, a scelta, quando carichi nuovi documenti. Le email non contengono allegati: i documenti si scaricano solo dopo l'accesso.
+
+I link si usano una sola volta e si annullano se ne viene creato uno nuovo o se il cliente è disattivato.
+
+Nel `.env` compila:
+
+```sh
+URL_PUBBLICO=https://area.geometrainnocenti.it
+SMTP_HOST=          # server SMTP del provider della casella (es. Aruba: smtps.aruba.it)
+SMTP_PORT=465
+SMTP_USER=info@geometrainnocenti.it
+SMTP_PASS=          # password della casella email
+MAIL_FROM=info@geometrainnocenti.it
+```
+
+I dati SMTP sono nel pannello del provider dove hai la casella. Se `SMTP_HOST` è vuoto le email sono disattivate e la pagina di accesso invita a contattare lo studio.
+
 ## Backup
 
 Includi nei backup del NAS (Hybrid Backup Sync):
@@ -90,7 +117,7 @@ Includi nei backup del NAS (Hybrid Backup Sync):
 
 ## Personalizzazione
 
-Tutti i testi dello studio sono in **`config/studio.json`**: nome, indirizzo, telefono, email, PEC, P.IVA, iscrizione all'albo, servizi, categorie di documenti e stati dei lavori. Il campo `email` è facoltativo: se lo lasci vuoto, il sito mostra solo cellulare e PEC. Dopo ogni modifica riavvia il container (`docker compose restart`).
+Tutti i testi dello studio sono in **`config/studio.json`**: nome, indirizzo, telefono, email, PEC, P.IVA, iscrizione all'albo, servizi, tipi e stati delle pratiche, stati dei lavori. Il campo `email` è facoltativo: se lo lasci vuoto, il sito mostra solo cellulare e PEC. Dopo ogni modifica riavvia il container (`docker compose restart`).
 
 Il logo è in `public/img/logo.webp`. Esiste anche una versione vettoriale, `public/img/logo.svg`, usata per l'icona del browser e la home.
 
@@ -107,9 +134,9 @@ Senza variabili d'ambiente, i dati vanno in `./dati/` (ignorata da git).
 
 ## Sicurezza (in breve)
 
-- Password salvate con bcrypt; massimo 8 tentativi di login ogni 15 minuti.
+- Password salvate con bcrypt; dopo 5 errori l'accesso è bloccato per un'ora e lo studio riceve un'email di avviso.
 - Sessioni salvate su SQLite, cookie `httpOnly`/`SameSite`, token CSRF su tutti i moduli.
-- Ogni cliente vede solo i lavori a cui è associato. I percorsi dei file sono controllati per impedire l'uscita dalla cartella della categoria (anche tramite `../` o link simbolici).
+- Ogni cliente vede solo i lavori a cui è associato. Vede solo le pratiche rese visibili. I percorsi dei file sono controllati per impedire l'uscita dalla cartella della pratica (anche tramite `../` o link simbolici).
 - Se disattivi un cliente o gli reimposti la password, le sue sessioni aperte vengono chiuse subito.
 
 ## Struttura del codice

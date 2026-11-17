@@ -4,7 +4,7 @@
     <a class="indietro" href="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio' %>">← Indietro</a>
     <h1><%= titolo %></h1>
     <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
-    <form method="post" action="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio/lavori' %>" class="modulo carta">
+    <form method="post" action="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio/lavori' %>" class="modulo carta" autocomplete="off">
       <input type="hidden" name="_csrf" value="<%= csrf %>">
       <div class="riga-campi">
         <label class="stretto-campo">Codice <input name="codice" value="<%= lavoro.codice || '' %>" required maxlength="40"></label>
@@ -21,22 +21,82 @@
         <label>Data inizio <input type="date" name="data_inizio" value="<%= lavoro.data_inizio || '' %>"></label>
         <label>Fine prevista <input type="date" name="data_fine" value="<%= lavoro.data_fine || '' %>"></label>
       </div>
-      <label>Cartella sul NAS
-        <input name="cartella" value="<%= lavoro.cartella || '' %>" placeholder="Lascia vuoto per crearla automaticamente (es. 2026-001 Rossi Ristrutturazione)">
-        <small>Percorso relativo alla cartella archivio lavori. Puoi indicare anche una cartella esistente, es. <code>2025/2025-018 Bianchi</code>. Al cliente sono visibili solo le sottocartelle: <%= studio.categorie.map(c => c.cartella).join(', ') %>.</small>
+      <label>Cartella su <%= nomeArchivio %>
+        <input name="cartella" list="cartelle-libere" value="<%= lavoro.cartella || '' %>" placeholder="<%= archivioSolaLettura ? 'Scegli dall\'elenco la cartella condivisa su Drive' : 'Lascia vuoto per crearla automaticamente (es. 2026-001 Rossi Ristrutturazione)' %>"<%= archivioSolaLettura ? ' required' : '' %>>
+        <datalist id="cartelle-libere"><% (cartelleLibere || []).forEach(c => { %><option value="<%= c %>"><% }) %></datalist>
+        <% if (archivioSolaLettura) { %><small>Compaiono qui le cartelle dei lavori condivise su Google Drive con l'account di servizio dell'area clienti<%= (cartelleLibere || []).length ? '' : ' (al momento nessuna libera)' %>.</small><% } %>
+        <small>Percorso relativo alla cartella archivio lavori. Puoi indicare anche una cartella esistente, es. <code>2025/2025-018 Bianchi</code>. Ogni sottocartella (es. <code>Accesso atti</code>, <code>CILA</code>) diventa una pratica. Quelle con un nome riconosciuto sono visibili al cliente; le altre restano private finché non le rendi visibili.</small>
       </label>
       <fieldset>
         <legend>Clienti con accesso</legend>
         <% if (!tuttiClienti.length) { %><p class="muto">Nessun cliente registrato. <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p><% } %>
-        <div class="scelte">
-          <% tuttiClienti.forEach(c => { %>
-            <label class="scelta"><input type="checkbox" name="clienti" value="<%= c.id %>" <%= clientiSel.map(Number).includes(c.id) ? 'checked' : '' %>> <%= c.nome %> <small class="muto"><%= c.email %></small></label>
+        <% const ruoloDi = (id) => { const x = (clientiSel || []).find(c => Number(c.id ?? c) === id); return x ? (x.ruolo || 'proprietario') : ''; };
+           const collegati = tuttiClienti.filter(c => ruoloDi(c.id));
+           const liberi = tuttiClienti.filter(c => !ruoloDi(c.id)); %>
+        <div class="collegati" data-collegati="ruolo">
+          <% if (!collegati.length) { %><p class="vuoto" data-vuoto>Nessun cliente collegato.</p><% } %>
+          <% collegati.forEach(c => { const r = ruoloDi(c.id); %>
+            <div class="collegato">
+              <span class="collegato-nome"><%= c.nome %> <small class="muto"><%= c.email %></small></span>
+              <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo di <%= c.nome %>">
+                <% Object.entries(RUOLI).forEach(([k, d]) => { %><label><input type="radio" name="ruolo_<%= c.id %>" value="<%= k %>" <%= r === k ? 'checked' : '' %>> <%= d.nome %></label><% }) %>
+              </span>
+              <button type="button" class="rimuovi" data-rimuovi aria-label="Rimuovi <%= c.nome %> dal lavoro">✕ Rimuovi</button>
+            </div>
           <% }) %>
         </div>
+        <% if (liberi.length) { %>
+          <div class="aggiungi-collegato" data-aggiungi="ruolo">
+            <label>Aggiungi un cliente
+              <select name="aggiungi_cliente">
+                <option value="">— scegli dall'elenco —</option>
+                <% liberi.forEach(c => { %><option value="<%= c.id %>" data-email="<%= c.email %>"><%= c.nome %> (<%= c.email %>)</option><% }) %>
+              </select></label>
+            <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo del cliente da aggiungere">
+              <% Object.entries(RUOLI).forEach(([k, d], i) => { %><label><input type="radio" name="aggiungi_ruolo" value="<%= k %>" <%= i === 0 ? 'checked' : '' %>> <%= d.nome %></label><% }) %>
+            </span>
+            <button type="button" class="pulsante piccolo secondario" data-aggiungi-btn hidden>Aggiungi</button>
+          </div>
+        <% } %>
+        <p class="nota">Per togliere una persona premi <b>✕ Rimuovi</b> sulla sua riga, poi <b>Salva</b>. Ognuno vede solo le cartelle spuntate per il suo ruolo. Non trovi la persona? <a href="/studio/clienti/nuovo">Crea un cliente</a>.</p>
+        <% if (tutteAziende.length) { const aRuolo = (id) => { const x = (aziendeSel || []).find(a => a.id === id); return x ? x.ruolo : ''; };
+             const RA = { agenzia: 'Agenzia immobiliare', impresa: 'Impresa' };
+             const azColl = tutteAziende.filter(a => aRuolo(a.id)); const azLib = tutteAziende.filter(a => !aRuolo(a.id)); %>
+          <h3>Agenzie e aziende</h3>
+          <p class="nota">Tutte le persone dell'azienda vedono il lavoro con il ruolo scelto.</p>
+          <div class="collegati" data-collegati="azienda">
+            <% if (!azColl.length) { %><p class="vuoto" data-vuoto>Nessuna azienda collegata.</p><% } %>
+            <% azColl.forEach(a => { const r = aRuolo(a.id); %>
+              <div class="collegato">
+                <span class="collegato-nome"><%= a.nome %> <small class="muto"><%= a.n_persone %> person<%= a.n_persone === 1 ? 'a' : 'e' %></small></span>
+                <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo di <%= a.nome %>">
+                  <% Object.entries(RA).forEach(([k, n]) => { %><label><input type="radio" name="azienda_<%= a.id %>" value="<%= k %>" <%= r === k ? 'checked' : '' %>> <%= n %></label><% }) %>
+                </span>
+                <button type="button" class="rimuovi" data-rimuovi aria-label="Rimuovi <%= a.nome %> dal lavoro">✕ Rimuovi</button>
+              </div>
+            <% }) %>
+          </div>
+          <% if (azLib.length) { %>
+            <div class="aggiungi-collegato" data-aggiungi="azienda">
+              <label>Aggiungi un'azienda
+                <select name="aggiungi_azienda">
+                  <option value="">— scegli dall'elenco —</option>
+                  <% azLib.forEach(a => { %><option value="<%= a.id %>" data-email="<%= a.n_persone %> person<%= a.n_persone === 1 ? 'a' : 'e' %>"><%= a.nome %></option><% }) %>
+                </select></label>
+              <span class="ruoli-spunte" role="radiogroup" aria-label="Ruolo dell'azienda da aggiungere">
+                <% Object.entries(RA).forEach(([k, n], i) => { %><label><input type="radio" name="aggiungi_azienda_ruolo" value="<%= k %>" <%= i === 0 ? 'checked' : '' %>> <%= n %></label><% }) %>
+              </span>
+              <button type="button" class="pulsante piccolo secondario" data-aggiungi-btn hidden>Aggiungi</button>
+            </div>
+          <% } %>
+        <% } %>
+        <label class="scelta consenso"><input type="checkbox" name="consenso_agenzia" value="1">
+          Se colleghi un'<strong>agenzia immobiliare</strong>: confermo di avere l'autorizzazione del proprietario a mostrarle i documenti dell'immobile (viene registrata la data).</label>
       </fieldset>
       <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= Number(lavoro.visibile) ? 'checked' : '' %>> Visibile nell'area clienti</label>
       <button class="pulsante">Salva</button>
     </form>
   </div>
 </section>
+<script src="/js/clienti-lavoro.js?v=<%= versione %>" defer></script>
 <%- include('../partials/piede') %>

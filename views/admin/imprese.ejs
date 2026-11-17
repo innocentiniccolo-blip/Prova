@@ -1,0 +1,29 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Imprese</h1>
+    </div>
+    <p class="muto">Anagrafica delle imprese e dei lavoratori autonomi che entrano nei tuoi cantieri. Visura, DURC e patente a crediti si caricano una volta sola e valgono per tutti i cantieri dell'impresa.</p>
+
+    <details class="carta">
+      <summary><strong>+ Nuova impresa</strong></summary>
+      <%- include('../partials/form-impresa', { impresa: {}, azione: '/studio/imprese', pulsante: 'Crea impresa' }) %>
+    </details>
+
+    <% if (!imprese.length) { %><div class="carta"><p class="vuoto">Nessuna impresa inserita.</p></div><% } %>
+    <div class="griglia-imprese">
+      <% imprese.forEach(i => { %>
+        <article class="carta">
+          <div class="pratica-testa">
+            <h3><a href="/studio/imprese/<%= i.id %>"><%= i.ragione_sociale %></a></h3>
+            <% if (i.riepilogo.problemi) { %><span class="badge doc-scaduto"><%= i.riepilogo.problemi %> da sistemare</span><% } else { %><span class="badge doc-ok">In regola</span><% } %>
+          </div>
+          <p class="muto piccolo"><%= i.autonomo ? 'Lavoratore autonomo' : 'Impresa' %><% if (i.piva) { %> · P.IVA <%= i.piva %><% } %> · <%= i.n_lavori %> cantier<%= i.n_lavori === 1 ? 'e' : 'i' %></p>
+          <%- include('../partials/riepilogo-impresa', { i, tipiDoc, linkDoc: (d) => `/studio/imprese/${i.id}/documenti/${d.id}` }) %>
+        </article>
+      <% }) %>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

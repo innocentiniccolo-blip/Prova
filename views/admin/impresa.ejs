@@ -1,0 +1,166 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <a class="indietro" href="/studio/imprese">← Tutte le imprese</a>
+    <div class="intestazione-lavoro">
+      <div>
+        <small class="codice"><%= impresa.autonomo ? 'Lavoratore autonomo' : 'Impresa' %><% if (impresa.piva) { %> · P.IVA <%= impresa.piva %><% } %></small>
+        <h1><%= impresa.ragione_sociale %></h1>
+        <% if (impresa.sede) { %><p class="muto"><%= impresa.sede %></p><% } %>
+      </div>
+      <% if (riepilogo.problemi) { %><span class="badge grande doc-scaduto"><%= riepilogo.problemi %> document<%= riepilogo.problemi === 1 ? 'o' : 'i' %> da sistemare</span><% } else { %><span class="badge grande doc-ok">Documenti in regola</span><% } %>
+    </div>
+
+    <div class="layout-lavoro">
+      <div>
+        <div class="carta">
+          <h2>Situazione</h2>
+          <%- include('../partials/riepilogo-impresa', { i: { riepilogo }, tipiDoc, linkDoc: (d) => `/studio/imprese/${impresa.id}/documenti/${d.id}` }) %>
+        </div>
+
+        <% if (arrivi.length) { %>
+        <div class="carta evidenza" id="arrivi">
+          <h2>Arrivati dall'impresa: da controllare (<%= arrivi.length %>)</h2>
+          <p class="nota">Controlla il file e i dati letti in automatico, poi premi <b>Registra</b>: diventa il documento valido dell'impresa. Se non va bene, <b>Scarta</b> lo cancella.</p>
+          <% arrivi.forEach(a => { const l = a.letto || {}; %>
+            <form method="post" action="/studio/imprese/<%= impresa.id %>/arrivi/<%= a.id %>" class="modulo arrivo">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <p><strong><%= a.nome %></strong> <small class="muto">(<%= dimensione(a.dimensione) %>)</small><br>
+                <small class="muto">Arrivato <%= a.origine === 'email' ? `per email da ${a.mittente}` : 'dal link di caricamento' %> il <%= dataOra(a.ricevuto_il) %></small><br>
+                <% if (a.antivirus === 'pulito') { %><span class="badge doc-ok">Antivirus: nessuna minaccia</span>
+                <% } else { %><span class="badge doc-in-scadenza" title="<%= a.antivirus_dettaglio %>">Antivirus: non controllato</span> <small class="muto">si può solo scaricare: aprilo se ti aspettavi questo file</small><% } %>
+                · <a href="/studio/imprese/<%= impresa.id %>/arrivi/<%= a.id %>" target="_blank" rel="noopener"><%= a.antivirus === 'pulito' ? 'Apri' : 'Scarica' %></a></p>
+              <div class="riga-campi">
+                <label>Tipo
+                  <select name="tipo"><% Object.entries(tipiDoc).forEach(([k, v]) => { %><option value="<%= k %>" <%= l.tipo === k ? 'selected' : '' %>><%= v %></option><% }) %></select></label>
+                <label>Data di rilascio <input type="date" name="rilascio" value="<%= l.rilascio || '' %>"></label>
+                <label>Scadenza <input type="date" name="scadenza" value="<%= l.scadenza || '' %>"></label>
+              </div>
+              <div class="riga-campi">
+                <label>Numero / codice <input name="numero" maxlength="100" value="<%= l.numero || '' %>"></label>
+                <label>Crediti <small>(solo patente)</small> <input type="number" name="crediti" min="0" max="200" value="<%= l.crediti ?? '' %>"></label>
+                <label>Descrizione <small>(per «Altro»)</small> <input name="descrizione" maxlength="200"></label>
+              </div>
+              <div class="azioni">
+                <button class="pulsante" name="azione" value="approva">Registra</button>
+                <button class="link pericolo" name="azione" value="scarta" data-conferma="Scartare e cancellare questo file?">Scarta</button>
+              </div>
+            </form>
+          <% }) %>
+          <% if (!antivirusAttivo) { %><p class="nota">L'antivirus sul server non è ancora attivo: vedi la guida, punto «Sicurezza cantiere».</p><% } %>
+        </div>
+        <% } %>
+
+        <div class="carta" id="promemoria">
+          <h2>Promemoria all'impresa</h2>
+          <% if (!daSollecitare.length) { %>
+            <p class="vuoto">Tutti i documenti sono in regola: nessun promemoria da inviare.</p>
+          <% } else if (!destinatario) { %>
+            <p class="avviso">Per inviare promemoria via email aggiungi l'email (o la PEC) dell'impresa in «Modifica dati»<%= telefono.cellulare(impresa.telefono) ? ', oppure usa WhatsApp qui sotto' : '' %>.</p>
+          <% } else { %>
+            <ul class="promemoria-lista">
+              <% daSollecitare.forEach(v => { %>
+                <li>
+                  <span class="doc-nome"><%= v.nome %></span>
+                  <span class="badge doc-<%= v.stato.codice %>"><%= v.stato.testo %></span>
+                  <% if (v.ultimo) { %><small class="muto">Promemoria inviato il <%= data(v.ultimo.slice(0, 10)) %></small><% } %>
+                  <form method="post" action="/studio/imprese/<%= impresa.id %>/promemoria" class="in-linea" data-conferma="Inviare a <%= destinatario %> il promemoria per: <%= v.nome %>?">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="tipo" value="<%= v.tipo %>">
+                    <button class="pulsante piccolo secondario">Invia promemoria</button>
+                  </form>
+                </li>
+              <% }) %>
+            </ul>
+            <% if (daSollecitare.length > 1) { %>
+              <form method="post" action="/studio/imprese/<%= impresa.id %>/promemoria" data-conferma="Inviare a <%= destinatario %> un'unica email con tutti i <%= daSollecitare.length %> documenti da aggiornare?">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <button class="pulsante">Invia promemoria per tutti i documenti (<%= daSollecitare.length %>)</button>
+              </form>
+            <% } %>
+            <p class="nota">La mail parte da info@ verso <strong><%= destinatario %></strong><%= impresa.email ? '' : ' (PEC: alcune caselle PEC rifiutano la posta normale, meglio aggiungere un\'email)' %>. Contiene un link per caricare i documenti (valido 14 giorni) e si può anche rispondere alla mail con gli allegati.</p>
+          <% } %>
+          <% if (daSollecitare.length && telefono.cellulare(impresa.telefono)) { %>
+            <form method="post" action="/studio/imprese/<%= impresa.id %>/promemoria-whatsapp" target="_blank" class="promemoria-wa">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="pulsante whatsapp">Promemoria su WhatsApp (<%= daSollecitare.length === 1 ? '1 documento' : `${daSollecitare.length} documenti` %>)</button>
+              <small class="muto">Apre WhatsApp con il messaggio già scritto e il link per caricare: lo invii tu.</small>
+            </form>
+          <% } %>
+        </div>
+
+        <div class="carta" id="carica">
+          <h2>Carica un documento</h2>
+          <form method="post" action="/studio/imprese/<%= impresa.id %>/documenti" enctype="multipart/form-data" class="modulo" data-documento-impresa>
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="riga-campi">
+              <label>Tipo
+                <select name="tipo">
+                  <% Object.entries(tipiDoc).forEach(([k, v]) => { %><option value="<%= k %>"><%= v %></option><% }) %>
+                </select>
+              </label>
+              <label>Data di rilascio <input type="date" name="rilascio"></label>
+              <label>Scadenza <input type="date" name="scadenza"></label>
+            </div>
+            <div class="riga-campi">
+              <label>Numero / codice <input name="numero" maxlength="100" placeholder="es. protocollo DURC, codice patente"></label>
+              <label>Crediti <small>(solo patente)</small> <input type="number" name="crediti" min="0" max="200"></label>
+              <label>Descrizione <small>(per «Altro»)</small> <input name="descrizione" maxlength="200" placeholder="es. POS, attestati formazione"></label>
+            </div>
+            <input type="file" name="file" aria-label="File del documento" accept=".pdf,.jpg,.jpeg,.png">
+            <p class="nota">Se lasci vuota la scadenza: per il DURC la calcolo a 120 giorni dal rilascio; per la visura segnalo di aggiornarla dopo 6 mesi. Per la patente a crediti il file è facoltativo: bastano codice e crediti letti sul portale INL. Sotto i <%= creditiMinimi %> crediti l'impresa non può lavorare in cantiere.</p>
+            <button class="pulsante">Registra documento</button>
+          </form>
+        </div>
+
+        <div class="carta">
+          <h2>Archivio documenti</h2>
+          <% if (!documenti.length) { %><p class="vuoto">Nessun documento caricato.</p><% } %>
+          <table class="tabella">
+            <tbody>
+              <% documenti.forEach(d => { %>
+                <tr>
+                  <td><strong><%= d.tipo === 'altro' && d.descrizione ? d.descrizione : tipiDoc[d.tipo] %></strong><br>
+                    <small class="muto"><% if (d.numero) { %><%= d.numero %> · <% } %><% if (d.rilascio) { %>del <%= data(d.rilascio) %><% } %><% if (d.scadenza) { %> · scad. <%= data(d.scadenza) %><% } %><% if (d.crediti != null) { %> · <%= d.crediti %> crediti<% } %></small></td>
+                  <td><span class="badge doc-<%= d.stato.codice %>"><%= d.stato.testo %></span></td>
+                  <td class="azioni">
+                    <% if (d.file) { %><a href="/studio/imprese/<%= impresa.id %>/documenti/<%= d.id %>" target="_blank" rel="noopener">Apri</a><% } %>
+                    <form method="post" action="/studio/imprese/<%= impresa.id %>/documenti/<%= d.id %>/elimina" class="in-linea" data-conferma="Eliminare questo documento?">
+                      <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <p class="nota">Il cliente vede solo il documento più recente di ogni tipo.</p>
+        </div>
+      </div>
+
+      <aside>
+        <div class="carta">
+          <h2>Cantieri</h2>
+          <% if (!lavori.length) { %><p class="vuoto">Non ancora collegata a nessun lavoro. Aggiungila dalla pagina del lavoro.</p><% } %>
+          <ul class="semplice">
+            <% lavori.forEach(l => { %><li><a href="/studio/lavori/<%= l.id %>#sicurezza"><%= l.codice %> – <%= l.titolo %></a><% if (l.ruolo) { %><br><small class="muto"><%= l.ruolo %></small><% } %></li><% }) %>
+          </ul>
+        </div>
+        <details class="carta">
+          <summary><strong>Modifica dati</strong></summary>
+          <%- include('../partials/form-impresa', { impresa, azione: `/studio/imprese/${impresa.id}`, pulsante: 'Salva' }) %>
+        </details>
+        <% if (impresa.email || impresa.pec || impresa.telefono) { %>
+          <div class="carta"><h2>Contatti</h2><dl class="dati">
+            <% if (impresa.email) { %><dt>Email</dt><dd><%= impresa.email %></dd><% } %>
+            <% if (impresa.pec) { %><dt>PEC</dt><dd><%= impresa.pec %></dd><% } %>
+            <% if (impresa.telefono) { %><dt>Telefono</dt><dd><%= impresa.telefono %></dd><% } %>
+          </dl>
+          <% if (impresa.telefono) { %><%- include('../partials/contatti-tel', { numero: impresa.telefono, piccolo: true }) %><% } %><% if (impresa.nota) { %><p class="a-capo muto"><%= impresa.nota %></p><% } %></div>
+        <% } %>
+        <form method="post" action="/studio/imprese/<%= impresa.id %>/elimina" data-conferma="Eliminare l'impresa, tutti i suoi documenti e i collegamenti ai cantieri?">
+          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina impresa</button>
+        </form>
+      </aside>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

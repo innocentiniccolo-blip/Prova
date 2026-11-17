@@ -1,0 +1,47 @@
+<%# Parametri: p (pratica con .file), base (url base del lavoro), admin (bool), anteprimaPossibile %>
+<% if (!p.file.length) { %>
+  <p class="vuoto"><%= admin ? `Nessun file nella cartella «${p.cartella}».` : 'Nessun documento per ora.' %></p>
+<% } else { %>
+  <ul class="file-lista">
+    <% p.file.forEach(f => {
+         const q = `p=${p.id}&f=${encodeURIComponent(f.percorso)}` + (typeof come !== 'undefined' && come ? `&come=${encodeURIComponent(come)}` : '');
+         const est = (f.nome.split('.').pop() || '').toUpperCase().slice(0, 4); %>
+      <li>
+        <span class="file-tipo"><%= est %></span>
+        <span class="file-info">
+          <a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener"><%= f.nome %></a>
+          <small><% if (f.cartella) { %><%= f.cartella %> · <% } %><%= dimensione(f.dimensione) %> · <%= data(f.modificato) %></small>
+          <% if (admin && f.notaVisura) { %><small class="nota-visura<%= f.visuraAuto ? ' si' : '' %>"><%= f.notaVisura %></small><% } %>
+        </span>
+        <span class="file-azioni">
+          <% if (anteprimaPossibile(f.nome)) { %><a href="<%= base %>/file?<%= q %>" target="_blank" rel="noopener"><%= /\.html?$/i.test(f.nome) ? "Apri il modello 3D" : "Apri" %></a><% } %>
+          <a href="<%= base %>/file?<%= q %>&scarica=1">Scarica</a>
+          <% if (admin) { %>
+            <% if (f.sensibile) { %>
+              <span class="badge doc-scaduto" title="Il nome indica <%= f.sensibile %>: non può essere pubblicato">Sensibile: sempre privato</span>
+            <% } else if (f.automatico) { %>
+              <span class="badge visibile" title="È nella cartella Presentazione: per nasconderlo spostalo fuori">Visibile (Presentazione)</span>
+            <% } else { %>
+              <form method="post" action="<%= base %>/documenti/visibilita" class="in-linea">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <input type="hidden" name="p" value="<%= p.id %>">
+                <input type="hidden" name="f" value="<%= f.percorso %>">
+                <% if (f.pubblicato) { %>
+                  <span class="badge visibile"><%= f.visuraAuto ? 'Visibile (visura automatica)' : 'Visibile al cliente' %></span> <button class="link" name="azione" value="nascondi">Nascondi</button>
+                <% } else { %>
+                  <span class="badge privata"><%= f.cambiato ? 'Modificato: di nuovo privato' : 'Privato' %></span> <button class="link" name="azione" value="pubblica">Pubblica</button>
+                <% } %>
+              </form>
+            <% } %>
+            <% if (!archivioSolaLettura) { %><form method="post" action="<%= base %>/documenti/elimina" class="in-linea" data-conferma="Eliminare definitivamente «<%= f.nome %>» dal NAS?">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <input type="hidden" name="p" value="<%= p.id %>">
+              <input type="hidden" name="f" value="<%= f.percorso %>">
+              <button class="link pericolo">Elimina</button>
+            </form><% } %>
+          <% } %>
+        </span>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>

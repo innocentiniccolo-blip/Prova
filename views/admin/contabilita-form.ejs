@@ -1,0 +1,90 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore medio">
+    <a class="indietro" href="/studio/contabilita">← Contabilità</a>
+    <h1><%= n.id ? `Notula ${codice}` : 'Nuova notula' %> <% if (n.id) { %><span class="badge"><%= n.stato %></span><% } %></h1>
+    <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+    <% if (n.id && n.stato === 'inviata') { %><p class="nota">Inviata il <%= dataOra(n.inviata_il) %>. Se modifichi qualcosa, il cliente ha ancora la versione precedente.</p><% } %>
+    <form method="post" action="<%= n.id ? `/studio/contabilita/${n.id}` : '/studio/contabilita' %>" class="modulo carta" id="form-notula"
+      data-cassa="<%= n.cassa_pct %>" data-iva="<%= n.iva_pct %>">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="riga-campi">
+        <label>Destinatario <input name="dest_nome" value="<%= n.dest_nome %>" required maxlength="200"></label>
+        <label>C.F. / P.IVA <input name="dest_cf" value="<%= n.dest_cf %>" maxlength="40"></label>
+      </div>
+      <div class="riga-campi">
+        <label>Indirizzo <input name="dest_indirizzo" value="<%= n.dest_indirizzo %>" maxlength="300"></label>
+        <label>Email per l'invio <input type="email" name="dest_email" value="<%= n.dest_email %>" maxlength="200"></label>
+      </div>
+      <div class="riga-campi">
+        <label>Lavoro collegato
+          <select name="lavoro_id">
+            <option value="">— nessuno —</option>
+            <% lavori.forEach(l => { %><option value="<%= l.id %>" <%= Number(n.lavoro_id) === l.id ? 'selected' : '' %>><%= l.codice %> – <%= l.titolo %></option><% }) %>
+          </select>
+        </label>
+        <label class="stretto-campo">Data <input type="date" name="data" value="<%= n.data %>" required></label>
+      </div>
+      <label>Oggetto <input name="oggetto" value="<%= n.oggetto %>" maxlength="300"></label>
+
+      <h2>Prestazioni</h2>
+      <div class="righe-conta" id="righe-voci">
+        <% n.voci.forEach(v => { %>
+          <div class="riga-conta"><input name="voce_desc" value="<%= v.d %>" placeholder="Descrizione della prestazione" maxlength="300"><input name="voce_importo" class="importo" value="<%= v.c ? (v.c / 100).toFixed(2).replace('.', ',') : '' %>" placeholder="0,00" inputmode="decimal"><button type="button" class="link togli" title="Togli riga">✕</button></div>
+        <% }) %>
+      </div>
+      <button type="button" class="pulsante secondario piccolo" data-aggiungi="voce">+ Aggiungi prestazione</button>
+
+      <h2>Spese anticipate</h2>
+      <p class="muto">Rimborsi per conto del cliente (diritti di segreteria, bolli, visure): fuori campo IVA. Se superano 77,47 € si aggiunge il bollo da 2 €.</p>
+      <div class="righe-conta" id="righe-spese">
+        <% n.spese.forEach(v => { %>
+          <div class="riga-conta"><input name="spesa_desc" value="<%= v.d %>" placeholder="Descrizione della spesa" maxlength="300"><input name="spesa_importo" class="importo" value="<%= v.c ? (v.c / 100).toFixed(2).replace('.', ',') : '' %>" placeholder="0,00" inputmode="decimal"><button type="button" class="link togli" title="Togli riga">✕</button></div>
+        <% }) %>
+      </div>
+      <button type="button" class="pulsante secondario piccolo" data-aggiungi="spesa">+ Aggiungi spesa</button>
+
+      <h2>Calcolo</h2>
+      <div class="riga-campi">
+        <label class="stretto-campo">Contributo integrativo % <input name="cassa_pct" value="<%= String(n.cassa_pct).replace('.', ',') %>" inputmode="decimal"></label>
+        <label class="stretto-campo">IVA % <input name="iva_pct" value="<%= String(n.iva_pct).replace('.', ',') %>" inputmode="decimal"></label>
+      </div>
+      <label class="scelta"><input type="checkbox" name="sostituto" value="1" <%= n.sostituto ? 'checked' : '' %>> Il cliente è sostituto d'imposta (società, condominio, professionista): applica la ritenuta d'acconto del 20% sul compenso</label>
+      <table class="tabella totali-conta" id="totali">
+        <tr><td>Compenso</td><td class="destra" data-t="compenso"><%= eur(totali.compenso) %></td></tr>
+        <tr><td>Contributo integrativo</td><td class="destra" data-t="cassa"><%= eur(totali.cassa) %></td></tr>
+        <tr><td>IVA</td><td class="destra" data-t="iva"><%= eur(totali.iva) %></td></tr>
+        <tr><td>Spese anticipate</td><td class="destra" data-t="anticipate"><%= eur(totali.anticipate) %></td></tr>
+        <tr><td>Bollo</td><td class="destra" data-t="bollo"><%= eur(totali.bollo) %></td></tr>
+        <tr><td><b>Totale</b></td><td class="destra" data-t="totale"><b><%= eur(totali.totale) %></b></td></tr>
+        <tr><td>Ritenuta d'acconto</td><td class="destra" data-t="ritenuta">− <%= eur(totali.ritenuta) %></td></tr>
+        <tr><td><b>Netto a pagare</b></td><td class="destra" data-t="netto"><b><%= eur(totali.netto) %></b></td></tr>
+      </table>
+      <label>Note (compaiono sul PDF) <textarea name="note" rows="3" maxlength="1000"><%= n.note %></textarea></label>
+      <button class="pulsante">Salva</button>
+    </form>
+
+    <% if (n.id) { %>
+      <div class="carta azioni">
+        <a class="pulsante secondario" href="/studio/contabilita/<%= n.id %>/notula.pdf" target="_blank" rel="noopener">Anteprima PDF</a>
+        <a class="pulsante secondario" href="/studio/contabilita/<%= n.id %>/notula.pdf?scarica=1">Scarica PDF</a>
+        <% if (ammAttiva && n.stato !== 'pagata') { %>
+          <form method="post" action="/studio/contabilita/<%= n.id %>/invia" class="in-linea" data-conferma="Inviare la notula a <%= n.dest_email || 'questo cliente' %> da amministrazione@?">
+            <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante">Invia a <%= n.dest_email || 'cliente' %></button>
+          </form>
+        <% } else if (!ammAttiva) { %><span class="muto">Invio non attivo: manca la casella amministrazione sul server.</span><% } %>
+        <% if (n.stato === 'inviata') { %>
+          <form method="post" action="/studio/contabilita/<%= n.id %>/stato" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="stato" value="pagata"><button class="pulsante secondario">Segna come pagata</button></form>
+        <% } else if (n.stato === 'pagata') { %>
+          <form method="post" action="/studio/contabilita/<%= n.id %>/stato" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="stato" value="inviata"><button class="pulsante secondario">Riapri</button></form>
+        <% } %>
+        <% if (n.stato === 'bozza' || n.stato === 'inviata') { %>
+          <form method="post" action="/studio/contabilita/<%= n.id %>/elimina" class="in-linea" data-conferma="<%= n.stato === 'inviata' ? 'Eliminare questa notula già inviata? La mail al cliente resta comunque spedita.' : 'Eliminare questa bozza?' %>"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante pericolo"><%= n.stato === 'inviata' ? 'Elimina notula' : 'Elimina bozza' %></button></form>
+        <% } %>
+      </div>
+      <p class="muto">Salva prima di inviare: l'email contiene l'ultima versione salvata.</p>
+    <% } %>
+  </div>
+</section>
+<script src="/js/contabilita.js?v=<%= versione %>" defer></script>
+<%- include('../partials/piede') %>

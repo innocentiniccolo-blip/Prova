@@ -2,7 +2,7 @@
 <section class="sezione">
   <div class="contenitore">
     <% if (utente.ruolo === 'admin') { %>
-      <div class="avviso info">Anteprima: stai vedendo la pagina come la vede il cliente. <a href="/studio/lavori/<%= lavoro.id %>">Torna alla gestione</a></div>
+      <div class="avviso info">Anteprima: stai vedendo la pagina come la vede il ruolo «<%= nomeRuolo %>». Altri ruoli: <a href="?come=proprietario">proprietario</a> · <a href="?come=agenzia">agenzia</a> · <a href="?come=impresa">impresa</a>. <a href="/studio/lavori/<%= lavoro.id %>">Torna alla gestione</a></div>
     <% } else { %>
       <a class="indietro" href="/area">← I miei lavori</a>
     <% } %>
@@ -20,12 +20,118 @@
         <% if (lavoro.descrizione) { %>
           <div class="carta"><h2>Descrizione</h2><p class="a-capo"><%= lavoro.descrizione %></p></div>
         <% } %>
-        <div class="carta" id="documenti">
-          <h2>Documenti</h2>
-          <%- include('../partials/documenti', { categorie, base: `/area/lavori/${lavoro.id}`, admin: false }) %>
-        </div>
+        <% if (richieste.length) { const daFare = richieste.filter(r => r.stato === 'aperta').length; %>
+          <h2 class="titolo-sezione" id="richieste">Documenti richiesti<% if (daFare) { %> <span class="conta attenzione"><%= daFare %> da inviare</span><% } %></h2>
+          <% richieste.forEach(r => { %>
+            <article class="carta richiesta <%= r.stato %>">
+              <div class="pratica-testa">
+                <h3><%= r.titolo %></h3>
+                <span class="badge richiesta-<%= r.stato %>"><%= r.stato === 'aperta' ? 'Da inviare' : r.stato === 'inviata' ? 'Inviato, in verifica' : 'Ricevuto ✓' %></span>
+              </div>
+              <% if (r.descrizione) { %><p class="a-capo muto"><%= r.descrizione %></p><% } %>
+              <% if (r.file.length) { %>
+                <ul class="file-inviati">
+                  <% r.file.forEach(f => { %>
+                    <li>
+                      <span><%= f.nome %> <small class="muto"><%= dimensione(f.dimensione) %> · inviato il <%= data(f.caricato_il) %></small></span>
+                      <% if (r.stato !== 'completa' && f.utente_id === utente.id) { %>
+                        <form method="post" action="/area/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file/<%= f.id %>/elimina" class="in-linea" data-conferma="Togliere questo file?">
+                          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Togli</button>
+                        </form>
+                      <% } %>
+                    </li>
+                  <% }) %>
+                </ul>
+              <% } %>
+              <% if (r.altriFile) { %><p class="nota">Altri <%= r.altriFile %> file inviati da un altro intestatario.</p><% } %>
+              <% if (r.stato !== 'completa') { %>
+                <form method="post" action="/area/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file" enctype="multipart/form-data" class="carica invio-cliente" data-invio>
+                  <input type="file" name="file" multiple required accept="<%= estensioni.join(',') %>" aria-label="File da inviare per: <%= r.titolo %>">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <button class="pulsante"><%= r.file.length ? 'Invia altri file' : 'Invia allo studio' %></button>
+                </form>
+              <% } %>
+            </article>
+          <% }) %>
+          <p class="nota">Puoi inviare PDF, foto (JPG, PNG, HEIC) e documenti Word o Excel, fino a <%= limitiRichieste.fileMb %> MB per file e <%= limitiRichieste.filePerInvio %> file per volta. Dal telefono puoi anche fotografare il documento.</p>
+        <% } %>
+        <% if (typeof schedaImmobile !== 'undefined' && schedaImmobile) { %>
+          <div class="carta scheda-immobile" id="scheda">
+            <h2>Scheda immobile <% if (schedaImmobile.pronto) { %><span class="badge tono-ok">Documentazione completa</span><% } %></h2>
+            <dl class="scheda-righe">
+              <% schedaImmobile.righe.forEach(r => { %><dt><%= r.voce %></dt><dd><span class="pallino tono-<%= r.tono %>"></span><%= r.testo %></dd><% }) %>
+            </dl>
+            <% if (schedaImmobile.nota) { %><p class="a-capo nota"><%= schedaImmobile.nota %></p><% } %>
+            <% const come = utente && utente.ruolo === 'admin' ? `?come=${ruoloVista}` : ''; %>
+            <p class="azioni-scheda"><a class="pulsante" href="/area/lavori/<%= lavoro.id %>/fabbricato.pdf<%= come %>" target="_blank" rel="noopener">Fascicolo del fabbricato (PDF)</a>
+              <small class="muto">Dati catastali, urbanistici, classe energetica e posizione su carta intestata dello studio, da stampare o inoltrare.</small></p>
+            <% if (fascicoloDisponibile) { %><a class="pulsante secondario" href="/area/lavori/<%= lavoro.id %>/fascicolo.zip<%= utente && utente.ruolo === 'admin' ? `?come=${ruoloVista}` : '' %>">Scarica il fascicolo (ZIP)</a>
+              <small class="muto">Tutti i documenti di questa pagina in un unico file, pronto da inoltrare al notaio.</small><% } %>
+          </div>
+        <% } %>
+        <h2 class="titolo-sezione" id="pratiche">Le pratiche</h2>
+        <% if (!pratiche.length) { %>
+          <div class="carta"><p class="vuoto">Lo studio aggiungerà qui le pratiche man mano che il lavoro procede.</p></div>
+        <% } %>
+        <% pratiche.forEach(p => { %>
+          <article class="carta pratica" id="pratica-<%= p.id %>">
+            <div class="pratica-testa">
+              <h3><%= p.nome %></h3>
+              <% if (!p.base) { %><span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span><% } %>
+            </div>
+            <% if (!p.base) { %><p class="pratica-stato">
+              <%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. n. <strong><%= p.protocollo %></strong><% } %>
+            </p><% } %>
+            <%- include('../partials/tappe-pratica', { elenco: tappe[p.id] }) %>
+            <% if (p.nota) { %><p class="pratica-nota a-capo"><%= p.nota %></p><% } %>
+            <% if (p.file.length) { %>
+              <details class="pratica-documenti">
+                <summary>Documenti <span class="conta"><%= p.file.length %></span></summary>
+                <%- include('../partials/file-pratica', { p, base: `/area/lavori/${lavoro.id}`, admin: false, come: utente && utente.ruolo === 'admin' ? ruoloVista : '' }) %>
+              </details>
+            <% } %>
+          </article>
+        <% }) %>
+        <% if (impreseCantiere.length || verbali.length) { %>
+          <h2 class="titolo-sezione" id="sicurezza">Sicurezza in cantiere</h2>
+          <% if (verbali.length) { %>
+            <div class="carta">
+              <h3>Verbali di cantiere</h3>
+              <table class="tabella verbali"><tbody>
+                <% verbali.forEach(v => { %>
+                  <tr>
+                    <td class="data-verbale"><strong><%= data(v.data) %></strong></td>
+                    <td><%= v.tipo %><% if (v.note) { %><br><small class="muto a-capo"><%= v.note %></small><% } %></td>
+                    <td><% if (v.file) { %><a href="/area/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" target="_blank" rel="noopener">Apri</a><% } %></td>
+                  </tr>
+                <% }) %>
+              </tbody></table>
+            </div>
+          <% } %>
+          <% if (impreseCantiere.length) { %>
+          <div class="carta">
+            <p class="muto">Le imprese che lavorano nel tuo cantiere e i loro documenti: visura camerale, regolarità contributiva (DURC) e patente a crediti per la sicurezza.</p>
+            <% impreseCantiere.forEach(i => { %>
+              <div class="impresa-cantiere">
+                <div class="pratica-testa">
+                  <span class="pratica-titolo"><strong><%= i.ragione_sociale %></strong>
+                    <small class="muto"><%= i.ruolo || (i.autonomo ? 'Lavoratore autonomo' : 'Impresa') %><% if (i.piva) { %> · P.IVA <%= i.piva %><% } %></small></span>
+                </div>
+                <%- include('../partials/riepilogo-impresa', { i, tipiDoc, linkDoc: (d) => `/area/lavori/${lavoro.id}/imprese/${i.id}/documenti/${d.id}` }) %>
+              </div>
+            <% }) %>
+          </div>
+          <% } %>
+        <% } %>
       </div>
       <aside>
+        <% if (utente.ruolo !== 'admin') { %>
+        <div class="carta contatta-studio">
+          <h2>Hai una domanda?</h2>
+          <p class="muto">Chiama o scrivi allo studio su WhatsApp: il messaggio parte già con il riferimento a questo lavoro.</p>
+          <%- include('../partials/contatti-tel', { numero: studio.telefono, testoWa: `Buongiorno, sono ${utente.nome}. Vi scrivo per il lavoro ${lavoro.codice} – ${lavoro.titolo}: ` }) %>
+        </div>
+        <% } %>
         <div class="carta">
           <h2>Dati del lavoro</h2>
           <dl class="dati">
@@ -34,6 +140,7 @@
             <% if (lavoro.data_fine) { %><dt>Fine prevista</dt><dd><%= data(lavoro.data_fine) %></dd><% } %>
           </dl>
         </div>
+        <% if (ruoloVista === 'proprietario') { %>
         <div class="carta">
           <h2>Aggiornamenti</h2>
           <% if (!aggiornamenti.length) { %><p class="vuoto">Nessun aggiornamento.</p><% } %>
@@ -43,6 +150,7 @@
             <% }) %>
           </ol>
         </div>
+        <% } %>
       </aside>
     </div>
   </div>

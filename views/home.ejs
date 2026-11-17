@@ -35,12 +35,12 @@
       <p><%= studio.presentazione %></p>
     </div>
     <div class="carta evidenza">
-      <h3>La tua cartella lavoro, sempre disponibile</h3>
+      <h3>Le tue pratiche, sempre sotto controllo</h3>
       <ul class="spunte">
-        <li>Progetti ed elaborati grafici</li>
-        <li>Computi metrici e preventivi</li>
-        <li>Contratti e incarichi</li>
-        <li>Pratiche, ricevute e foto di cantiere</li>
+        <li>A che punto è ogni pratica: accesso atti, CILA, SCIA, catasto…</li>
+        <li>Date di presentazione e numeri di protocollo</li>
+        <li>I documenti di ogni pratica, da aprire o scaricare</li>
+        <li>Cosa serve da te, quando serve</li>
         <li>Aggiornamenti sullo stato del lavoro</li>
       </ul>
       <a class="pulsante" href="/accedi">Accedi all'area clienti</a>
@@ -66,6 +66,7 @@
       <p>Descrivi brevemente l'intervento: ti ricontatteremo per un primo sopralluogo.</p>
       <div class="azioni">
         <a class="pulsante" href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>">Chiama <%= studio.telefono %></a>
+        <a class="pulsante whatsapp" href="<%= telefono.whatsapp(studio.telefono, 'Buongiorno, vi contatto dal sito dello studio. ') %>" target="_blank" rel="noopener">Scrivi su WhatsApp</a>
         <% if (studio.email) { %><a class="pulsante secondario" href="mailto:<%= studio.email %>?subject=Richiesta%20informazioni">Invia una email</a><% } %>
       </div>
     </div>

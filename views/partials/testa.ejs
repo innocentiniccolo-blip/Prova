@@ -6,7 +6,7 @@
   <title><%= titolo ? titolo + ' · ' : '' %><%= studio.nome %></title>
   <meta name="description" content="<%= studio.slogan %>">
   <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=<%= versione %>">
 </head>
 <body class="<%= percorso.startsWith('/studio') ? 'pannello' : '' %>">
 <header class="testata">
@@ -24,6 +24,10 @@
       <% } else if (utente.ruolo === 'admin') { %>
         <a href="/studio" class="<%= percorso === '/studio' || percorso.startsWith('/studio/lavori') ? 'attivo' : '' %>">Lavori</a>
         <a href="/studio/clienti" class="<%= percorso.startsWith('/studio/clienti') ? 'attivo' : '' %>">Clienti</a>
+        <a href="/studio/aziende" class="<%= percorso.startsWith('/studio/aziende') ? 'attivo' : '' %>">Agenzie</a>
+        <a href="/studio/imprese" class="<%= percorso.startsWith('/studio/imprese') ? 'attivo' : '' %>">Imprese</a>
+        <a href="/studio/contabilita" class="<%= percorso.startsWith('/studio/contabilita') ? 'attivo' : '' %>">Contabilità</a>
+        <a href="/studio/guida" class="<%= percorso === '/studio/guida' ? 'attivo' : '' %>">Guida</a>
         <form method="post" action="/esci" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Esci</button></form>
       <% } else { %>
         <a href="/area" class="<%= percorso.startsWith('/area/lavori') || percorso === '/area' ? 'attivo' : '' %>">I miei lavori</a>

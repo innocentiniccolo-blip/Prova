@@ -1,0 +1,6 @@
+<%# Pulsanti Chiama / WhatsApp. Parametri: numero, testoWa (facoltativo), piccolo (facoltativo) %>
+<% const _t = telefono.tel(numero); const _w = telefono.cellulare(numero) ? telefono.whatsapp(numero, typeof testoWa !== 'undefined' ? testoWa : '') : ''; const _p = typeof piccolo !== 'undefined' && piccolo; %>
+<% if (_t) { %><span class="contatti-tel">
+  <a class="pulsante <%= _p ? 'piccolo' : '' %> secondario" href="<%= _t %>">📞 Chiama</a>
+  <% if (_w) { %><a class="pulsante <%= _p ? 'piccolo' : '' %> whatsapp" href="<%= _w %>" target="_blank" rel="noopener">WhatsApp</a><% } %>
+</span><% } %>

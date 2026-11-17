@@ -8,12 +8,14 @@
       <% if (studio.albo) { %><small><%= studio.albo %></small><% } %>
     </div>
     <div class="piede-destra">
-      Cell. <a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a>
+      Cell. <a href="<%= telefono.tel(studio.telefono) %>"><%= studio.telefono %></a>
+      <% if (telefono.cellulare(studio.telefono)) { %> · <a href="<%= telefono.whatsapp(studio.telefono, 'Buongiorno, vi contatto dal sito dello studio. ') %>" target="_blank" rel="noopener">WhatsApp</a><% } %>
       <% if (studio.email) { %><br><a href="mailto:<%= studio.email %>"><%= studio.email %></a><% } %>
       <% if (studio.pec) { %><br>PEC: <a href="mailto:<%= studio.pec %>"><%= studio.pec %></a><% } %>
+      <br><a href="/privacy">Privacy e cookie</a>
     </div>
   </div>
 </footer>
-<script src="/js/app.js" defer></script>
+<script src="/js/app.js?v=<%= versione %>" defer></script>
 </body>
 </html>

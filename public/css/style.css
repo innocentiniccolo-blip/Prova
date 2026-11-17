@@ -105,6 +105,7 @@ legend { font-weight: 600; padding: 0 .3rem; }
 .filtro { margin-bottom: 1rem; }
 .carica { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; padding: 1rem; background: var(--azzurro-chiaro); border-radius: 8px; margin-bottom: 1.2rem; }
 .carica select { width: auto; }
+.carica input[name=altro] { flex: 1; width: auto; min-width: 180px; }
 .carica input[type=file] { flex: 1; min-width: 200px; background: #fff; }
 
 /* Avvisi */
@@ -123,6 +124,30 @@ legend { font-weight: 600; padding: 0 .3rem; }
 .stato-in-attesa-enti { background: #f3ecfb; color: #6b3fa0; }
 .stato-completato { background: #ecf8f1; color: var(--verde); }
 .stato-sospeso { background: #f1f2f4; color: #555; }
+/* Stati delle pratiche */
+.stato-da-fare { background: #f1f2f4; color: #555; }
+.stato-presentata { background: #f3ecfb; color: #6b3fa0; }
+.stato-integrazione-richiesta { background: #fff4e0; color: var(--ambra); }
+.stato-completata { background: #ecf8f1; color: var(--verde); }
+.badge.visibile { background: #ecf8f1; color: var(--verde); }
+.badge.privata { background: #f1f2f4; color: #555; }
+
+/* Pratiche */
+.titolo-sezione { margin: .4rem 0 .9rem; }
+.pratica { padding: 1.1rem 1.3rem; }
+.pratica-testa { display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.pratica-testa h3 { margin: 0; }
+summary.pratica-testa { cursor: pointer; list-style: none; }
+summary.pratica-testa::-webkit-details-marker { display: none; }
+summary.pratica-testa::before { content: "▸"; color: var(--azzurro); margin-right: -.3rem; transition: transform .15s; }
+details[open] > summary.pratica-testa::before { transform: rotate(90deg); }
+details[open] > summary.pratica-testa { margin-bottom: 1rem; padding-bottom: .8rem; border-bottom: 1px solid var(--bordo); }
+.pratica-titolo { flex: 1; min-width: 200px; display: flex; flex-direction: column; }
+.pratica-stato { margin: .5rem 0 0; font-size: 1.02rem; }
+.pratica-nota { margin: .7rem 0 0; padding: .7rem .9rem; background: #fff8ec; border-radius: 8px; color: #6b3d00; }
+.pratica-documenti { margin-top: .8rem; }
+.pratica-documenti > summary { cursor: pointer; font-weight: 600; color: var(--blu-medio); padding: .3rem 0; }
+.pratica-modulo { margin-bottom: 1rem; }
 
 /* Lavori */
 .griglia-lavori { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; margin-top: 1.5rem; }
@@ -154,7 +179,7 @@ ul.semplice li { padding: .5rem 0; border-bottom: 1px solid var(--bordo); }
 ul.semplice li:last-child { border: 0; }
 ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
 
-/* Schede documenti */
+/* Contatori */
 .schede-titoli { display: flex; gap: .3rem; border-bottom: 2px solid var(--bordo); overflow-x: auto; margin-bottom: 1rem; }
 .schede-titoli button {
   background: none; border: 0; font: inherit; font-weight: 600; color: var(--muto); padding: .6rem .9rem; cursor: pointer;
@@ -203,3 +228,178 @@ ul.semplice.piccolo { font-size: .9rem; max-height: 340px; overflow: auto; }
   .file-lista li { flex-wrap: wrap; }
   .file-azioni { width: 100%; justify-content: flex-start; padding-left: 3.9rem; }
 }
+
+/* Proposte automatiche */
+.proposte { border-left: 4px solid var(--azzurro); }
+.proposta { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: center; padding: .8rem 0; border-top: 1px solid var(--bordo); }
+.proposta:first-of-type { border-top: 0; }
+
+/* Sicurezza cantiere */
+.griglia-imprese { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem; margin-top: 1.25rem; }
+.impresa-cantiere { border-top: 1px solid var(--bordo); padding: 1rem 0 .5rem; }
+.impresa-cantiere:first-of-type { border-top: 0; }
+.doc-impresa { list-style: none; padding: 0; margin: .6rem 0; }
+.doc-impresa li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; padding: .45rem 0; border-bottom: 1px dashed var(--bordo); }
+.doc-impresa li:last-child { border-bottom: 0; }
+.promemoria-lista { list-style: none; padding: 0; margin: .6rem 0 1rem; }
+.promemoria-lista li { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; padding: .45rem 0; border-bottom: 1px dashed var(--bordo); }
+.promemoria-lista li form { margin-left: auto; }
+.doc-nome { font-weight: 600; min-width: 9.5rem; }
+.doc-dettagli { flex: 1 1 14rem; }
+.doc-apri { margin-left: auto; font-weight: 600; text-decoration: none; }
+.doc-ok { background: #ecf8f1; color: var(--verde); }
+.doc-in-scadenza { background: #fff4e0; color: var(--ambra); }
+.doc-scaduto, .doc-insufficiente { background: #fdecec; color: #b42318; }
+.doc-mancante { background: #f1f2f4; color: #555; }
+.sottotitolo-sezione { margin: 1.6rem 0 .4rem; font-size: 1.05rem; }
+.tabella.verbali td.data-verbale { white-space: nowrap; width: 7.5rem; }
+.carica-verbale { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--bordo); }
+.azioni-verbale { white-space: nowrap; text-align: right; }
+.azioni-verbale > * { margin-left: .6rem; }
+
+/* Documenti richiesti al cliente */
+.richiesta.aperta { border-left: 4px solid var(--ambra); }
+.richiesta-aperta { background: #fff4e0; color: var(--ambra); }
+.richiesta-inviata { background: #e8f0fb; color: var(--blu-medio); }
+.richiesta-completa { background: #ecf8f1; color: var(--verde); }
+.conta.attenzione { background: #fff4e0; color: var(--ambra); font-size: .8rem; padding: .15rem .6rem; border-radius: 99px; vertical-align: middle; }
+.file-inviati { list-style: none; padding: 0; margin: .6rem 0 1rem; }
+.file-inviati li { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; padding: .4rem 0; border-bottom: 1px dashed var(--bordo); overflow-wrap: anywhere; }
+.invio-cliente { margin: .8rem 0 0; }
+.invio-cliente input[type=file] { flex: 1 1 14rem; background: #fff; }
+.invio-cliente.in-corso { opacity: .6; pointer-events: none; }
+.azioni-richiesta { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin-top: .4rem; }
+.file-inviati li > form, .file-inviati li > a { flex: 0 0 auto; white-space: nowrap; }
+.file-inviati li > span { min-width: 0; }
+
+/* Informativa */
+.testo-legale h2 { margin-top: 2rem; font-size: 1.15rem; }
+.testo-legale table { font-size: .9rem; }
+.testo-legale td, .testo-legale th { vertical-align: top; padding: .5rem .6rem; border-bottom: 1px solid var(--bordo); text-align: left; }
+.tabella-scorri { overflow-x: auto; }
+.cartelle-visibili { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--bordo); }
+.cartelle-visibili h3 { margin: 0 0 .2rem; font-size: 1rem; }
+.cartelle-visibili ul { list-style: none; padding: 0; margin: .6rem 0 1rem; columns: 2 16rem; }
+.cartelle-visibili li { padding: .2rem 0; break-inside: avoid; }
+
+.pulsante:disabled { opacity: .45; cursor: not-allowed; }
+
+.tabella-visibilita { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem; font-size: .95rem; }
+.tabella-visibilita th, .tabella-visibilita td { padding: .35rem .5rem; border-bottom: 1px solid #e5e2dc; text-align: center; }
+.tabella-visibilita th:first-child, .tabella-visibilita td:first-child { text-align: left; }
+.badge.consigliata { background: #eef5ea; color: #3c6b2a; }
+.ruoli-clienti { display: grid; gap: .4rem; }
+.scelta-ruolo { display: flex; justify-content: space-between; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.consenso { margin-top: .75rem; font-size: .92rem; }
+
+.scheda-righe { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1rem; margin: .5rem 0 1rem; }
+.scheda-righe dt { font-weight: 600; }
+.pallino { display: inline-block; width: .7rem; height: .7rem; border-radius: 50%; margin-right: .45rem; vertical-align: middle; background: #b8b2a7; }
+.pallino.tono-ok { background: #3c8a3f; } .pallino.tono-ko { background: #c0392b; } .pallino.tono-attesa { background: #d99a1e; }
+.badge.tono-ok { background: #e6f2e4; color: #2f6b31; }
+@media (max-width: 560px) { .scheda-righe { grid-template-columns: 1fr; } .scheda-righe dd { margin: 0 0 .4rem; } }
+.azioni-scheda { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin: .8rem 0 .4rem; }
+.azioni-scheda small { flex: 1 1 14rem; }
+.dati-fabbricato { margin: .6rem 0; border: 1px solid var(--linea, #d5dde6); border-radius: 8px; padding: .5rem .8rem; }
+.dati-fabbricato summary { cursor: pointer; font-weight: 600; color: var(--blu); }
+.dati-fabbricato[open] summary { margin-bottom: .4rem; }
+/* Guida dello studio */
+.guida-cerca { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.guida-cerca input { flex: 1 1 16rem; }
+.guida-voce { background: var(--bianco, #fff); border: 1px solid #d5dde6; border-radius: 10px; margin: .6rem 0; padding: .2rem 1rem; }
+.guida-voce summary { cursor: pointer; font-weight: 700; color: var(--blu, #004587); padding: .7rem 0; display: flex; align-items: center; gap: .6rem; list-style: none; }
+.guida-voce summary::-webkit-details-marker { display: none; }
+.guida-voce summary::after { content: '+'; margin-left: auto; font-size: 1.3rem; font-weight: 400; }
+.guida-voce[open] summary::after { content: '–'; }
+.guida-num { display: inline-flex; align-items: center; justify-content: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--blu, #004587); color: #fff; font-size: .9rem; flex: none; }
+.guida-passi { margin: 0 0 .8rem; padding-left: 1.4rem; }
+.guida-passi li { margin: .45rem 0; padding: .15rem .3rem; border-radius: 6px; cursor: pointer; line-height: 1.5; }
+.guida-passi li:hover { background: #f1f5f9; }
+.guida-passi li.fatto { color: #6b7684; text-decoration: line-through; text-decoration-color: #9aa5b1; }
+.guida-passi li.fatto::marker { content: '✓  '; color: #2e7d32; }
+.guida-passi.semplice li { cursor: default; }
+.guida-nota { background: #eef5fc; border-left: 3px solid #287dbe; padding: .5rem .8rem; border-radius: 0 6px 6px 0; font-size: .92rem; margin: 0 0 1rem; }
+.guida code { background: #f1f5f9; padding: .1rem .35rem; border-radius: 4px; font-size: .88em; word-break: break-all; }
+.guida code.copia { cursor: copy; }
+.guida code.copiato { background: #d9f2dc; }
+.solo-stampa { display: none; }
+@media print {
+  .testata, .piede, .solo-schermo, header, footer { display: none !important; }
+  .solo-stampa { display: block; }
+  .sezione, .guida, main { background: #fff !important; padding-top: 0 !important; }
+  .guida-voce { break-inside: auto; border-color: #bbb; }
+  .guida-voce summary { break-after: avoid; }
+  .guida-passi li { break-inside: avoid; }
+  .guida-voce summary::after, .guida-voce[open] summary::after { content: ''; }
+  .guida-passi li.fatto { color: inherit; text-decoration: none; }
+  .guida-passi li.fatto::marker { content: counter(list-item) '.  '; color: inherit; }
+  body { background: #fff; }
+}
+/* Tappe delle pratiche: integrazioni, inizio e fine lavori */
+.tappe-pratica { list-style: none; margin: .3rem 0 .6rem; padding: 0 0 0 .9rem; border-left: 2px solid #c9d7e6; font-size: .93rem; }
+.tappe-pratica li { margin: .25rem 0; }
+.tappa-nome { display: inline-block; min-width: 7.5rem; font-weight: 600; color: var(--blu, #004587); }
+.tappa-fine .tappa-nome { color: #2e7d32; }
+.aggiungi-tappa { margin: .4rem 0 .8rem; }
+.aggiungi-tappa summary { cursor: pointer; color: var(--blu, #004587); font-size: .92rem; }
+/* Visure catastali automatiche */
+.riquadro-visure { background: #eef5fc; border-left: 3px solid #287dbe; border-radius: 0 8px 8px 0; padding: .6rem .9rem; margin: .6rem 0 1rem; font-size: .93rem; }
+.riquadro-visure.attenzione { background: #fff6e5; border-left-color: #ef8f00; }
+.scelte-unita { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem; }
+.nota-visura { display: block; color: #6b7684; font-style: italic; }
+.nota-visura.si { color: #2e7d32; }
+
+/* Contabilità (solo studio) */
+.riepilogo-conta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.riepilogo-conta .carta { display: flex; flex-direction: column; gap: .15rem; margin: 0; }
+.riepilogo-conta strong { font-size: 1.5rem; color: var(--blu); }
+.riepilogo-conta small, .riepilogo-conta span { color: var(--muto); }
+.righe-conta { display: grid; gap: .5rem; margin-bottom: .6rem; }
+.riga-conta { display: grid; grid-template-columns: 1fr 110px 28px; gap: .5rem; align-items: center; }
+.riga-conta .importo { text-align: right; }
+.totali-conta { max-width: 380px; margin: 1rem 0 1rem auto; }
+.destra { text-align: right; }
+@media (max-width: 560px) { .riga-conta { grid-template-columns: 1fr 90px 24px; } }
+/* Clienti e aziende collegati al lavoro: una riga per persona con il ruolo a spunta */
+.collegati { margin: .4rem 0 .8rem; }
+.collegato { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem 1rem; padding: .55rem .2rem; border-bottom: 1px dashed var(--bordo); }
+.collegato.nuovo { background: var(--azzurro-chiaro); border-radius: 6px; padding: .55rem .6rem; }
+.collegato-nome { font-weight: 600; }
+.ruoli-spunte { display: flex; flex-wrap: wrap; gap: .3rem .9rem; font-size: .92rem; }
+.ruoli-spunte label { display: inline-flex; flex-direction: row; align-items: center; gap: .3rem; font-weight: normal; margin: 0; }
+.collegato .rimuovi { background: none; border: 1px solid #f3c3be; color: var(--rosso); border-radius: 6px; padding: .3rem .7rem; font: inherit; font-size: .88rem; cursor: pointer; }
+.collegato .rimuovi:hover { background: #fdf0ef; }
+.collegato.tolto { background: #fdf0ef; border-radius: 6px; padding: .55rem .6rem; }
+.collegato.tolto .collegato-nome { text-decoration: line-through; color: var(--muto); }
+.collegato.tolto .ruoli-spunte { opacity: .4; }
+.nota-tolto { flex-basis: 100%; color: var(--rosso); }
+.nota-nuovo { flex-basis: 100%; color: var(--blu); }
+.aggiungi-collegato { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem 1rem; padding: .8rem; border: 1px solid var(--bordo); border-radius: 8px; background: #fafbfc; }
+.aggiungi-collegato > label { flex: 1 1 260px; margin: 0; }
+/* Riepilogo «oggi» in cima al cruscotto */
+.oggi { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin: 0 0 1.25rem; }
+.oggi-voce { display: flex; flex-direction: column; gap: .2rem; padding: .9rem 1rem; border-radius: 10px; background: #fff; border: 1px solid var(--bordo); border-left: 5px solid var(--blu); text-decoration: none; color: inherit; }
+.oggi-voce strong { font-size: 1.8rem; line-height: 1; color: var(--blu); }
+.oggi-voce span { color: var(--muto); font-size: .92rem; }
+.oggi-voce.da-fare { border-left-color: #d9822b; } .oggi-voce.da-fare strong { color: #b5651d; }
+.oggi-voce.attenzione { border-left-color: #c9a227; } .oggi-voce.attenzione strong { color: #8a6d0b; }
+.oggi-voce.ok { border-left-color: #3c9a6b; } .oggi-voce.ok strong { color: #2f7d5b; }
+.oggi-voce:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+details.per-stato { margin: 0 0 1rem; } details.per-stato > summary { cursor: pointer; color: var(--muto); margin-bottom: .6rem; }
+/* Pagina del lavoro: riquadro «Da fare» e sezioni ripiegate */
+.da-fare-lavoro { background: #fff7ec; border: 1px solid #f0d2a8; border-radius: 10px; padding: .8rem 1rem; margin: 0 0 1rem; }
+.da-fare-lavoro ul { margin: .3rem 0 0; padding-left: 1.2rem; }
+.da-fare-lavoro.tutto-ok { background: #eef8f2; border-color: #bfe3cf; color: #2f7d5b; }
+details.sezione > summary.sezione-testa { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1rem; }
+details.sezione > summary.sezione-testa::-webkit-details-marker { display: none; }
+details.sezione > summary.sezione-testa h2 { margin: 0; }
+details.sezione > summary.sezione-testa::after { content: '▸ Apri'; margin-left: auto; color: var(--blu); font-size: .9rem; }
+details.sezione[open] > summary.sezione-testa::after { content: '▾ Chiudi'; }
+details.sezione[open] > summary.sezione-testa { margin-bottom: .8rem; }
+details.visibili > summary { cursor: pointer; } details.visibili > summary h3 { display: inline; }
+/* Pulsanti Chiama / WhatsApp */
+.contatti-tel { display: inline-flex; flex-wrap: wrap; gap: .4rem; }
+.pulsante.whatsapp { background: #1f9d55; border-color: #1f9d55; color: #fff; }
+.pulsante.whatsapp:hover { background: #17834a; }
+.promemoria-wa { margin-top: .8rem; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; }
+.contatta-studio .contatti-tel .pulsante { flex: 1 1 auto; text-align: center; }

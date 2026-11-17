@@ -14,9 +14,9 @@
         <tbody>
           <% clienti.forEach(c => { %>
             <tr>
-              <td><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><% if (!c.attivo) { %> <span class="badge stato-sospeso">disattivato</span><% } %></td>
+              <td><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><% if (c.azienda) { %> <small class="muto">· <%= c.azienda %></small><% } %><% if (!c.attivo) { %> <span class="badge stato-sospeso">disattivato</span><% } %></td>
               <td><%= c.email %></td>
-              <td><%= c.telefono || '—' %></td>
+              <td><% if (c.telefono) { %><a href="<%= telefono.tel(c.telefono) %>"><%= c.telefono %></a><% if (telefono.cellulare(c.telefono)) { %> · <a href="<%= telefono.whatsapp(c.telefono) %>" target="_blank" rel="noopener">WhatsApp</a><% } %><% } else { %>—<% } %></td>
               <td><%= c.n_lavori %></td>
               <td><%= c.ultimo_accesso ? dataOra(c.ultimo_accesso) : 'mai' %></td>
             </tr>

@@ -47,27 +47,11 @@ function verificaCsrf(req, res, next) {
   res.status(403).render('errore', { titolo: 'Sessione scaduta', messaggio: 'Ricarica la pagina e riprova.' });
 }
 
-/** Limita i tentativi di login: 8 errori in 15 minuti per IP+email. */
-const tentativi = new Map();
-const FINESTRA = 15 * 60 * 1000;
-function chiaveTentativo(req, email) { return `${req.ip}|${String(email).toLowerCase()}`; }
-function loginBloccato(req, email) {
-  const t = tentativi.get(chiaveTentativo(req, email));
-  return t && t.n >= 8 && Date.now() - t.inizio < FINESTRA;
-}
-function registraErrore(req, email) {
-  const k = chiaveTentativo(req, email);
-  const t = tentativi.get(k);
-  if (!t || Date.now() - t.inizio > FINESTRA) tentativi.set(k, { n: 1, inizio: Date.now() });
-  else t.n++;
-}
-function azzeraTentativi(req, email) { tentativi.delete(chiaveTentativo(req, email)); }
-setInterval(() => {
-  const ora = Date.now();
-  for (const [k, t] of tentativi) if (ora - t.inizio > FINESTRA) tentativi.delete(k);
-}, FINESTRA).unref();
+// Limite ai tentativi di accesso: vedi tentativi.js (5 errori → blocco di 1 ora)
+const tentativi = require('./tentativi');
 
 const hashPassword = (pw) => bcrypt.hash(pw, 12);
+const HASH_FINTO = bcrypt.hashSync('password-inesistente-' + crypto.randomBytes(8).toString('hex'), 12);
 const verificaPassword = (pw, hash) => bcrypt.compare(pw, hash);
 
 /** Password temporanea leggibile da comunicare al cliente (es. "tavolo-7342-Monte"). */
@@ -79,6 +63,6 @@ function passwordTemporanea() {
 
 module.exports = {
   caricaUtente, richiediLogin, richiediAdmin, csrf, verificaCsrf,
-  loginBloccato, registraErrore, azzeraTentativi,
+  ...tentativi, HASH_FINTO,
   hashPassword, verificaPassword, passwordTemporanea,
 };

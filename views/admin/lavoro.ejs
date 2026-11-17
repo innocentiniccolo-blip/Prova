@@ -17,32 +17,358 @@
     <% if (!lavoro.visibile) { %><div class="avviso info">Questo lavoro è nascosto: i clienti non lo vedono.</div><% } %>
     <% if (!cartellaEsiste) { %>
       <div class="avviso errore">
-        La cartella <code><%= lavoro.cartella %></code> non esiste sul NAS.
-        <form method="post" action="/studio/lavori/<%= lavoro.id %>/crea-cartelle" class="in-linea">
+        La cartella <code><%= lavoro.cartella %></code> non esiste su <%= nomeArchivio %>.
+        <% if (!archivioSolaLettura) { %><form method="post" action="/studio/lavori/<%= lavoro.id %>/crea-cartelle" class="in-linea">
           <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Creala ora</button>
-        </form>
+        </form><% } else { %>Su Drive condividi la cartella con l'account di servizio dell'area clienti, oppure correggi il nome della cartella in "Modifica".<% } %>
       </div>
     <% } %>
 
+    <div class="da-fare-lavoro <%= daFare.voci.length ? '' : 'tutto-ok' %>">
+      <% if (!daFare.voci.length) { %><strong>✓ Niente da fare su questo lavoro</strong><% } else { %>
+        <strong>Da fare:</strong>
+        <ul><% daFare.voci.forEach(v => { %><li><a href="<%= v.link %>"><%= v.testo %></a></li><% }) %></ul>
+      <% } %>
+    </div>
     <div class="layout-lavoro">
       <div>
-        <div class="carta" id="documenti">
-          <h2>Documenti</h2>
-          <p class="muto">Cartella NAS: <code><%= lavoro.cartella %></code> — puoi aggiungere file anche direttamente dalla rete dello studio; qui compaiono subito.</p>
-          <form method="post" action="/studio/lavori/<%= lavoro.id %>/documenti" enctype="multipart/form-data" class="carica">
+        <% if (proposteStato.length) { %>
+          <div class="carta proposte" id="ricevute">
+            <h2>Aggiornamenti letti dalle ricevute</h2>
+            <% proposteStato.forEach(p => { %>
+              <div class="proposta">
+                <div>
+                  <strong><%= p.cartella %></strong>: <span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span>
+                  <% if (p.data) { %> il <%= data(p.data) %><% } %><% if (p.protocollo) { %> · prot. n. <strong><%= p.protocollo %></strong><% } %><br>
+                  <small class="muto">letto da «<%= p.file %>»</small>
+                </div>
+                <div class="azioni">
+                  <form method="post" action="/studio/proposte-stato/<%= p.id %>/applica" class="in-linea">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="torna" value="lavoro"><input type="hidden" name="lavoro" value="<%= lavoro.id %>">
+                    <label class="scelta"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente</label>
+                    <button class="pulsante piccolo">Conferma</button>
+                  </form>
+                  <form method="post" action="/studio/proposte-stato/<%= p.id %>/scarta" class="in-linea">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="torna" value="lavoro"><input type="hidden" name="lavoro" value="<%= lavoro.id %>">
+                    <button class="link">Scarta</button>
+                  </form>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+
+        <div class="carta" id="pratiche">
+          <h2>Pratiche</h2>
+          <p class="muto">Ogni sottocartella di <code><%= lavoro.cartella %></code> è una pratica. <% if (archivioSolaLettura) { %>Le crei e le riempi su Google Drive: compaiono qui da sole entro 5 minuti.<% } else { %>Puoi crearle anche dal PC sul NAS: compaiono qui da sole.<% } %></p>
+          <% if (statoVisure && (statoVisure.documenti || statoVisure.conflitto)) { %>
+            <div class="riquadro-visure <%= statoVisure.conflitto || !statoVisure.unita.length ? 'attenzione' : '' %>" id="visure">
+              <% if (statoVisure.conflitto) { %>
+                <strong>Visure catastali: unità d'intervento da confermare.</strong> I documenti indicano unità diverse; finché non scegli, nessuna visura viene pubblicata in automatico.
+                <div class="scelte-unita">
+                  <% statoVisure.conflitto.forEach(c => { const testoU = c.testo; %>
+                    <form method="post" action="<%= base %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value="<%= testoU %>">
+                      <button class="pulsante piccolo secondario"><%= testoU %></button> <small class="muto">da «<%= c.nome %>»</small></form>
+                  <% }) %>
+                </div>
+              <% } else if (!statoVisure.unita.length) { %>
+                <strong>Visure catastali: unità d'intervento non trovata.</strong> Scrivila nella scheda immobile («Dati catastali», es. <i>foglio 12 particella 345 sub 6</i>) oppure pubblica a mano la visura giusta: da lì il programma continua da solo.
+              <% } else { %>
+                Visure e planimetrie: si pubblicano da sole quelle di <strong><%= statoVisure.unitaTesto %></strong> <small class="muto">(da <%= statoVisure.fonte %>)</small>.
+                <% if (statoVisure.fonte === 'scheda immobile') { %><form method="post" action="<%= base %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value=""><button class="link">Torna automatica</button></form><% } %>
+              <% } %>
+            </div>
+          <% } %>
+          <% if (!archivioSolaLettura) { %>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche" class="carica">
             <input type="hidden" name="_csrf" value="<%= csrf %>">
-            <select name="categoria" aria-label="Categoria">
-              <% categorie.forEach(c => { %><option value="<%= c.chiave %>"><%= c.nome %></option><% }) %>
+            <select name="tipo" aria-label="Tipo di pratica">
+              <% tipiPratica.forEach(t => { %><option><%= t %></option><% }) %>
             </select>
-            <input type="file" name="file" multiple required>
-            <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label>
-            <button class="pulsante">Carica</button>
+            <input name="altro" maxlength="100" placeholder="oppure scrivi un altro nome" aria-label="Altro nome di pratica">
+            <button class="pulsante">Aggiungi pratica</button>
           </form>
-          <%- include('../partials/documenti', { categorie, base: `/studio/lavori/${lavoro.id}`, admin: true }) %>
+          <% } %>
+          <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica: la cartella del lavoro non ha ancora sottocartelle.</p><% } else { %>
+            <form method="post" action="/studio/lavori/<%= lavoro.id %>/pratiche-visibili" class="cartelle-visibili" data-modifiche>
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <details class="visibili" id="visibili"<%= daFare.cartelleNuove ? ' open' : '' %>>
+              <summary><h3>Cartelle visibili</h3> <small class="muto"><%= pratiche.filter(p => p.visibile || p.visibile_agenzia || p.visibile_impresa).length %> su <%= pratiche.length %> visibili a qualcuno</small></summary>
+              <p class="nota">Spunta le cartelle che ciascun ruolo può vedere. Le cartelle nuove nascono sempre private. <span class="badge consigliata">consigliata</span> = di solito serve all'agenzia per vendere.</p>
+              <table class="tabella-visibilita">
+                <thead><tr><th>Cartella</th><th title="Proprietario / committente">Proprietario</th><th>Agenzia</th><th>Impresa</th></tr></thead>
+                <tbody>
+                <% pratiche.forEach(p => { %>
+                  <tr><td><%= p.cartella %><% if (!p.esiste) { %> <small class="muto">(cartella non trovata)</small><% } %><% if (consigliataAgenzia(p.cartella)) { %> <span class="badge consigliata">consigliata</span><% } %></td>
+                    <td><input type="checkbox" name="visibili" value="<%= p.id %>" aria-label="<%= p.cartella %> visibile al proprietario" <%= p.visibile ? 'checked' : '' %>></td>
+                    <td><input type="checkbox" name="visibili_agenzia" value="<%= p.id %>" aria-label="<%= p.cartella %> visibile all'agenzia" <%= p.visibile_agenzia ? 'checked' : '' %>></td>
+                    <td><input type="checkbox" name="visibili_impresa" value="<%= p.id %>" aria-label="<%= p.cartella %> visibile all'impresa" <%= p.visibile_impresa ? 'checked' : '' %>></td></tr>
+                <% }) %>
+                </tbody>
+              </table>
+              <button class="pulsante piccolo">Salva visibilità</button> <small class="muto" data-suggerimento>Spunta o togli la spunta a una cartella, poi salva.</small>
+              </details>
+            </form>
+          <% } %>
         </div>
 
-        <div class="carta" id="aggiornamenti">
-          <h2>Aggiornamenti per il cliente</h2>
+        <% pratiche.forEach(p => { const base = `/studio/lavori/${lavoro.id}`; %>
+          <details class="carta pratica" id="pratica-<%= p.id %>">
+            <summary class="pratica-testa">
+              <span class="pratica-titolo">
+                <strong><%= p.cartella %></strong>
+                <small class="muto"><% if (p.base) { %>Cartella di base del lavoro<% } else { %><%= descriviStato(p, data) %><% if (p.protocollo) { %> · Prot. <%= p.protocollo %><% } %><% } %> · <%= p.file.length %> file</small>
+              </span>
+              <span class="azioni">
+                <% if (!p.esiste) { %><span class="badge stato-sospeso">Cartella non trovata</span><% } %>
+                <span class="badge <%= p.visibile ? 'visibile' : 'privata' %>"><%= p.visibile ? 'Visibile al cliente' : 'Privata' %></span>
+                <% if (!p.base) { %><span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span><% } %>
+              </span>
+            </summary>
+
+            <%- include('../partials/tappe-pratica', { elenco: tappe[p.id], elimina: base }) %>
+            <form method="post" action="<%= base %>/pratiche/<%= p.id %>" class="modulo pratica-modulo">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+<% if (!p.base) { %>
+              <div class="riga-campi">
+                <label>Stato
+                  <select name="stato">
+                    <% statiPratica.forEach(s => { %><option <%= s === p.stato ? 'selected' : '' %>><%= s %></option><% }) %>
+                  </select>
+                </label>
+                <label>Data <input type="date" name="data" value="<%= p.data || '' %>"></label>
+                <label>N. protocollo <input name="protocollo" maxlength="100" value="<%= p.protocollo || '' %>"></label>
+              </div>
+              <% } %>
+              <label>Nota per il cliente <small>(es. cosa serve da lui)</small>
+                <textarea name="nota" rows="2" maxlength="2000"><%= p.nota || '' %></textarea>
+              </label>
+              <div class="azioni">
+                <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= p.visibile ? 'checked' : '' %>> Visibile al cliente</label>
+                <% if (!p.base) { %><label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Aggiungi agli aggiornamenti</label><% } %>
+                <% if (postaAttiva && !p.base) { %><label class="scelta" title="Email con stato, data e numero di protocollo, solo se cambiano"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente via email</label><% } %>
+                <button class="pulsante">Salva</button>
+              </div>
+            </form>
+            <% if (!p.base) { %><details class="aggiungi-tappa">
+              <summary>+ Integrazione, inizio o fine lavori</summary>
+              <p class="nota">Di solito si aggiungono da sole leggendo le ricevute (anche del Genio Civile). Qui puoi inserirle a mano.</p>
+              <form method="post" action="<%= base %>/pratiche/<%= p.id %>/tappe" class="modulo">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <div class="riga-campi">
+                  <label>Tappa <select name="fase"><% Object.entries(FASI).forEach(([k, v]) => { %><option value="<%= k %>"><%= v.nome %></option><% }) %></select></label>
+                  <label>Data <input type="date" name="data" required></label>
+                  <label>N. protocollo <input name="protocollo" maxlength="100"></label>
+                </div>
+                <div class="azioni">
+                  <% if (postaAttiva) { %><label class="scelta"><input type="checkbox" name="email" value="1"> Avvisa il cliente via email</label><% } %>
+                  <button class="pulsante piccolo">Aggiungi tappa</button>
+                </div>
+              </form>
+            </details><% } %>
+
+            <% if (p.esiste) { %>
+              <% if (!archivioSolaLettura) { %>
+              <form method="post" action="<%= base %>/documenti" enctype="multipart/form-data" class="carica">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <input type="hidden" name="pratica" value="<%= p.id %>">
+                <input type="file" name="file" multiple required aria-label="File da caricare in <%= p.cartella %>">
+                <label class="scelta"><input type="checkbox" name="pubblica" value="1"> Pubblica per il cliente</label>
+                <label class="scelta"><input type="checkbox" name="annuncia" value="1" checked> Annuncia</label>
+                <button class="pulsante">Carica</button>
+              </form>
+              <% } %>
+              <%- include('../partials/file-pratica', { p, base, admin: true }) %>
+              <% if (p.file.length) { %>
+                <form method="post" action="<%= base %>/documenti/visibilita" class="azioni-richiesta">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="p" value="<%= p.id %>">
+                  <button class="link" name="azione" value="tutti">Pubblica tutti i documenti non sensibili di questa pratica</button>
+                </form>
+                <p class="nota">Il cliente vede in automatico i file che metti nella sottocartella <strong>Presentazione</strong> di questa pratica, più quelli che pubblichi a mano da qui. I file con nomi che indicano dati sensibili (carta d'identità, documento identità, doc ide, codice fiscale, procure, dati bancari o sanitari) non vengono mai mostrati, nemmeno se sono in Presentazione.</p>
+              <% } %>
+            <% } else { %>
+              <div class="avviso errore">
+                La cartella «<%= p.cartella %>» non c'è più su <%= nomeArchivio %> (forse è stata rinominata).
+                <form method="post" action="<%= base %>/pratiche/<%= p.id %>/elimina" class="in-linea" data-conferma="Togliere la pratica dall'elenco? I file su <%= nomeArchivio %> non vengono toccati.">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Toglila dall'elenco</button>
+                </form>
+              </div>
+            <% } %>
+          </details>
+        <% }) %>
+
+        <div class="carta azioni" id="contabilita">
+          <span class="muto">Contabilità (solo studio):</span>
+          <a class="pulsante secondario piccolo" href="/studio/contabilita/nuova?lavoro=<%= lavoro.id %>">+ Notula / proforma per questo lavoro</a>
+        </div>
+
+        <details class="carta sezione" id="scheda">
+          <summary class="sezione-testa"><h2>Scheda immobile</h2><small class="muto"><%= scheda.attiva ? 'Mostrata ad agenzia e proprietario' : 'Non mostrata ai clienti' %></small></summary>
+          <p class="nota">Per agenzie e proprietari: in una riga se l'immobile è pronto per la vendita. Accesso atti, sanatorie e APE completato si aggiornano da soli dalle pratiche. Con la scheda attiva compare anche il pulsante «Scarica il fascicolo», con tutti i documenti visibili a quel ruolo.</p>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/scheda" class="modulo">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <label class="scelta"><input type="checkbox" name="attiva" value="1" <%= scheda.attiva ? 'checked' : '' %>> Mostra la scheda immobile nell'area clienti</label>
+            <div class="riga-campi">
+              <label>Conformità urbanistica
+                <select name="urbanistica"><% Object.entries(SCHEDA.URBANISTICA).forEach(([k, v]) => { %><option value="<%= k %>" <%= scheda.urbanistica === k ? 'selected' : '' %>><%= v.testo %></option><% }) %></select></label>
+              <label>Conformità catastale
+                <select name="catastale"><% Object.entries(SCHEDA.CATASTALE).forEach(([k, v]) => { %><option value="<%= k %>" <%= scheda.catastale === k ? 'selected' : '' %>><%= v.testo %></option><% }) %></select></label>
+            </div>
+            <div class="riga-campi">
+              <label>APE – classe
+                <select name="apeClasse"><option value="">—</option><% SCHEDA.CLASSI_APE.forEach(c => { %><option value="<%= c %>" <%= scheda.apeClasse === c ? 'selected' : '' %>><%= c %></option><% }) %></select></label>
+              <label>APE – valido fino al <input type="date" name="apeScadenza" value="<%= scheda.apeScadenza %>"></label>
+            </div>
+            <label>Nota per agenzia e proprietario (facoltativa) <textarea name="nota" rows="2" maxlength="1000"><%= scheda.nota %></textarea></label>
+            <details class="dati-fabbricato" <%= scheda.indirizzo || scheda.catasto || scheda.descrizione || scheda.coordinate ? 'open' : '' %>>
+              <summary>Fascicolo del fabbricato (PDF): correggi i dati letti in automatico</summary>
+              <p class="nota">Indirizzo, dati catastali, titoli edilizi, esito della relazione tecnica, classe energetica e descrizione si leggono da soli dai PDF del lavoro (relazione tecnica, APE, visure e planimetrie). Se la relazione non è ancora firmata o completata, l'urbanistica risulta «In fase di valutazione». Scrivi qui sotto solo ciò che vuoi correggere: i campi vuoti restano automatici.</p>
+              <div class="riga-campi">
+                <label>Indirizzo <input name="indirizzo" maxlength="150" value="<%= scheda.indirizzo %>" placeholder="automatico"></label>
+                <label>Comune <input name="comune" maxlength="60" value="<%= scheda.comune %>" placeholder="automatico"></label>
+              </div>
+              <label>Coordinate per Google Maps <small>(facoltative, es. 43.6192, 11.5410)</small> <input name="coordinate" maxlength="40" value="<%= scheda.coordinate %>" placeholder="automatico dall'indirizzo"></label>
+              <label>Dati catastali <small>(sostituiscono la tabella automatica)</small> <textarea name="catasto" rows="2" maxlength="800" placeholder="automatico, es. Catasto Fabbricati, foglio 12, particella 345, sub. 6, cat. A/2"><%= scheda.catasto %></textarea></label>
+              <label>Descrizione sintetica dell'unità <textarea name="descrizione" rows="3" maxlength="1500" placeholder="automatica dalla relazione tecnica"><%= scheda.descrizione %></textarea></label>
+            </details>
+            <p class="azioni-scheda"><button class="pulsante piccolo">Salva scheda</button>
+              <a class="pulsante piccolo secondario" href="/area/lavori/<%= lavoro.id %>/fabbricato.pdf?come=agenzia" target="_blank" rel="noopener">Anteprima fascicolo PDF</a></p>
+          </form>
+        </details>
+
+        <details class="carta sezione" id="richieste"<%= daFare.richiesteInviate ? ' open' : '' %>>
+          <summary class="sezione-testa"><h2>Documenti richiesti al cliente</h2><small class="muto"><% if (daFare.richiesteInviate) { %><span class="badge richiesta-inviata"><%= daFare.richiesteInviate %> da controllare</span> <% } %><%= richieste.length ? `${richieste.length} richiest${richieste.length === 1 ? 'a' : 'e'}` : 'Nessuna richiesta' %></small></summary>
+          <p class="muto">Chiedi al cliente un documento: lo carica dalla sua area e lo trovi nella cartella del lavoro, in «Documenti dal cliente». Ti arriva un'email quando invia qualcosa.</p>
+          <% richieste.forEach(r => { %>
+            <div class="impresa-cantiere">
+              <div class="pratica-testa">
+                <span class="pratica-titolo"><strong><%= r.titolo %></strong><small class="muto">chiesto il <%= data(r.creato_il) %><% if (r.inviato_il) { %> · ultimo invio <%= data(r.inviato_il) %><% } %></small></span>
+                <span class="badge richiesta-<%= r.stato %>"><%= r.stato === 'aperta' ? 'In attesa del cliente' : r.stato === 'inviata' ? 'Da controllare' : 'Ricevuto ✓' %></span>
+              </div>
+              <% if (r.descrizione) { %><p class="a-capo muto"><%= r.descrizione %></p><% } %>
+              <% if (r.file.length) { %>
+                <ul class="file-inviati">
+                  <% r.file.forEach(f => { %>
+                    <li><span><a href="/studio/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file/<%= f.id %>" target="_blank" rel="noopener"><%= f.nome %></a>
+                      <small class="muto"><%= dimensione(f.dimensione) %> · <%= f.caricato_da || 'cliente' %>, <%= data(f.caricato_il) %></small></span>
+                      <a href="/studio/lavori/<%= lavoro.id %>/richieste/<%= r.id %>/file/<%= f.id %>?scarica=1">Scarica</a></li>
+                  <% }) %>
+                </ul>
+              <% } %>
+              <form method="post" action="/studio/lavori/<%= lavoro.id %>/richieste/<%= r.id %>" class="azioni-richiesta">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <% if (r.stato !== 'completa') { %><button class="pulsante piccolo" name="azione" value="completa">Segna come ricevuto</button><% } %>
+                <% if (r.stato !== 'aperta') { %><button class="link" name="azione" value="riapri">Chiedi di nuovo</button><% } %>
+                <button class="link pericolo" name="azione" value="elimina">Elimina richiesta</button>
+              </form>
+            </div>
+          <% }) %>
+          <% if (!richieste.length) { %><p class="vuoto">Nessuna richiesta.</p><% } %>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/richieste" class="modulo carica-verbale">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <label>Documento da chiedere <input name="titolo" required maxlength="120" list="doc-frequenti" placeholder="es. Carta d'identità e codice fiscale"></label>
+            <datalist id="doc-frequenti">
+              <option value="Carta d'identità e codice fiscale"><option value="Atto di provenienza"><option value="Procura firmata"><option value="Visura e planimetria catastale"><option value="Bollette (luce e gas)"><option value="Libretto della caldaia"><option value="Fatture e bonifici dei lavori"><option value="Dichiarazioni di conformità degli impianti">
+            </datalist>
+            <label>Indicazioni per il cliente <small>(facoltative)</small> <textarea name="descrizione" rows="2" maxlength="1000" placeholder="es. fronte e retro, di tutti i proprietari"></textarea></label>
+            <div class="azioni">
+              <label class="scelta"><input type="checkbox" name="email" value="1" checked> Avvisa il cliente via email</label>
+              <button class="pulsante">Aggiungi richiesta</button>
+            </div>
+          </form>
+        </details>
+
+        <details class="carta sezione" id="sicurezza"<%= daFare.impreseDaSistemare ? ' open' : '' %>>
+          <summary class="sezione-testa"><h2>Sicurezza cantiere</h2><small class="muto"><% if (!lavoro.sicurezza) { %>Non attiva<% } else { %><%= impreseCantiere.length %> impres<%= impreseCantiere.length === 1 ? 'a' : 'e' %><% if (daFare.impreseDaSistemare) { %> · <span class="badge doc-in-scadenza"><%= daFare.impreseDaSistemare %> con documenti da sistemare</span><% } %><% } %></small></summary>
+          <div class="pratica-testa">
+            <span class="muto"><%= lavoro.sicurezza ? 'Sezione attiva' : '' %></span>
+            <form method="post" action="/studio/lavori/<%= lavoro.id %>/sicurezza" class="in-linea"<%- lavoro.sicurezza ? ' data-conferma="Disattivare la sezione? Il cliente non la vedrà più; i dati restano salvati."' : '' %>>
+              <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="attiva" value="<%= lavoro.sicurezza ? 0 : 1 %>">
+              <button class="<%= lavoro.sicurezza ? 'link' : 'pulsante piccolo' %>"><%= lavoro.sicurezza ? 'Disattiva' : 'Attiva per questo lavoro' %></button>
+            </form>
+          </div>
+          <% if (!lavoro.sicurezza) { %>
+            <p class="muto">Non attiva. Attivala se in questo cantiere segui tu la sicurezza (CSP/CSE): potrai registrare le imprese con visura, DURC e patente a crediti e le date dei verbali di cantiere, e decidere cosa mostrare al cliente.</p>
+          <% } else { %>
+          <p class="muto">Imprese e lavoratori autonomi presenti in cantiere, con visura camerale, DURC e patente a crediti. I documenti si gestiscono dalla scheda dell'impresa.</p>
+          <% impreseCantiere.forEach(i => { %>
+            <div class="impresa-cantiere">
+              <div class="pratica-testa">
+                <span class="pratica-titolo"><strong><a href="/studio/imprese/<%= i.id %>"><%= i.ragione_sociale %></a></strong>
+                  <small class="muto"><%= i.ruolo || (i.autonomo ? 'Lavoratore autonomo' : 'Impresa') %><% if (i.piva) { %> · P.IVA <%= i.piva %><% } %></small></span>
+                <span class="badge <%= i.visibile ? 'visibile' : 'privata' %>"><%= i.visibile ? 'Visibile al cliente' : 'Privata' %></span>
+              </div>
+              <%- include('../partials/riepilogo-impresa', { i, tipiDoc, linkDoc: (d) => `/studio/imprese/${i.id}/documenti/${d.id}` }) %>
+              <form method="post" action="/studio/lavori/<%= lavoro.id %>/imprese/<%= i.id %>" class="carica">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <input name="ruolo" maxlength="100" value="<%= i.ruolo || '' %>" placeholder="Ruolo (es. impresa affidataria)" aria-label="Ruolo in cantiere">
+                <label class="scelta"><input type="checkbox" name="visibile" value="1" <%= i.visibile ? 'checked' : '' %>> Visibile al cliente</label>
+                <button class="pulsante piccolo" name="azione" value="salva">Salva</button>
+                <button class="link pericolo" name="azione" value="togli">Togli dal cantiere</button>
+              </form>
+            </div>
+          <% }) %>
+          <% if (!impreseCantiere.length) { %><p class="vuoto">Nessuna impresa in questo cantiere.</p><% } %>
+          <% const disponibili = tutteImprese.filter(t => !impreseCantiere.some(i => i.id === t.id)); %>
+          <% if (disponibili.length) { %>
+            <form method="post" action="/studio/lavori/<%= lavoro.id %>/imprese" class="carica">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <select name="impresa" aria-label="Impresa da aggiungere">
+                <% disponibili.forEach(t => { %><option value="<%= t.id %>"><%= t.ragione_sociale %></option><% }) %>
+              </select>
+              <input name="ruolo" maxlength="100" placeholder="Ruolo in cantiere" aria-label="Ruolo in cantiere">
+              <label class="scelta"><input type="checkbox" name="visibile" value="1" checked> Visibile al cliente</label>
+              <button class="pulsante">Aggiungi</button>
+            </form>
+          <% } %>
+          <details>
+            <summary>+ Nuova impresa per questo cantiere</summary>
+            <%- include('../partials/form-impresa', { impresa: {}, azione: '/studio/imprese', pulsante: 'Crea e aggiungi', lavoroId: lavoro.id }) %>
+          </details>
+
+          <h3 class="sottotitolo-sezione">Verbali di cantiere</h3>
+          <% if (!verbali.length) { %><p class="vuoto">Nessun verbale registrato.</p><% } %>
+          <table class="tabella verbali">
+            <tbody>
+              <% verbali.forEach(v => { %>
+                <tr>
+                  <td class="data-verbale"><strong><%= data(v.data) %></strong></td>
+                  <td><%= v.tipo %><% if (v.note) { %><br><small class="muto a-capo"><%= v.note %></small><% } %></td>
+                  <td><span class="badge <%= v.visibile ? 'visibile' : 'privata' %>"><%= v.visibile ? 'Visibile al cliente' : 'Privato' %></span></td>
+                  <td class="azioni-verbale">
+                    <% if (v.file) { %><a href="/studio/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" target="_blank" rel="noopener">Apri</a><% } %>
+                    <form method="post" action="/studio/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" class="in-linea">
+                      <input type="hidden" name="_csrf" value="<%= csrf %>">
+                      <% if (!v.visibile) { %><input type="hidden" name="visibile" value="1"><% } %>
+                      <button class="link" name="azione" value="visibilita"><%= v.visibile ? 'Rendi privato' : 'Mostra al cliente' %></button>
+                    </form>
+                    <form method="post" action="/studio/lavori/<%= lavoro.id %>/verbali/<%= v.id %>" class="in-linea" data-conferma="Eliminare questo verbale?">
+                      <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo" name="azione" value="elimina">Elimina</button>
+                    </form>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <form method="post" action="/studio/lavori/<%= lavoro.id %>/verbali" enctype="multipart/form-data" class="modulo carica-verbale">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="riga-campi">
+              <label>Data <input type="date" name="data" required></label>
+              <label>Tipo <input name="tipo" list="tipi-verbale" required maxlength="120" placeholder="es. Sopralluogo del CSE"></label>
+            </div>
+            <datalist id="tipi-verbale"><% tipiVerbale.forEach(t => { %><option value="<%= t %>"><% }) %></datalist>
+            <label>Note <small>(facoltative)</small> <textarea name="note" rows="2" maxlength="2000"></textarea></label>
+            <div class="azioni">
+              <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png" aria-label="File del verbale (facoltativo)">
+              <label class="scelta"><input type="checkbox" name="visibile" value="1" checked> Visibile al cliente</label>
+              <button class="pulsante">Registra verbale</button>
+            </div>
+          </form>
+          <% } %>
+        </details>
+
+        <details class="carta sezione" id="aggiornamenti">
+          <summary class="sezione-testa"><h2>Aggiornamenti per il cliente</h2><small class="muto"><%= aggiornamenti.length ? `${aggiornamenti.length} pubblicat${aggiornamenti.length === 1 ? 'o' : 'i'} · ultimo il ${data(aggiornamenti[0].creato_il)}` : 'Nessun aggiornamento pubblicato' %></small></summary>
           <form method="post" action="/studio/lavori/<%= lavoro.id %>/aggiornamenti" class="modulo">
             <input type="hidden" name="_csrf" value="<%= csrf %>">
             <textarea name="testo" rows="3" required placeholder="Es. Depositata la SCIA in Comune, protocollo n. …"></textarea>
@@ -59,15 +385,21 @@
               </li>
             <% }) %>
           </ol>
-        </div>
+        </details>
       </div>
 
       <aside>
         <div class="carta">
           <h2>Clienti con accesso</h2>
-          <% if (!clienti.length) { %><p class="vuoto">Nessun cliente associato.</p><% } %>
+          <% if (!clienti.length && !aziende.length) { %><p class="vuoto">Nessun cliente associato.</p><% } %>
+          <% if (aziende.length) { %><ul class="semplice"><% aziende.forEach(a => { %><li><a href="/studio/aziende/<%= a.id %>"><%= a.nome %></a> <span class="badge"><%= (RUOLI[a.ruolo] || RUOLI.agenzia).nome %></span>
+            <% if (a.consenso_il) { %><br><small class="muto">Consenso del proprietario registrato il <%= data(a.consenso_il) %></small><% } %>
+            <br><a class="link" href="/area/lavori/<%= lavoro.id %>?come=<%= a.ruolo %>">Vedi come <%= a.ruolo %></a></li><% }) %></ul><% } %>
           <ul class="semplice">
-            <% clienti.forEach(c => { %><li><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a><br><small class="muto"><%= c.email %></small></li><% }) %>
+            <% clienti.forEach(c => { %><li><a href="/studio/clienti/<%= c.id %>"><%= c.nome %></a> <span class="badge"><%= (RUOLI[c.ruolo] || RUOLI.proprietario).nome %></span><br><small class="muto"><%= c.email %></small>
+              <% if (c.telefono) { %><br><%- include('../partials/contatti-tel', { numero: c.telefono, testoWa: `Buongiorno ${c.nome}, la contatto per il lavoro ${lavoro.codice} – ${lavoro.titolo}. `, piccolo: true }) %><% } %>
+              <% if (c.ruolo === 'agenzia' && c.consenso_il) { %><br><small class="muto">Consenso del proprietario registrato il <%= data(c.consenso_il) %></small><% } %>
+              <br><a class="link" href="/area/lavori/<%= lavoro.id %>?come=<%= c.ruolo %>">Vedi come <%= c.ruolo === 'proprietario' ? 'proprietario' : c.ruolo %></a></li><% }) %>
           </ul>
         </div>
         <div class="carta">
@@ -86,7 +418,7 @@
             <% accessi.forEach(a => { %><li><strong><%= a.nome || 'utente eliminato' %></strong> · <%= dataOra(a.creato_il) %><br><small class="muto"><%= a.file %></small></li><% }) %>
           </ul>
         </div>
-        <form method="post" action="/studio/lavori/<%= lavoro.id %>/elimina" data-conferma="Eliminare il lavoro dall'app? I file sul NAS resteranno intatti.">
+        <form method="post" action="/studio/lavori/<%= lavoro.id %>/elimina" data-conferma="Eliminare il lavoro dall'app? I file su <%= nomeArchivio %> resteranno intatti.">
           <input type="hidden" name="_csrf" value="<%= csrf %>">
           <button class="link pericolo">Elimina lavoro dall'app</button>
         </form>

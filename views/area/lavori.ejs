@@ -1,7 +1,10 @@
 <%- include('../partials/testa') %>
 <section class="sezione">
   <div class="contenitore">
-    <h1>Buongiorno, <%= utente.nome %></h1>
+    <div class="barra-titolo">
+      <h1>Buongiorno, <%= utente.nome %></h1>
+      <div class="azioni"><%- include('../partials/contatti-tel', { numero: studio.telefono, testoWa: `Buongiorno, sono ${utente.nome}. `, piccolo: true }) %></div>
+    </div>
     <p class="sottotitolo">Questi sono i lavori che lo studio sta seguendo per te.</p>
     <% if (!lavori.length) { %>
       <div class="carta"><p>Al momento non ci sono lavori associati al tuo account. Se pensi sia un errore, contatta lo studio.</p></div>

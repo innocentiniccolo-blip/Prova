@@ -2,9 +2,9 @@
 /**
  * Accesso all'archivio lavori sul NAS.
  *
- * Ogni lavoro ha una cartella (relativa ad ARCHIVIO_DIR). Al cliente vengono
- * mostrate SOLO le sottocartelle elencate in config/studio.json → "categorie".
- * Tutto il resto della cartella (es. "Interno", bozze, corrispondenza) resta privato.
+ * Ogni lavoro ha una cartella (relativa ad ARCHIVIO_DIR). Ogni sottocartella
+ * diretta del lavoro è una PRATICA (es. "Accesso atti", "CILA", "Fine lavori").
+ * Il cliente vede solo le pratiche che lo studio ha reso visibili (vedi src/pratiche.js).
  * File e cartelle che iniziano con "." o "_" sono sempre nascosti (utile per le bozze).
  */
 const fs = require('node:fs');
@@ -13,9 +13,11 @@ const path = require('node:path');
 const config = require('./config');
 
 const MAX_PROFONDITA = 6;
+// Qui arrivano i file caricati dai clienti: non è una pratica e non viene letta in automatico
+const CARTELLA_CLIENTE = 'Documenti dal cliente';
 
-const categorie = config.studio.categorie;
-const categoriaPerChiave = new Map(categorie.map((c) => [c.chiave, c]));
+const tipiPratica = config.studio.pratiche.tipi;
+const statiPratica = config.studio.pratiche.stati;
 
 function nascosto(nome) {
   return nome.startsWith('.') || nome.startsWith('_') || nome === 'Thumbs.db' || nome === '@eaDir' || nome === '#recycle';
@@ -51,19 +53,56 @@ function cartellaLavoro(lavoro) {
   return risolviDentro(config.archivioDir, lavoro.cartella);
 }
 
-function cartellaCategoria(lavoro, chiave) {
-  const cat = categoriaPerChiave.get(chiave);
-  const base = cartellaLavoro(lavoro);
-  if (!cat || !base) return null;
-  return risolviDentro(base, cat.cartella);
+/** Nome valido per una sottocartella-pratica: un solo segmento, non nascosto. */
+function nomePraticaValido(nome) {
+  const n = String(nome || '');
+  return Boolean(n) && n === n.trim() && !/[\\/]/.test(n) && n !== '.' && n !== '..' && !nascosto(n) && n.toLowerCase() !== CARTELLA_CLIENTE.toLowerCase();
 }
 
-/** Crea la cartella del lavoro con tutte le sottocartelle-categoria. */
+/** Percorso assoluto della sottocartella di una pratica, o null. */
+function cartellaPratica(lavoro, nome) {
+  const base = cartellaLavoro(lavoro);
+  if (!base || !nomePraticaValido(nome)) return null;
+  return risolviDentro(base, nome);
+}
+
+/** Crea la cartella del lavoro (le sottocartelle delle pratiche si aggiungono quando servono). */
 async function creaStruttura(lavoro) {
   const base = cartellaLavoro(lavoro);
   if (!base) throw new Error('Cartella non valida');
   await fsp.mkdir(base, { recursive: true });
-  for (const c of categorie) await fsp.mkdir(path.join(base, c.cartella), { recursive: true });
+}
+
+/** Crea la sottocartella di una nuova pratica e ne restituisce il nome. */
+async function creaCartellaPratica(lavoro, nome) {
+  const pulito = nomeSicuro(nome);
+  const dir = cartellaPratica(lavoro, pulito);
+  if (!dir) throw new Error('Nome pratica non valido');
+  await fsp.mkdir(dir, { recursive: true });
+  return pulito;
+}
+
+/** Elenco delle sottocartelle dirette del lavoro (le pratiche presenti sul NAS). */
+async function sottocartelle(lavoro) {
+  const base = cartellaLavoro(lavoro);
+  if (!base) return [];
+  let voci;
+  try {
+    voci = await fsp.readdir(base, { withFileTypes: true });
+  } catch (e) {
+    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') return [];
+    throw e;
+  }
+  return voci.filter((v) => v.isDirectory() && nomePraticaValido(v.name)).map((v) => v.name)
+    .sort((x, y) => x.localeCompare(y, 'it', { numeric: true }));
+}
+
+const normalizza = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/** Posizione del tipo di pratica riconosciuto nel nome della cartella (-1 se nessuno). */
+function indiceTipo(nomeCartella) {
+  const n = ` ${normalizza(nomeCartella)} `;
+  return tipiPratica.findIndex((t) => n.includes(` ${normalizza(t)} `));
 }
 
 async function elencaRicorsivo(dir, relBase, profondita, out) {
@@ -88,22 +127,18 @@ async function elencaRicorsivo(dir, relBase, profondita, out) {
   }
 }
 
-/** Restituisce le categorie del lavoro con l'elenco dei file di ciascuna. */
-async function documentiLavoro(lavoro) {
-  const risultato = [];
-  for (const c of categorie) {
-    const dir = cartellaCategoria(lavoro, c.chiave);
-    const file = [];
-    if (dir) await elencaRicorsivo(dir, '', 0, file);
-    file.sort((a, b) => a.percorso.localeCompare(b.percorso, 'it', { numeric: true }));
-    risultato.push({ ...c, file });
-  }
-  return risultato;
+/** File di una pratica (anche nelle sotto-sottocartelle), ordinati per percorso. */
+async function documentiPratica(lavoro, nome) {
+  const dir = cartellaPratica(lavoro, nome);
+  const file = [];
+  if (dir) await elencaRicorsivo(dir, '', 0, file);
+  file.sort((x, y) => x.percorso.localeCompare(y.percorso, 'it', { numeric: true }));
+  return file;
 }
 
-/** Percorso assoluto di un file del lavoro, o null se non esiste / non è accessibile. */
-function fileDocumento(lavoro, chiave, rel) {
-  const dir = cartellaCategoria(lavoro, chiave);
+/** Percorso assoluto di un file della pratica, o null se non esiste / non è accessibile. */
+function fileDocumento(lavoro, nomePratica, rel) {
+  const dir = cartellaPratica(lavoro, nomePratica);
   if (!dir || !rel) return null;
   const abs = risolviDentro(dir, rel);
   if (!abs || abs === path.resolve(dir)) return null;
@@ -121,9 +156,9 @@ function nomeSicuro(nome) {
   return pulito.slice(0, 180) || null;
 }
 
-/** Sposta un file caricato nella categoria indicata senza sovrascrivere file esistenti. */
-async function salvaUpload(lavoro, chiave, tmpPath, nomeOriginale) {
-  const dir = cartellaCategoria(lavoro, chiave);
+/** Sposta un file caricato nella pratica indicata senza sovrascrivere file esistenti. */
+async function salvaUpload(lavoro, nomePratica, tmpPath, nomeOriginale) {
+  const dir = cartellaPratica(lavoro, nomePratica);
   const nome = nomeSicuro(nomeOriginale);
   if (!dir || !nome) throw new Error('Destinazione non valida');
   await fsp.mkdir(dir, { recursive: true });
@@ -142,21 +177,26 @@ async function salvaUpload(lavoro, chiave, tmpPath, nomeOriginale) {
   return finale;
 }
 
-async function eliminaFile(lavoro, chiave, rel) {
-  const abs = fileDocumento(lavoro, chiave, rel);
+async function eliminaFile(lavoro, nomePratica, rel) {
+  const abs = fileDocumento(lavoro, nomePratica, rel);
   if (!abs) return false;
   await fsp.unlink(abs);
   return true;
 }
 
 module.exports = {
-  categorie,
-  categoriaPerChiave,
+  CARTELLA_CLIENTE,
+  tipiPratica,
+  statiPratica,
   risolviDentro,
   normalizzaCartella,
   cartellaLavoro,
+  cartellaPratica,
   creaStruttura,
-  documentiLavoro,
+  creaCartellaPratica,
+  sottocartelle,
+  indiceTipo,
+  documentiPratica,
   fileDocumento,
   nomeSicuro,
   salvaUpload,

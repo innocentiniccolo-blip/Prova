@@ -18,10 +18,15 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  // Area riservata: nessuna pagina deve finire nei motori di ricerca
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  // Nessuno script esterno o in linea: tutto il codice della pagina sta in /js/app.js
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
   if (config.cookieSecure) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
   next();
 });
 
+app.get('/robots.txt', (req, res) => res.type('text/plain').send('User-agent: *\nDisallow: /\n'));
 app.use(express.static(path.join(__dirname, '..', 'public'), { maxAge: config.produzione ? '7d' : 0 }));
 app.use(express.urlencoded({ extended: false, limit: '200kb' }));
 app.use(session({
@@ -34,6 +39,21 @@ app.use(session({
   cookie: { httpOnly: true, sameSite: 'lax', secure: config.cookieSecure, maxAge: 8 * 60 * 60 * 1000 },
 }));
 
+// Chiusura per inattività: la sessione si chiude se non c'è attività da troppo tempo
+app.use((req, res, next) => {
+  const sess = req.session;
+  if (!sess || !sess.utenteId) return next();
+  const ora = Date.now();
+  if (sess.ultimaAttivita && ora - sess.ultimaAttivita > config.inattivitaMs) {
+    return req.session.destroy(() => {
+      res.clearCookie('studio.sid');
+      res.redirect('/accedi?scaduta=1');
+    });
+  }
+  sess.ultimaAttivita = ora;
+  next();
+});
+
 app.use(auth.csrf);
 app.use(auth.caricaUtente);
 app.use((req, res, next) => {
@@ -43,6 +63,16 @@ app.use((req, res, next) => {
   delete req.session.flash;
   next();
 });
+
+// Valori predefiniti per le viste (servono anche per gli errori che avvengono prima della sessione)
+// Numero di versione negli indirizzi di stili e script: dopo ogni aggiornamento il browser scarica quelli nuovi
+const versione = (() => {
+  const h = require('node:crypto').createHash('sha256');
+  const pub = path.join(__dirname, '..', 'public');
+  for (const d of ['css', 'js']) for (const f of require('node:fs').readdirSync(path.join(pub, d)).sort()) h.update(require('node:fs').readFileSync(path.join(pub, d, f)));
+  return h.digest('hex').slice(0, 10);
+})();
+Object.assign(app.locals, { telefono: require('./telefono'), versione, archivioSolaLettura: config.archivioSolaLettura, nomeArchivio: config.archivioSolaLettura ? 'Google Drive' : 'NAS', studio: config.studio, percorso: '', flash: null, utente: null, csrf: '' });
 
 // Helper per le viste
 app.locals.dimensione = (b) => {
@@ -75,11 +105,23 @@ app.use((err, req, res, next) => {
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).render('errore', { titolo: 'File troppo grande', messaggio: `Il limite è ${config.maxUploadMb} MB per file.` });
   }
+  // Richieste malformate (indirizzo non decodificabile, corpo troppo grande, multipart rotto): errore del client
+  const stato = Number(err.status || err.statusCode) || (err.name === 'MulterError' || /Unexpected end of form|Multipart|Malformed part/i.test(err.message || '') ? 400 : 0);
+  if (stato >= 400 && stato < 500) {
+    return res.status(stato).render('errore', { titolo: 'Richiesta non valida', messaggio: 'La richiesta non è valida.' });
+  }
   console.error(err);
   res.status(500).render('errore', { titolo: 'Errore', messaggio: 'Si è verificato un errore imprevisto.' });
 });
 
 if (require.main === module) {
+  // Un errore imprevisto in un'operazione in background non deve spegnere il servizio
+  require('./pulizia').avvia();
+  process.on('unhandledRejection', (e) => console.error('Errore non gestito:', e));
+  // Un errore sfuggito in una singola richiesta non deve far cadere il servizio per tutti
+  process.on('uncaughtException', (e) => console.error('Errore non gestito:', e));
+  require('./automazioni').avvia();
+  require('./posta-in-arrivo').avvia();
   app.listen(config.port, () => {
     console.log(`Studio tecnico in ascolto su http://localhost:${config.port}`);
     console.log(`Archivio lavori: ${config.archivioDir}`);

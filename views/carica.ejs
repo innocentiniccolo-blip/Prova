@@ -1,0 +1,40 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore stretto">
+    <div class="carta">
+      <h1>Invia documenti allo studio</h1>
+      <% if (!v) { %>
+        <div class="avviso errore">Il link non è più valido: è scaduto (vale <%= limiti.giorniLink %> giorni) oppure non è corretto.</div>
+        <p>Puoi inviare i documenti rispondendo all'email del promemoria, oppure contattare lo studio al <a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a>.</p>
+      <% } else { %>
+        <p>Documenti per <strong><%= v.impresa.ragione_sociale %></strong>.</p>
+        <% if (esito) { %>
+          <% if (esito.salvati.length) { %>
+            <div class="avviso ok">Grazie: <%= esito.salvati.length === 1 ? 'il file è arrivato' : `${esito.salvati.length} file sono arrivati` %> allo studio. Verranno controllati a breve.</div>
+          <% } %>
+          <% if (esito.rifiutati.length) { %>
+            <div class="avviso errore">Non inviati:
+              <ul><% esito.rifiutati.forEach(r => { %><li><%= r.nome %>: <%= r.motivo %></li><% }) %></ul>
+            </div>
+          <% } %>
+        <% } %>
+        <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+        <% if (documenti.length) { %>
+          <p>Lo studio ha bisogno di:</p>
+          <ul class="semplice">
+            <% documenti.forEach(d => { %><li><strong><%= d.nome %></strong> <span class="badge doc-<%= d.stato.codice %>"><%= d.stato.testo %></span></li><% }) %>
+          </ul>
+        <% } %>
+        <form method="post" enctype="multipart/form-data" class="modulo">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <label>File da inviare
+            <input type="file" name="file" multiple required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"></label>
+          <p class="nota">Solo PDF, JPG o PNG, fino a <%= limiti.fileMb %> MB ciascuno e <%= limiti.filePerInvio %> file per volta. Puoi tornare su questa pagina per inviare altri file finché il link è valido.
+            I file sono usati dallo studio solo per la sicurezza del cantiere: <a href="/privacy" target="_blank" rel="noopener">informativa sulla privacy</a>.</p>
+          <button class="pulsante pieno">Invia allo studio</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</section>
+<%- include('partials/piede') %>

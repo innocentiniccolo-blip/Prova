@@ -3,7 +3,7 @@
   <div class="contenitore stretto">
     <div class="carta">
       <h1>Area clienti</h1>
-      <p>Accedi per consultare i documenti dei tuoi lavori.</p>
+      <p>Accedi per vedere a che punto sono le tue pratiche e scaricare i documenti.</p>
       <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
       <form method="post" action="/accedi" class="modulo">
         <input type="hidden" name="_csrf" value="<%= csrf %>">
@@ -11,7 +11,9 @@
         <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
         <button class="pulsante pieno">Accedi</button>
       </form>
-      <p class="nota">Non hai le credenziali o le hai dimenticate? Contatta lo studio al <a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a>.</p>
+      <% if (postaAttiva) { %><p class="nota"><a href="/password-dimenticata">Password dimenticata?</a></p><% } %>
+      <p class="nota">Accedendo confermi di aver letto l'<a href="/privacy">informativa sulla privacy</a>. Quest'area usa solo un cookie tecnico necessario per l'accesso.</p>
+      <p class="nota">Non hai ancora le credenziali? Contatta lo studio al <a href="tel:<%= studio.telefono.replace(/[^+\d]/g, '') %>"><%= studio.telefono %></a>.</p>
     </div>
   </div>
 </section>

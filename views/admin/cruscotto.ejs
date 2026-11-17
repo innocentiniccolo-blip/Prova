@@ -44,7 +44,8 @@
         <ul class="semplice">
           <% avvisiImprese.forEach(a => { %>
             <li><a href="/studio/imprese/<%= a.impresa.id %>"><%= a.impresa.ragione_sociale %></a> · <%= a.tipo %> <span class="badge doc-<%= a.stato.codice %>"><%= a.stato.testo %></span>
-              <form method="post" action="/studio/avvisi-imprese/nascondi" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="impresa" value="<%= a.impresa.id %>"><input type="hidden" name="tipo" value="<%= a.chiaveTipo %>"><button class="link" title="Nascondi questo avviso">Nascondi</button></form></li>
+              <form method="post" action="/studio/avvisi-imprese/nascondi" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="impresa" value="<%= a.impresa.id %>"><input type="hidden" name="tipo" value="<%= a.chiaveTipo %>"><button class="link" title="Nascondi questo avviso">Nascondi</button></form>
+              <% if (a.impresa.email || a.impresa.pec) { %><form method="post" action="/studio/imprese/<%= a.impresa.id %>/promemoria" class="in-linea" data-conferma="Inviare a <%= a.impresa.email || a.impresa.pec %> il promemoria per: <%= a.tipo %>?"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="tipo" value="<%= a.chiaveTipo %>"><input type="hidden" name="da" value="cruscotto"><button class="link">Invia promemoria</button></form><% } %></li>
           <% }) %>
         </ul>
         <form method="post" action="/studio/avvisi-imprese/nascondi" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Nascondi tutti</button></form>

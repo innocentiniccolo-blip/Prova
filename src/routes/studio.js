@@ -720,7 +720,7 @@ router.post('/clienti/:id/elimina', auth.verificaCsrf, (req, res) => {
 // ---------- Sicurezza cantiere: imprese e loro documenti ----------
 const datiImpresa = (b) => ({
   ragione_sociale: testo(b.ragione_sociale, 200), piva: testo(b.piva, 20) || null, sede: testo(b.sede, 300) || null,
-  pec: testo(b.pec, 160) || null, telefono: testo(b.telefono, 40) || null, autonomo: b.autonomo ? 1 : 0,
+  pec: testo(b.pec, 160) || null, email: testo(b.email, 160) || null, telefono: testo(b.telefono, 40) || null, autonomo: b.autonomo ? 1 : 0,
   nota: testo(b.nota, 2000) || null,
 });
 function trovaImpresa(req, res, next) {
@@ -753,7 +753,24 @@ router.get('/imprese/:iid', trovaImpresa, (req, res) => {
     documenti: imprese.Q.documenti.all(req.impresa.id).map((d) => ({ ...d, stato: imprese.statoDocumento(d) })),
     riepilogo: imprese.riepilogo(req.impresa.id), lavori: imprese.Q.lavoriImpresa.all(req.impresa.id),
     creditiMinimi: imprese.CREDITI_MINIMI,
+    daSollecitare: imprese.daSollecitare(req.impresa.id), destinatario: imprese.destinatario(req.impresa),
   });
+});
+
+// Promemoria all'impresa: un documento (tipo) o tutti quelli da sistemare. Parte solo su clic.
+router.post('/imprese/:iid/promemoria', trovaImpresa, auth.verificaCsrf, async (req, res, next) => {
+  try {
+    const tipo = typeof req.body.tipo === 'string' && imprese.TIPI[req.body.tipo] ? req.body.tipo : '';
+    const esito = await imprese.inviaPromemoria(req.impresa, tipo, posta.invia);
+    flash(req, esito.ok ? 'ok' : 'errore', esito.ok
+      ? `Promemoria inviato a ${esito.a} (${esito.n === 1 ? '1 documento' : `${esito.n} documenti`}).`
+      : esito.motivo);
+    res.redirect(req.body.da === 'cruscotto' ? '/studio' : `/studio/imprese/${req.impresa.id}#promemoria`);
+  } catch (e) {
+    console.error(e);
+    flash(req, 'errore', 'Invio non riuscito: riprova più tardi o controlla l\'indirizzo dell\'impresa.');
+    res.redirect(`/studio/imprese/${req.impresa.id}#promemoria`);
+  }
 });
 
 router.post('/imprese/:iid', trovaImpresa, auth.verificaCsrf, (req, res) => {

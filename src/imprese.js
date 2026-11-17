@@ -23,16 +23,25 @@ fs.mkdirSync(dirImprese, { recursive: true });
 const GIORNI_PREAVVISO = 15;
 const CREDITI_MINIMI = 15; // sotto questa soglia l'impresa non può operare in cantiere
 
+if (!db.prepare("SELECT 1 FROM pragma_table_info('imprese') WHERE name = 'email'").get()) db.exec('ALTER TABLE imprese ADD COLUMN email TEXT');
+db.exec(`CREATE TABLE IF NOT EXISTS promemoria_imprese (
+  id         INTEGER PRIMARY KEY,
+  impresa_id INTEGER NOT NULL REFERENCES imprese(id) ON DELETE CASCADE,
+  tipo       TEXT NOT NULL,
+  a          TEXT NOT NULL,
+  inviato_il TEXT NOT NULL DEFAULT (datetime('now'))
+)`);
+
 const Q = {
   tutte: db.prepare(`
     SELECT i.*, COUNT(DISTINCT li.lavoro_id) AS n_lavori FROM imprese i
     LEFT JOIN lavori_imprese li ON li.impresa_id = i.id
     GROUP BY i.id ORDER BY i.ragione_sociale COLLATE NOCASE`),
   perId: db.prepare('SELECT * FROM imprese WHERE id = ?'),
-  inserisci: db.prepare(`INSERT INTO imprese (ragione_sociale, piva, sede, pec, telefono, autonomo, nota)
-    VALUES (:ragione_sociale, :piva, :sede, :pec, :telefono, :autonomo, :nota)`),
+  inserisci: db.prepare(`INSERT INTO imprese (ragione_sociale, piva, sede, pec, email, telefono, autonomo, nota)
+    VALUES (:ragione_sociale, :piva, :sede, :pec, :email, :telefono, :autonomo, :nota)`),
   aggiorna: db.prepare(`UPDATE imprese SET ragione_sociale = :ragione_sociale, piva = :piva, sede = :sede,
-    pec = :pec, telefono = :telefono, autonomo = :autonomo, nota = :nota WHERE id = :id`),
+    pec = :pec, email = :email, telefono = :telefono, autonomo = :autonomo, nota = :nota WHERE id = :id`),
   elimina: db.prepare('DELETE FROM imprese WHERE id = ?'),
   documenti: db.prepare(`SELECT * FROM documenti_impresa WHERE impresa_id = ?
     ORDER BY COALESCE(rilascio, substr(caricato_il, 1, 10)) DESC, id DESC`),
@@ -60,6 +69,8 @@ const Q = {
   fileVerbale: db.prepare('UPDATE verbali_cantiere SET file = ? WHERE id = ?'),
   visibilitaVerbale: db.prepare('UPDATE verbali_cantiere SET visibile = ? WHERE id = ? AND lavoro_id = ?'),
   eliminaVerbale: db.prepare('DELETE FROM verbali_cantiere WHERE id = ? AND lavoro_id = ?'),
+  registraPromemoria: db.prepare('INSERT INTO promemoria_imprese (impresa_id, tipo, a) VALUES (?, ?, ?)'),
+  ultimiPromemoria: db.prepare(`SELECT tipo, MAX(inviato_il) AS il FROM promemoria_imprese WHERE impresa_id = ? GROUP BY tipo`),
 };
 
 const TIPI_VERBALE = ['Sopralluogo del CSE', 'Riunione di coordinamento', 'Verifica idoneità imprese', 'Verbale di consegna lavori', 'Sospensione lavori', 'Altro'];
@@ -159,6 +170,64 @@ function nascondiAvviso(impresaId, tipo) {
   }
 }
 
+// ---------- Promemoria alle imprese ----------
+/** Indirizzo a cui scrivere: email normale se c'è, altrimenti PEC. */
+const destinatario = (i) => i.email || i.pec || '';
+
+/** Documenti principali da sistemare, con la data dell'ultimo promemoria inviato. */
+function daSollecitare(impresaId) {
+  const r = riepilogo(impresaId);
+  const ultimi = Object.fromEntries(Q.ultimiPromemoria.all(impresaId).map((u) => [u.tipo, u.il]));
+  return PRINCIPALI.filter((t) => r[t].stato.codice !== 'ok')
+    .map((t) => ({ tipo: t, nome: TIPI[t], doc: r[t].doc, stato: r[t].stato, ultimo: ultimi[t] || null }));
+}
+
+const dataIt = (iso) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : '');
+function rigaDocumento(v) {
+  const c = v.stato.codice;
+  if (c === 'mancante') return `- ${v.nome}: non ci risulta ancora consegnato`;
+  if (c === 'insufficiente') return `- ${v.nome}: ${v.stato.testo}`;
+  if (c === 'scaduto') return `- ${v.nome}: ${v.tipo === 'visura' ? 'da aggiornare (più vecchia di 6 mesi)' : `scaduto il ${dataIt(v.doc.scadenza)}`}`;
+  return `- ${v.nome}: scade il ${dataIt(v.doc.scadenza)}`;
+}
+
+/** Testo dell'email di promemoria (solo testo, nessun link). */
+function testoPromemoria(impresa, voci) {
+  const cantieri = Q.lavoriImpresa.all(impresa.id).filter((l) => !['Completato', 'Sospeso'].includes(l.stato));
+  const uno = voci.length === 1;
+  return [
+    `Buongiorno,`,
+    ``,
+    `vi scriviamo per ricordarvi che per ${impresa.ragione_sociale} ${uno ? 'il seguente documento è da aggiornare' : 'i seguenti documenti sono da aggiornare'}:`,
+    ``,
+    ...voci.map(rigaDocumento),
+    ``,
+    ...(cantieri.length ? [`${uno ? 'Il documento serve' : 'I documenti servono'} per ${cantieri.length === 1 ? 'il cantiere' : 'i cantieri'}: ${cantieri.map((l) => l.titolo).join('; ')}.`, ``] : []),
+    `Vi chiediamo di inviarci ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} rispondendo a questa email.`,
+    ``,
+    `Grazie e buon lavoro.`,
+  ].join('\n');
+}
+
+/**
+ * Invia il promemoria per un documento (tipo) o per tutti quelli da sistemare (tipo vuoto).
+ * Restituisce { ok, a, n } oppure { ok: false, motivo }.
+ */
+async function inviaPromemoria(impresa, tipo, invia) {
+  const a = destinatario(impresa);
+  if (!a) return { ok: false, motivo: 'Manca l\'indirizzo: aggiungi email o PEC nei dati dell\'impresa.' };
+  let voci = daSollecitare(impresa.id);
+  if (tipo) voci = voci.filter((v) => v.tipo === tipo);
+  if (!voci.length) return { ok: false, motivo: 'Nessun documento da sollecitare: risultano tutti in regola.' };
+  const oggetto = voci.length === 1
+    ? `Promemoria: ${voci[0].nome} da aggiornare – ${impresa.ragione_sociale}`
+    : `Promemoria: documenti da aggiornare – ${impresa.ragione_sociale}`;
+  const inviata = await invia({ a, oggetto, testo: testoPromemoria(impresa, voci) });
+  if (!inviata) return { ok: false, motivo: 'Email non inviata: la posta del sito non è configurata.' };
+  for (const v of voci) Q.registraPromemoria.run(impresa.id, v.tipo, a);
+  return { ok: true, a, n: voci.length };
+}
+
 function percorsoFile(doc) {
   if (!doc || !doc.file) return null;
   const abs = path.join(dirImprese, String(doc.impresa_id), doc.file);
@@ -234,6 +303,7 @@ async function eliminaFileLavoro(lavoroId) {
 }
 
 module.exports = {
+  destinatario, daSollecitare, testoPromemoria, inviaPromemoria,
   TIPI_VERBALE, percorsoVerbale, salvaVerbale, eliminaVerbale, eliminaFileLavoro,
   TIPI, PRINCIPALI, CREDITI_MINIMI, Q,
   scadenzaPredefinita, statoDocumento, riepilogo, impreseDelLavoro, avvisiScadenze, nascondiAvviso,

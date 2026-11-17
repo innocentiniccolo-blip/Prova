@@ -18,6 +18,36 @@
           <%- include('../partials/riepilogo-impresa', { i: { riepilogo }, tipiDoc, linkDoc: (d) => `/studio/imprese/${impresa.id}/documenti/${d.id}` }) %>
         </div>
 
+        <div class="carta" id="promemoria">
+          <h2>Promemoria all'impresa</h2>
+          <% if (!daSollecitare.length) { %>
+            <p class="vuoto">Tutti i documenti sono in regola: nessun promemoria da inviare.</p>
+          <% } else if (!destinatario) { %>
+            <p class="avviso">Per inviare promemoria aggiungi l'email (o la PEC) dell'impresa in «Modifica dati».</p>
+          <% } else { %>
+            <ul class="promemoria-lista">
+              <% daSollecitare.forEach(v => { %>
+                <li>
+                  <span class="doc-nome"><%= v.nome %></span>
+                  <span class="badge doc-<%= v.stato.codice %>"><%= v.stato.testo %></span>
+                  <% if (v.ultimo) { %><small class="muto">Promemoria inviato il <%= data(v.ultimo.slice(0, 10)) %></small><% } %>
+                  <form method="post" action="/studio/imprese/<%= impresa.id %>/promemoria" class="in-linea" data-conferma="Inviare a <%= destinatario %> il promemoria per: <%= v.nome %>?">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="tipo" value="<%= v.tipo %>">
+                    <button class="pulsante piccolo secondario">Invia promemoria</button>
+                  </form>
+                </li>
+              <% }) %>
+            </ul>
+            <% if (daSollecitare.length > 1) { %>
+              <form method="post" action="/studio/imprese/<%= impresa.id %>/promemoria" data-conferma="Inviare a <%= destinatario %> un'unica email con tutti i <%= daSollecitare.length %> documenti da aggiornare?">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <button class="pulsante">Invia promemoria per tutti i documenti (<%= daSollecitare.length %>)</button>
+              </form>
+            <% } %>
+            <p class="nota">La mail parte da info@ verso <strong><%= destinatario %></strong><%= impresa.email ? '' : ' (PEC: alcune caselle PEC rifiutano la posta normale, meglio aggiungere un\'email)' %>. Chiede di rispondere con il documento aggiornato: nessun link né caricamento.</p>
+          <% } %>
+        </div>
+
         <div class="carta" id="carica">
           <h2>Carica un documento</h2>
           <form method="post" action="/studio/imprese/<%= impresa.id %>/documenti" enctype="multipart/form-data" class="modulo" data-documento-impresa>
@@ -78,8 +108,9 @@
           <summary><strong>Modifica dati</strong></summary>
           <%- include('../partials/form-impresa', { impresa, azione: `/studio/imprese/${impresa.id}`, pulsante: 'Salva' }) %>
         </details>
-        <% if (impresa.pec || impresa.telefono) { %>
+        <% if (impresa.email || impresa.pec || impresa.telefono) { %>
           <div class="carta"><h2>Contatti</h2><dl class="dati">
+            <% if (impresa.email) { %><dt>Email</dt><dd><%= impresa.email %></dd><% } %>
             <% if (impresa.pec) { %><dt>PEC</dt><dd><%= impresa.pec %></dd><% } %>
             <% if (impresa.telefono) { %><dt>Telefono</dt><dd><%= impresa.telefono %></dd><% } %>
           </dl><% if (impresa.nota) { %><p class="a-capo muto"><%= impresa.nota %></p><% } %></div>

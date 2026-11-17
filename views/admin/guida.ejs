@@ -153,5 +153,5 @@
     <p class="nota solo-stampa">Guida stampata il <%= data(new Date().toISOString().slice(0, 10)) %> da <%= urlPubblico || 'area clienti' %>.</p>
   </div>
 </section>
-<script src="/js/guida.js" defer></script>
+<script src="/js/guida.js?v=<%= versione %>" defer></script>
 <%- include('../partials/piede') %>

@@ -6,7 +6,7 @@
   <title><%= titolo ? titolo + ' · ' : '' %><%= studio.nome %></title>
   <meta name="description" content="<%= studio.slogan %>">
   <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=<%= versione %>">
 </head>
 <body class="<%= percorso.startsWith('/studio') ? 'pannello' : '' %>">
 <header class="testata">

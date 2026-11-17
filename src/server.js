@@ -65,7 +65,14 @@ app.use((req, res, next) => {
 });
 
 // Valori predefiniti per le viste (servono anche per gli errori che avvengono prima della sessione)
-Object.assign(app.locals, { archivioSolaLettura: config.archivioSolaLettura, nomeArchivio: config.archivioSolaLettura ? 'Google Drive' : 'NAS', studio: config.studio, percorso: '', flash: null, utente: null, csrf: '' });
+// Numero di versione negli indirizzi di stili e script: dopo ogni aggiornamento il browser scarica quelli nuovi
+const versione = (() => {
+  const h = require('node:crypto').createHash('sha256');
+  const pub = path.join(__dirname, '..', 'public');
+  for (const d of ['css', 'js']) for (const f of require('node:fs').readdirSync(path.join(pub, d)).sort()) h.update(require('node:fs').readFileSync(path.join(pub, d, f)));
+  return h.digest('hex').slice(0, 10);
+})();
+Object.assign(app.locals, { versione, archivioSolaLettura: config.archivioSolaLettura, nomeArchivio: config.archivioSolaLettura ? 'Google Drive' : 'NAS', studio: config.studio, percorso: '', flash: null, utente: null, csrf: '' });
 
 // Helper per le viste
 app.locals.dimensione = (b) => {

@@ -200,7 +200,7 @@ router.post('/carica/:token', (req, res, next) => {
         for (const f of files) {
           const nome = Buffer.from(f.originalname, 'latin1').toString('utf8');
           const r = await arrivi.ricevi(v.impresa.id, { percorso: f.path, nome, dimensione: f.size }, { origine: 'link' });
-          if (r.ok) esito.salvati.push(nome); else esito.rifiutati.push({ nome, motivo: r.motivo });
+          if (r.ok) esito.salvati.push(r.nome); else esito.rifiutati.push({ nome, motivo: r.motivo });
           if (r.infetto) notifiche.avvisaStudio(`Antivirus: file scartato da ${v.impresa.ragione_sociale}`, `Il file «${nome}» caricato dal link dell'impresa ${v.impresa.ragione_sociale} è stato scartato dall'antivirus (${r.dettaglio}).\nNon è stato salvato. Se l'impresa ti contatta, chiedile di rimandarlo.`);
         }
         if (esito.salvati.length) {

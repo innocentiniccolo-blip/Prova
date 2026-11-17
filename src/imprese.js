@@ -253,7 +253,7 @@ function percorsoFile(doc) {
 }
 
 async function salvaDocumento(impresaId, dati, tmp, nomeOriginale) {
-  const tipo = TIPI[dati.tipo] ? dati.tipo : 'altro';
+  const tipo = Object.hasOwn(TIPI, String(dati.tipo)) ? dati.tipo : 'altro';
   const r = Q.inserisciDoc.run({
     impresa_id: impresaId,
     tipo,

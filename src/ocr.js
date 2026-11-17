@@ -28,7 +28,8 @@ async function ocrDisponibile() {
 async function ocrPdf(abs, { pagine = 4 } = {}) {
   const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'ocr-'));
   try {
-    await esegui('pdftoppm', ['-r', '200', '-gray', '-png', '-f', '1', '-l', String(pagine), abs, path.join(dir, 'p')]);
+    // -scale-to: dimensione massima fissa, così una pagina gigante non esaurisce la memoria
+    await esegui('pdftoppm', ['-scale-to', '2400', '-gray', '-png', '-f', '1', '-l', String(pagine), abs, path.join(dir, 'p')]);
     let testo = '';
     for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.png')).sort()) {
       testo += await esegui('tesseract', [path.join(dir, f), '-', '-l', 'ita', '--psm', '4']) + '\n';

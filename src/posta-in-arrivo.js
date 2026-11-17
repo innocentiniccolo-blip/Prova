@@ -64,7 +64,18 @@ function allegatoUtile(a) {
  * Elabora un messaggio già letto (oggetto di mailparser). Restituisce un riassunto:
  * { esito: 'ignorato' | 'mittente-diverso' | 'senza-allegati' | 'ricevuto', impresa, salvati, rifiutati }
  */
+/** true se i controlli del provider di posta (SPF/DMARC) dicono che il mittente è falsificato. */
+function mittenteFalsificato(m) {
+  const h = m.headers && m.headers.get('authentication-results');
+  const righe = (Array.isArray(h) ? h : [h]).filter(Boolean).map((x) => (typeof x === 'string' ? x : x.value || JSON.stringify(x)).toLowerCase());
+  return righe.some((r) => /\b(dmarc|spf)=fail\b/.test(r));
+}
+
 async function elabora(messaggio) {
+  if (mittenteFalsificato(messaggio)) {
+    console.warn(`Posta: messaggio «${String(messaggio.subject || '').slice(0, 80)}» scartato (SPF/DMARC: mittente non autentico)`);
+    return { esito: 'mittente-falsificato' };
+  }
   const msg = await originale(messaggio);
   const impresaId = arrivi.leggiRiferimento(msg.subject) || arrivi.leggiRiferimento(messaggio.subject);
   const impresa = impresaId && imprese.Q.perId.get(impresaId);
@@ -84,7 +95,7 @@ async function elabora(messaggio) {
       const tmp = path.join(dir, String(i));
       await fsp.writeFile(tmp, a.content);
       const r = await arrivi.ricevi(impresa.id, { percorso: tmp, nome: a.filename, dimensione: a.content.length }, { origine: 'email', mittente: da });
-      if (r.ok) out.salvati.push(a.filename);
+      if (r.ok) out.salvati.push(r.nome);
       else (r.infetto ? out.infetti : out.rifiutati).push({ nome: a.filename, motivo: r.motivo, dettaglio: r.dettaglio });
     }
   } finally { await fsp.rm(dir, { recursive: true, force: true }); }

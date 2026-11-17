@@ -130,11 +130,11 @@ function idClienti(body) {
   const out = [];
   for (const [k, v] of Object.entries(body)) {
     const m = k.match(/^ruolo_(\d+)$/);
-    if (m && ruoli.RUOLI[v]) out.push({ id: Number(m[1]), ruolo: v });
+    if (m && Object.hasOwn(ruoli.RUOLI, v)) out.push({ id: Number(m[1]), ruolo: v });
   }
   // Cliente scelto dal menu «Aggiungi un cliente» (senza premere «Aggiungi», o con JavaScript spento)
   const nuovo = Number(body.aggiungi_cliente);
-  if (nuovo > 0 && !out.some((c) => c.id === nuovo)) out.push({ id: nuovo, ruolo: ruoli.RUOLI[body.aggiungi_ruolo] ? body.aggiungi_ruolo : 'proprietario' });
+  if (nuovo > 0 && !out.some((c) => c.id === nuovo)) out.push({ id: nuovo, ruolo: Object.hasOwn(ruoli.RUOLI, String(body.aggiungi_ruolo)) ? body.aggiungi_ruolo : 'proprietario' });
   // Compatibilità con il vecchio modulo a spunte
   for (const id of [].concat(body.clienti || []).map(Number)) if (id > 0 && !out.some((c) => c.id === id)) out.push({ id, ruolo: 'proprietario' });
   return out;
@@ -145,7 +145,7 @@ function idAziende(body) {
   const out = [];
   for (const [k, v] of Object.entries(body)) {
     const m = k.match(/^azienda_(\d+)$/);
-    if (m && ruoli.RUOLI[v] && v !== 'proprietario') out.push({ id: Number(m[1]), ruolo: v });
+    if (m && Object.hasOwn(ruoli.RUOLI, v) && v !== 'proprietario') out.push({ id: Number(m[1]), ruolo: v });
   }
   const nuova = Number(body.aggiungi_azienda);
   if (nuova > 0 && !out.some((a) => a.id === nuova)) out.push({ id: nuova, ruolo: body.aggiungi_azienda_ruolo === 'impresa' ? 'impresa' : 'agenzia' });
@@ -799,7 +799,7 @@ router.post('/imprese/:iid/promemoria-whatsapp', trovaImpresa, auth.verificaCsrf
 // Promemoria all'impresa: un documento (tipo) o tutti quelli da sistemare. Parte solo su clic.
 router.post('/imprese/:iid/promemoria', trovaImpresa, auth.verificaCsrf, async (req, res, next) => {
   try {
-    const tipo = typeof req.body.tipo === 'string' && imprese.TIPI[req.body.tipo] ? req.body.tipo : '';
+    const tipo = typeof req.body.tipo === 'string' && Object.hasOwn(imprese.TIPI, req.body.tipo) ? req.body.tipo : '';
     const esito = await imprese.inviaPromemoria(req.impresa, tipo, posta.invia);
     flash(req, esito.ok ? 'ok' : 'errore', esito.ok
       ? `Promemoria inviato a ${esito.a} (${esito.n === 1 ? '1 documento' : `${esito.n} documenti`}).`
@@ -853,7 +853,7 @@ router.post('/imprese/:iid/documenti', trovaImpresa, pulisciTmp, upload.array('f
       }
     }
     await imprese.salvaDocumento(req.impresa.id, dati, f && f.path, nomeFile);
-    flash(req, 'ok', `${imprese.TIPI[b.tipo] || 'Documento'} registrato.` + (letti.length ? ` Letti dal PDF: ${letti.join(', ')} — controlla che siano giusti.` : ''));
+    flash(req, 'ok', `${(Object.hasOwn(imprese.TIPI, String(b.tipo)) && imprese.TIPI[b.tipo]) || 'Documento'} registrato.` + (letti.length ? ` Letti dal PDF: ${letti.join(', ')} — controlla che siano giusti.` : ''));
     res.redirect(`/studio/imprese/${req.impresa.id}`);
   } catch (e) { next(e); }
 });
@@ -895,7 +895,7 @@ router.post('/imprese/:iid/arrivi/:aid', trovaImpresa, trovaArrivo, auth.verific
       flash(req, 'ok', `«${req.arrivo.nome}» scartato e cancellato.`);
     } else {
       const crediti = b.crediti === '' || b.crediti == null ? null : Number.parseInt(b.crediti, 10);
-      const tipo = typeof b.tipo === 'string' && imprese.TIPI[b.tipo] ? b.tipo : 'altro';
+      const tipo = typeof b.tipo === 'string' && Object.hasOwn(imprese.TIPI, b.tipo) ? b.tipo : 'altro';
       const ok = await arrivi.approva(req.arrivo, {
         tipo, descrizione: testo(b.descrizione, 200) || (tipo === 'altro' ? req.arrivo.nome.replace(/\.[a-z]+$/i, '') : null),
         rilascio: dataONull(b.rilascio), scadenza: dataONull(b.scadenza), numero: testo(b.numero, 100),

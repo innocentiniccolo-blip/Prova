@@ -137,7 +137,7 @@ async function ricevi(impresaId, f, { origine, mittente = null }) {
   const file = `${id}-${nome}`;
   await fsp.copyFile(f.percorso, path.join(dir, file));
   Q.impostaFile.run(file, id);
-  return { ok: true, id };
+  return { ok: true, id, nome };
 }
 
 function percorso(arrivo) {

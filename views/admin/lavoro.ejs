@@ -67,7 +67,7 @@
                 <strong>Visure catastali: unità d'intervento da confermare.</strong> I documenti indicano unità diverse; finché non scegli, nessuna visura viene pubblicata in automatico.
                 <div class="scelte-unita">
                   <% statoVisure.conflitto.forEach(c => { const testoU = c.testo; %>
-                    <form method="post" action="<%= base %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value="<%= testoU %>">
+                    <form method="post" action="/studio/lavori/<%= lavoro.id %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value="<%= testoU %>">
                       <button class="pulsante piccolo secondario"><%= testoU %></button> <small class="muto">da «<%= c.nome %>»</small></form>
                   <% }) %>
                 </div>
@@ -75,7 +75,7 @@
                 <strong>Visure catastali: unità d'intervento non trovata.</strong> Scrivila nella scheda immobile («Dati catastali», es. <i>foglio 12 particella 345 sub 6</i>) oppure pubblica a mano la visura giusta: da lì il programma continua da solo.
               <% } else { %>
                 Visure e planimetrie: si pubblicano da sole quelle di <strong><%= statoVisure.unitaTesto %></strong> <small class="muto">(da <%= statoVisure.fonte %>)</small>.
-                <% if (statoVisure.fonte === 'scheda immobile') { %><form method="post" action="<%= base %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value=""><button class="link">Torna automatica</button></form><% } %>
+                <% if (statoVisure.fonte === 'scheda immobile') { %><form method="post" action="/studio/lavori/<%= lavoro.id %>/unita" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="unita" value=""><button class="link">Torna automatica</button></form><% } %>
               <% } %>
             </div>
           <% } %>

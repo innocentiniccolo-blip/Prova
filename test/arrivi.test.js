@@ -203,3 +203,21 @@ test('telefono: link per chiamare e WhatsApp, promemoria via WhatsApp', async ()
   assert.match(r.loc, /^https:\/\/wa\.me\/393330000000\?text=.*carica/);
   assert.ok(imprese.daSollecitare(id).every((v) => v.ultimo));
 });
+
+test('pagina del lavoro con visure in conflitto o unità dalla scheda: si apre senza errori', async () => {
+  const visure = require('../src/visure');
+  const vero = visure.stato;
+  fs.mkdirSync(path.join(process.env.ARCHIVIO_DIR, 'V-1 Visure'), { recursive: true });
+  const { Lavori } = require('../src/modelli');
+  const id = Number(Lavori.inserisci.run({ codice: 'V-1', titolo: 'Visure', descrizione: null, indirizzo: null, stato: 'In corso', cartella: 'V-1 Visure', data_inizio: null, data_fine: null, visibile: 1 }).lastInsertRowid);
+  const st = browser();
+  await st.post('/accedi', { email: 'studio@esempio.it', password: PW }, '/accedi');
+  try {
+    visure.stato = () => ({ fonte: 'documenti', unita: [], soppresse: [], documenti: 2, conflitto: [{ nome: 'a.pdf', testo: 'fg. 1 part. 2 sub. 3' }, { nome: 'b.pdf', testo: 'fg. 1 part. 2 sub. 4' }] });
+    const r = await st.go(`/studio/lavori/${id}`);
+    assert.strictEqual(r.status, 200);
+    assert.match(r.testo, new RegExp(`action="/studio/lavori/${id}/unita"`));
+    visure.stato = () => ({ fonte: 'scheda immobile', unita: [{}], unitaTesto: 'fg. 1 part. 2 sub. 3', soppresse: [], documenti: 1, conflitto: null });
+    assert.strictEqual((await st.go(`/studio/lavori/${id}`)).status, 200);
+  } finally { visure.stato = vero; }
+});

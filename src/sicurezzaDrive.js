@@ -60,8 +60,10 @@ function leggiDocumento(nome, testo) {
     dati.rilascio = data(t, /estratto dal Registro Imprese in data\s+(\d{2}\/\d{2}\/\d{4})/i);
     const den = t.match(/VISURA (?:ORDINARIA|STORICA) DELL['’]IMPRESA\s+(.+?)\s+(?:Registro Imprese|Codice Fiscale)/i);
     if (den) dati.anagrafica.nome = pulisci(den[1]);
-    const piva = t.match(/Partita IVA\s+(\d{11})/i);
+    const piva = t.match(/Partita IVA\s+(\d{11})/i) || t.match(/Codice fiscale\s+(?:e n\.\s*iscr\.\s*al Registro Imprese\s+)?(\d{11})\b/i);
     if (piva) dati.anagrafica.piva = piva[1];
+    const rea = t.match(/Numero REA\s+([A-Z]{2}\s*-\s*\d{3,9})/i);
+    if (rea) dati.anagrafica.rea = rea[1].replace(/\s+/g, '');
     const pec = t.match(/Domicilio digitale\/PEC\s+(\S+@\S+)/i);
     if (pec) dati.anagrafica.pec = pec[1];
     const sede = t.match(/1 Sede\s+Indirizzo Sede\s+(.+?)\s+(.+?)\s+CAP\s+(\d{5})/i);
@@ -91,7 +93,7 @@ function impresaPer(nomeCartella, anagrafica) {
   if (!imp) {
     const r = imprese.Q.inserisci.run({
       ragione_sociale: anagrafica.nome || nomeCartella, piva: anagrafica.piva || null, sede: anagrafica.sede || null,
-      pec: anagrafica.pec || null, telefono: null, autonomo: 0, nota: null,
+      pec: anagrafica.pec || null, email: null, telefono: null, autonomo: 0, nota: null,
     });
     imp = imprese.Q.perId.get(Number(r.lastInsertRowid));
   } else {
@@ -151,4 +153,4 @@ async function importaTutti() {
   return n;
 }
 
-module.exports = { importaLavoro, importaTutti, leggiDocumento };
+module.exports = { impresaPer, importaLavoro, importaTutti, leggiDocumento };

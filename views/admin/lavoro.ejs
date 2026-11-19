@@ -323,6 +323,7 @@
           <% } %>
           <details>
             <summary>+ Nuova impresa per questo cantiere</summary>
+            <%- include('../partials/impresa-da-visura', { lavoroId: lavoro.id }) %>
             <%- include('../partials/form-impresa', { impresa: {}, azione: '/studio/imprese', pulsante: 'Crea e aggiungi', lavoroId: lavoro.id }) %>
           </details>
 

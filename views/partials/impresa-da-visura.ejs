@@ -1,0 +1,8 @@
+<form method="post" action="/studio/imprese/da-visura" enctype="multipart/form-data" class="modulo da-visura">
+  <input type="hidden" name="_csrf" value="<%= csrf %>">
+  <% if (typeof lavoroId !== 'undefined' && lavoroId) { %><input type="hidden" name="lavoro" value="<%= lavoroId %>"><% } %>
+  <label><strong>Dalla visura camerale</strong> <small class="muto">(PDF: legge ragione sociale, P.IVA, sede e PEC e salva la visura)</small>
+    <input type="file" name="file" accept=".pdf,application/pdf" required></label>
+  <button class="pulsante">Crea dalla visura</button>
+</form>
+<p class="nota oppure">oppure inserisci i dati a mano:</p>

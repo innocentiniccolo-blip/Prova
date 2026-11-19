@@ -403,3 +403,5 @@ details.visibili > summary { cursor: pointer; } details.visibili > summary h3 { 
 .pulsante.whatsapp:hover { background: #17834a; }
 .promemoria-wa { margin-top: .8rem; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; }
 .contatta-studio .contatti-tel .pulsante { flex: 1 1 auto; text-align: center; }
+.modulo.da-visura { background: var(--azzurro-chiaro, #eef5fb); border-radius: 8px; padding: .8rem 1rem; margin: .6rem 0; }
+.nota.oppure { margin: .4rem 0; }

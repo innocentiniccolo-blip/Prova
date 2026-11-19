@@ -778,6 +778,35 @@ router.post('/imprese', auth.verificaCsrf, (req, res) => {
   res.redirect(`/studio/imprese/${id}`);
 });
 
+// Nuova impresa dalla visura camerale: legge ragione sociale, P.IVA, sede e PEC e salva la visura tra i documenti
+router.post('/imprese/da-visura', pulisciTmp, upload.array('file', 1), auth.verificaCsrf, async (req, res, next) => {
+  const torna = Number(req.body.lavoro) ? `/studio/lavori/${Number(req.body.lavoro)}#sicurezza` : '/studio/imprese';
+  try {
+    const f = (req.files || [])[0];
+    const nome = f && Buffer.from(f.originalname, 'latin1').toString('utf8');
+    if (!f || !/\.pdf$/i.test(nome)) { flash(req, 'errore', 'Scegli la visura camerale in PDF.'); return res.redirect(torna); }
+    const { testoDocumento } = require('../ocr');
+    const sd = require('../sicurezzaDrive');
+    const l = sd.leggiDocumento(nome, await testoDocumento(f.path));
+    const a = l.anagrafica || {};
+    if (l.tipo !== 'visura' || !a.nome) {
+      flash(req, 'errore', 'Non riesco a leggere la visura: controlla che sia la visura camerale (ordinaria o storica) in PDF, oppure inserisci l\'impresa a mano.');
+      return res.redirect(torna);
+    }
+    const giaCera = a.piva ? imprese.Q.perId.get((require('../db').prepare('SELECT id FROM imprese WHERE piva = ?').get(a.piva) || {}).id || 0) : null;
+    const imp = sd.impresaPer(a.nome, a);
+    if (a.rea && !imp.nota) require('../db').prepare('UPDATE imprese SET nota = ? WHERE id = ? AND nota IS NULL').run(`REA ${a.rea}`, imp.id);
+    await imprese.salvaDocumento(imp.id, { tipo: 'visura', rilascio: l.rilascio || null, descrizione: null, numero: a.rea || null }, f.path, nome);
+    const lavoroId = Number(req.body.lavoro) || 0;
+    if (lavoroId && Lavori.perId.get(lavoroId) && !imprese.Q.delLavoro.all(lavoroId).some((i) => i.id === imp.id)) {
+      imprese.Q.collega.run(lavoroId, imp.id, null, 1);
+    }
+    const letti = [a.piva && 'P.IVA', a.sede && 'sede', a.pec && 'PEC', l.rilascio && 'data della visura'].filter(Boolean);
+    flash(req, 'ok', `${giaCera ? 'Impresa già presente' : 'Impresa creata'}: «${imp.ragione_sociale}». Visura salvata${letti.length ? `; letti ${letti.join(', ')}` : ''} — controlla che i dati siano giusti.`);
+    res.redirect(`/studio/imprese/${imp.id}`);
+  } catch (e) { next(e); }
+});
+
 router.get('/imprese/:iid', trovaImpresa, (req, res) => {
   res.render('admin/impresa', {
     titolo: req.impresa.ragione_sociale, impresa: req.impresa, tipiDoc: imprese.TIPI,
@@ -846,6 +875,13 @@ router.post('/imprese/:iid/documenti', trovaImpresa, pulisciTmp, upload.array('f
       const { leggiDocumento } = require('../sicurezzaDrive');
       let l = null;
       try { l = leggiDocumento(nomeFile, await testoDocumento(f.path)); } catch { /* PDF illeggibile */ }
+      if (l && l.tipo === 'visura' && dati.tipo === 'visura' && l.anagrafica) {
+        // visura caricata nella scheda: completa i dati dell'impresa che mancano
+        const an = l.anagrafica;
+        const r = require('../db').prepare('UPDATE imprese SET piva = COALESCE(piva, ?), sede = COALESCE(sede, ?), pec = COALESCE(pec, ?) WHERE id = ?')
+          .run(an.piva || null, an.sede || null, an.pec || null, req.impresa.id);
+        if (r.changes && (an.piva || an.sede || an.pec)) letti.push('dati mancanti dell\'impresa');
+      }
       if (l && (l.tipo === dati.tipo || l.tipo === 'altro')) {
         for (const [k, nome] of [['rilascio', 'data di rilascio'], ['scadenza', 'scadenza'], ['numero', 'numero'], ['crediti', 'crediti']]) {
           if ((dati[k] == null || dati[k] === '') && l[k] != null && l[k] !== '') { dati[k] = l[k]; letti.push(nome); }

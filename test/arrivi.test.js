@@ -221,3 +221,48 @@ test('pagina del lavoro con visure in conflitto o unità dalla scheda: si apre s
     assert.strictEqual((await st.go(`/studio/lavori/${id}`)).status, 200);
   } finally { visure.stato = vero; }
 });
+
+test('nuova impresa dalla visura camerale: dati letti, visura salvata, collegata al cantiere; seconda volta non la duplica', async () => {
+  const PDFDocument = require('pdfkit');
+  const pdf = path.join(tmp, 'Visura Edile Rossi.pdf');
+  await new Promise((ok) => {
+    const d = new PDFDocument(); const out = fs.createWriteStream(pdf); d.pipe(out);
+    for (const r of ['VISURA ORDINARIA DELL\'IMPRESA', 'EDILE ROSSI SRL', 'Registro Imprese', 'Documento n. T 123 estratto dal Registro Imprese in data 10/11/2026',
+      'Partita IVA 01234567890', 'Numero REA AR - 123456', 'Domicilio digitale/PEC edilerossi@pec.esempio.it',
+      '1 Sede', 'Indirizzo Sede', 'AREZZO (AR)', 'VIA ROMA 1', 'CAP 52100']) d.text(r);
+    d.end(); out.on('finish', ok);
+  });
+  fs.mkdirSync(path.join(process.env.ARCHIVIO_DIR, 'S-1 Sic'), { recursive: true });
+  const { Lavori } = require('../src/modelli');
+  const lid = Number(Lavori.inserisci.run({ codice: 'S-1', titolo: 'Sic', descrizione: null, indirizzo: null, stato: 'In corso', cartella: 'S-1 Sic', data_inizio: null, data_fine: null, visibile: 1 }).lastInsertRowid);
+  const st = browser();
+  await st.post('/accedi', { email: 'studio@esempio.it', password: PW }, '/accedi');
+  const invia = async () => {
+    const fd = new FormData(); fd.append('_csrf', await st.csrf('/studio/imprese')); fd.append('lavoro', String(lid));
+    fd.append('file', new Blob([fs.readFileSync(pdf)]), 'Visura Edile Rossi.pdf');
+    return st.go('/studio/imprese/da-visura', { method: 'POST', body: fd });
+  };
+  const r = await invia();
+  assert.strictEqual(r.status, 302);
+  const imp = require('../src/db').prepare("SELECT * FROM imprese WHERE piva = '01234567890'").get();
+  assert.ok(imp, 'impresa creata');
+  assert.match(imp.ragione_sociale, /EDILE ROSSI SRL/);
+  assert.strictEqual(imp.pec, 'edilerossi@pec.esempio.it');
+  assert.match(imp.sede || '', /VIA ROMA 1/);
+  assert.strictEqual(imprese.riepilogo(imp.id).visura.doc.rilascio, '2026-11-10');
+  assert.ok(imprese.Q.delLavoro.all(lid).some((i) => i.id === imp.id));
+  await invia();
+  assert.strictEqual(require('../src/db').prepare("SELECT COUNT(*) AS n FROM imprese WHERE piva = '01234567890'").get().n, 1);
+  // un PDF che non è una visura non crea niente
+  const fd = new FormData(); fd.append('_csrf', await st.csrf('/studio/imprese'));
+  fd.append('file', new Blob([Buffer.from('%PDF-1.4\n%%EOF')]), 'altro.pdf');
+  const prima = require('../src/db').prepare('SELECT COUNT(*) AS n FROM imprese').get().n;
+  await st.go('/studio/imprese/da-visura', { method: 'POST', body: fd });
+  assert.strictEqual(require('../src/db').prepare('SELECT COUNT(*) AS n FROM imprese').get().n, prima);
+  // il cliente non può usarla
+  const cli = browser(); await cli.post('/accedi', { email: 'anna@esempio.it', password: PW }, '/accedi');
+  const fd2 = new FormData(); fd2.append('_csrf', await cli.csrf('/area')); fd2.append('file', new Blob([fs.readFileSync(pdf)]), 'v.pdf');
+  const docPrima = require('../src/db').prepare('SELECT COUNT(*) AS n FROM documenti_impresa').get().n;
+  await cli.go('/studio/imprese/da-visura', { method: 'POST', body: fd2 });
+  assert.strictEqual(require('../src/db').prepare('SELECT COUNT(*) AS n FROM documenti_impresa').get().n, docPrima);
+});

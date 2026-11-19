@@ -1,0 +1,14 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore stretto">
+    <div class="carta" style="text-align:center">
+      <h1>Promemoria pronto</h1>
+      <p>Il messaggio per <strong><%= impresa.ragione_sociale %></strong> è già scritto: si apre WhatsApp, controlla il testo e premi invia.</p>
+      <p><a class="pulsante whatsapp" id="apri-wa" href="<%= url %>" rel="noopener">Apri WhatsApp</a></p>
+      <p class="muto piccolo">Se WhatsApp non si apre da solo, premi il pulsante. Poi puoi chiudere questa scheda.</p>
+      <p><a href="/studio/imprese/<%= impresa.id %>#promemoria">Torna alla scheda dell'impresa</a></p>
+    </div>
+  </div>
+</section>
+<script src="/js/apri-wa.js?v=<%= versione %>"></script>
+<%- include('../partials/piede') %>

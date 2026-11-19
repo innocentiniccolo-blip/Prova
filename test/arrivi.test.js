@@ -199,8 +199,8 @@ test('telefono: link per chiamare e WhatsApp, promemoria via WhatsApp', async ()
   await st.post('/accedi', { email: 'studio@esempio.it', password: PW }, '/accedi');
   assert.match((await st.go(`/studio/imprese/${id}`)).testo, /Promemoria su WhatsApp/);
   const r = await st.post(`/studio/imprese/${id}/promemoria-whatsapp`, {}, `/studio/imprese/${id}`);
-  assert.strictEqual(r.status, 303);
-  assert.match(r.loc, /^https:\/\/wa\.me\/393330000000\?text=.*carica/);
+  assert.strictEqual(r.status, 200);
+  assert.match(r.testo, /href="https:\/\/wa\.me\/393330000000\?text=[^"]*carica/);
   assert.ok(imprese.daSollecitare(id).every((v) => v.ultimo));
 });
 

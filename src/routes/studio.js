@@ -820,7 +820,8 @@ router.get('/imprese/:iid', trovaImpresa, (req, res) => {
 
 router.post('/imprese/:iid/promemoria-whatsapp', trovaImpresa, auth.verificaCsrf, (req, res) => {
   const r = imprese.promemoriaWhatsapp(req.impresa);
-  if (r.ok) return res.redirect(303, r.url);
+  // Pagina intermedia: un redirect diretto da un modulo verso wa.me è bloccato dalle regole di sicurezza del browser (form-action)
+  if (r.ok) return res.render('admin/apri-whatsapp', { titolo: 'Promemoria WhatsApp', impresa: req.impresa, url: r.url });
   flash(req, 'errore', r.motivo);
   res.redirect(`/studio/imprese/${req.impresa.id}#promemoria`);
 });

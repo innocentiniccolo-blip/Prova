@@ -275,7 +275,7 @@ test('promemoria e WhatsApp: cliente, anonimo e richieste senza CSRF non inviano
     const c = await u.csrf('/accedi');
     for (const p of ['promemoria', 'promemoria-whatsapp']) {
       const r = await u.go(`/studio/imprese/${id}/${p}`, { method: 'POST', body: new URLSearchParams({ _csrf: c }) });
-      assert.ok(![200, 303].includes(r.status) || !/wa\.me/.test(r.loc || ''), `${p} → ${r.status} ${r.loc}`);
+      assert.ok(!/wa\.me\/39333/.test((r.loc || '') + r.testo), `${p} → ${r.status}`);
     }
   }
   const r = await st.go(`/studio/imprese/${id}/promemoria-whatsapp`, { method: 'POST', body: new URLSearchParams({}) });

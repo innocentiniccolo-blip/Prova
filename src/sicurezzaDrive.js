@@ -41,6 +41,42 @@ const CARTELLA_SICUREZZA = /sicurezza/i;
 const data = (testo, re) => { const m = testo.match(re); return m ? isoData(m[1]) : null; };
 const pulisci = (s) => (s || '').replace(/\s+/g, ' ').trim();
 
+/**
+ * Dati dell'impresa da una visura camerale (Registro Imprese, formato InfoCamere):
+ * denominazione, P.IVA, REA, PEC e sede. Il testo dei PDF va spesso a capo a metà parola o indirizzo.
+ */
+const FORME = new Set(['SEMPLIFICATA', 'LIMITATA', 'COOPERATIVA', 'CONSORTILE', 'COLLETTIVO', 'ACCOMANDITA', 'SEMPLICE', 'INDIVIDUALE', 'AZIONI', 'UNIPERSONALE']);
+function anagraficaVisura(t) {
+  const a = {};
+  // Denominazione: le righe tra l'intestazione e il codice di 6 caratteri che precede "Il QR Code"
+  const den = t.match(/VISURA (?:ORDINARIA|STORICA)[^\n]*\n([\s\S]{2,300}?)\n\s*[A-Z0-9]{6}\s*\n\s*Il QR Code/i)
+    || t.match(/VISURA (?:ORDINARIA|STORICA) DELL['’]IMPRESA\s+(.+?)\s+(?:Registro Imprese|Codice Fiscale)/i);
+  if (den) {
+    a.nome = den[1].split('\n')
+      // parole della forma giuridica spezzate dal PDF ("SEMPLIFICAT A" → "SEMPLIFICATA"), non i nomi ("ROBERTO E GIAN")
+      .map((r) => r.trim().replace(/([A-Z]{4,}) ([A-Z])$/, (x, p, l) => (FORME.has(p + l) ? p + l : x)))
+      .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+  }
+  const piva = t.match(/Partita IVA\s+(\d{11})/i) || t.match(/Codice fiscale\s+(?:e n\.\s*iscr\.\s*al\s+Registro Imprese\s+)?(\d{11})\b/i);
+  if (piva) a.piva = piva[1];
+  const rea = t.match(/Numero REA\s+([A-Z]{2}\s*-\s*\d{3,9})/i);
+  if (rea) a.rea = rea[1].replace(/\s+/g, '');
+  // PEC: può andare a capo ("...@legalmail.i" + "t"); si sceglie l'indirizzo completo più lungo trovato
+  const pec = [...t.matchAll(/Domicilio digitale\/PEC\s+(\S+@\S*)(?:\s*\n\s*([a-z0-9.\-]{1,40})\s*(?=\n))?/gi)]
+    .map((m) => (/@[^@\s]+\.[a-z]{2,}$/i.test(m[1]) || !m[2] ? m[1] : m[1] + m[2]).toLowerCase())
+    .filter((x) => /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(x))
+    .sort((x, y) => y.length - x.length)[0];
+  if (pec) a.pec = pec;
+  // Sede: "Indirizzo Sede [legale]  COMUNE (PR) VIA ... CAP 12345"
+  const sede = t.match(/Indirizzo Sede(?: legale)?\s+([\s\S]{3,160}?)\s+CAP\s+(\d{5})/i);
+  if (sede) {
+    const testo = sede[1].replace(/\s+/g, ' ').trim();
+    const m = testo.match(/^(.+?\([A-Z]{2}\))\s+(.+)$/);
+    a.sede = m ? `${m[2]}, ${sede[2]} ${m[1]}` : `${testo}, ${sede[2]}`;
+  }
+  return a;
+}
+
 /** Riconosce il tipo di documento e ne estrae i dati principali. */
 function leggiDocumento(nome, testo) {
   const t = testo || '';
@@ -58,16 +94,7 @@ function leggiDocumento(nome, testo) {
   } else if (/visura|camerale/.test(n) || /VISURA (ORDINARIA|STORICA)/i.test(t)) {
     dati.tipo = 'visura';
     dati.rilascio = data(t, /estratto dal Registro Imprese in data\s+(\d{2}\/\d{2}\/\d{4})/i);
-    const den = t.match(/VISURA (?:ORDINARIA|STORICA) DELL['’]IMPRESA\s+(.+?)\s+(?:Registro Imprese|Codice Fiscale)/i);
-    if (den) dati.anagrafica.nome = pulisci(den[1]);
-    const piva = t.match(/Partita IVA\s+(\d{11})/i) || t.match(/Codice fiscale\s+(?:e n\.\s*iscr\.\s*al Registro Imprese\s+)?(\d{11})\b/i);
-    if (piva) dati.anagrafica.piva = piva[1];
-    const rea = t.match(/Numero REA\s+([A-Z]{2}\s*-\s*\d{3,9})/i);
-    if (rea) dati.anagrafica.rea = rea[1].replace(/\s+/g, '');
-    const pec = t.match(/Domicilio digitale\/PEC\s+(\S+@\S+)/i);
-    if (pec) dati.anagrafica.pec = pec[1];
-    const sede = t.match(/1 Sede\s+Indirizzo Sede\s+(.+?)\s+(.+?)\s+CAP\s+(\d{5})/i);
-    if (sede) dati.anagrafica.sede = pulisci(`${sede[2]}, ${sede[3]} ${sede[1]}`);
+    Object.assign(dati.anagrafica, anagraficaVisura(t));
   } else if (/patente|crediti/.test(n) || /Patente a Crediti|Numero patente\s|\bPAC-[A-Z0-9]{2,4}-/i.test(t)) {
     dati.tipo = 'patente';
     const num = t.match(/\b(PAC-[A-Z0-9]{2,4}-[A-Z0-9]{2,4}-[A-Z0-9]{2,4})\b/i);
@@ -153,4 +180,4 @@ async function importaTutti() {
   return n;
 }
 
-module.exports = { impresaPer, importaLavoro, importaTutti, leggiDocumento };
+module.exports = { impresaPer, anagraficaVisura, importaLavoro, importaTutti, leggiDocumento };

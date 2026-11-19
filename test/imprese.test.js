@@ -48,3 +48,25 @@ test('patente a crediti stampata dal portale INL (testo a colonne, anche da OCR)
   const d = sd.leggiDocumento('ricevuta.pdf', t);
   assert.deepStrictEqual([d.tipo, d.numero, d.rilascio, d.crediti], ['patente', 'PAC-AB-123-CD', '2025-02-15', 28]);
 });
+
+test('visura camerale formato Registro Imprese: denominazione su più righe, PEC e sede spezzate (dati inventati)', () => {
+  const sd = require('../src/sicurezzaDrive');
+  const t = [
+    'In questa pagina e nei riquadri riassuntivi posti all’inizio di ciascun paragrafo, viene esposto un estratto',
+    "VISURA ORDINARIA SOCIETA' DI CAPITALE ", "COSTRUZIONI ESEMPIO SOCIETA'", "A RESPONSABILITA' LIMITATA", 'SEMPLIFICAT A ', 'AB12CD ',
+    'Il QR Code consente di verificare la corrispondenza tra questo', 'Registro Imprese. ', 'DATI ANAGRAFICI ',
+    "Indirizzo Sede legale   MONTEVARCHI (AR) VIA DELLE PROVE", '12 CAP 52025', 'Domicilio digitale/PEC   costruzioniesempio@legalmail.i', 't',
+    'Numero REA   AR - 999999', 'Codice fiscale e n.iscr. al', 'Registro Imprese   09999999999', 'Partita IVA   09999999999',
+    'Documento n. T 1 estratto dal Registro Imprese in data 05/11/2026',
+  ].join('\n');
+  const d = sd.leggiDocumento('documento.pdf', t);
+  assert.strictEqual(d.tipo, 'visura');
+  assert.strictEqual(d.rilascio, '2026-11-05');
+  assert.deepStrictEqual(d.anagrafica, {
+    nome: "COSTRUZIONI ESEMPIO SOCIETA' A RESPONSABILITA' LIMITATA SEMPLIFICATA", piva: '09999999999', rea: 'AR-999999',
+    pec: 'costruzioniesempio@legalmail.it', sede: 'VIA DELLE PROVE 12, 52025 MONTEVARCHI (AR)',
+  });
+  // nome di persona con una "E" a fine riga: non va unita
+  const t2 = t.replace("COSTRUZIONI ESEMPIO SOCIETA'\nA RESPONSABILITA' LIMITATA\nSEMPLIFICAT A ", 'ROSSI S.N.C. DI MARIO E\nLUCA ROSSI').replace('CAPITALE', 'PERSONE');
+  assert.strictEqual(sd.leggiDocumento('d.pdf', t2).anagrafica.nome, 'ROSSI S.N.C. DI MARIO E LUCA ROSSI');
+});

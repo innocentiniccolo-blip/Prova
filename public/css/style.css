@@ -405,3 +405,12 @@ details.visibili > summary { cursor: pointer; } details.visibili > summary h3 { 
 .contatta-studio .contatti-tel .pulsante { flex: 1 1 auto; text-align: center; }
 .modulo.da-visura { background: var(--azzurro-chiaro, #eef5fb); border-radius: 8px; padding: .8rem 1rem; margin: .6rem 0; }
 .nota.oppure { margin: .4rem 0; }
+/* Simbolo che si compone alla prima pagina aperta: N, poi asta della i, poi il puntino */
+.logo-ni { flex: 0 0 auto; overflow: visible; }
+.logo-compone .logo-ni .ln { clip-path: inset(0 100% 0 0); animation: logo-n .9s cubic-bezier(.6,0,.2,1) .15s forwards; }
+.logo-compone .logo-ni .ls { transform-box: fill-box; transform-origin: bottom; transform: scaleY(0); animation: logo-s .55s cubic-bezier(.3,0,.2,1) .9s forwards; }
+.logo-compone .logo-ni .ld { transform-box: fill-box; transform-origin: center; opacity: 0; transform: translateY(-120px) scale(.6); animation: logo-d .6s cubic-bezier(.3,1.5,.5,1) 1.35s forwards; }
+@keyframes logo-n { to { clip-path: inset(0 0 0 0); } }
+@keyframes logo-s { to { transform: scaleY(1); } }
+@keyframes logo-d { to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .logo-compone .logo-ni * { animation: none !important; clip-path: none !important; transform: none !important; opacity: 1 !important; } }

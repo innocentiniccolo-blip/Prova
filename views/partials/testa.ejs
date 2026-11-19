@@ -7,12 +7,17 @@
   <meta name="description" content="<%= studio.slogan %>">
   <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/style.css?v=<%= versione %>">
+  <script src="/js/logo.js?v=<%= versione %>"></script>
 </head>
 <body class="<%= percorso.startsWith('/studio') ? 'pannello' : '' %>">
 <header class="testata">
   <div class="contenitore testata-riga">
     <a class="marchio" href="/">
-      <img src="/img/logo.webp" alt="" width="44" height="41">
+      <svg class="logo-ni" viewBox="0 0 418 387" width="44" height="41" aria-hidden="true">
+        <polygon class="ln" fill="#004587" points="25,14 135,14 267,197 267,380 135,198 135,380 25,380"/>
+        <rect class="ls" fill="#125a9a" x="282" y="128" width="111" height="252"/>
+        <circle class="ld" fill="#287dbe" cx="337" cy="61" r="56"/>
+      </svg>
       <span><strong><%= studio.nomeBreve %></strong><small>Studio Tecnico</small></span>
     </a>
     <nav class="menu">

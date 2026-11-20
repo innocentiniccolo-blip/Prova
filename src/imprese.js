@@ -191,27 +191,56 @@ function rigaDocumento(v) {
   return `- ${v.nome}: scade il ${dataIt(v.doc.scadenza)}`;
 }
 
-/** Testo dell'email di promemoria (solo testo, nessun link). */
+const inScadenza = (v) => v.stato.codice === 'in-scadenza';
+
+/**
+ * Testo del promemoria. Due messaggi diversi:
+ *  - documenti IN SCADENZA: ancora validi, si chiede il rinnovo appena disponibile;
+ *  - documenti SCADUTI, MANCANTI o insufficienti: si chiedono con urgenza.
+ * Con il promemoria «per tutti», se ci sono entrambi i casi, il messaggio li tiene separati.
+ */
 function testoPromemoria(impresa, voci, link = '', canale = 'email') {
   const cantieri = Q.lavoriImpresa.all(impresa.id).filter((l) => !['Completato', 'Sospeso'].includes(l.stato));
+  const prossimi = voci.filter(inScadenza);
+  const urgenti = voci.filter((v) => !inScadenza(v));
   const uno = voci.length === 1;
+  const blocco = (lista, ancoraValidi) => {
+    const u = lista.length === 1;
+    return ancoraValidi
+      ? [`${u ? 'il seguente documento è ancora valido ma sta per scadere' : 'i seguenti documenti sono ancora validi ma stanno per scadere'}:`, ``, ...lista.map(rigaDocumento), ``,
+        `Vi chiediamo di inviarci ${u ? 'quello rinnovato' : 'quelli rinnovati'} appena ${u ? 'disponibile' : 'disponibili'}, così il cantiere resta in regola senza interruzioni.`]
+      : [`${u ? 'il seguente documento risulta scaduto o mancante' : 'i seguenti documenti risultano scaduti o mancanti'}:`, ``, ...lista.map(rigaDocumento), ``,
+        `Vi chiediamo di inviarci ${u ? 'il documento aggiornato' : 'i documenti aggiornati'} il prima possibile: senza, l'impresa non risulta in regola per il cantiere.`];
+  };
+  const corpo = urgenti.length && prossimi.length
+    ? [`vi scriviamo per i documenti di ${impresa.ragione_sociale}.`, ``,
+      `SCADUTI O MANCANTI (da inviare il prima possibile):`, ...urgenti.map(rigaDocumento), ``,
+      `IN SCADENZA (ancora validi, da rinnovare appena disponibili):`, ...prossimi.map(rigaDocumento)]
+    : [`vi scriviamo per ricordarvi che per ${impresa.ragione_sociale} ${blocco(urgenti.length ? urgenti : prossimi, !urgenti.length).join('\n')}`];
   return [
     `Buongiorno,`,
     ``,
-    `vi scriviamo per ricordarvi che per ${impresa.ragione_sociale} ${uno ? 'il seguente documento è da aggiornare' : 'i seguenti documenti sono da aggiornare'}:`,
-    ``,
-    ...voci.map(rigaDocumento),
+    ...corpo,
     ``,
     ...(cantieri.length ? [`${uno ? 'Il documento serve' : 'I documenti servono'} per ${cantieri.length === 1 ? 'il cantiere' : 'i cantieri'}: ${cantieri.map((l) => l.titolo).join('; ')}.`, ``] : []),
     ...(link
-      ? [`Potete caricare ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} da questo link (valido 14 giorni, solo PDF, JPG o PNG):`, link, ``,
+      ? [`Potete caricare ${uno ? 'il documento' : 'i documenti'} da questo link (valido 14 giorni, solo PDF, JPG o PNG):`, link, ``,
         canale === 'whatsapp'
           ? `In alternativa potete mandarci ${uno ? 'il documento' : 'i documenti'} rispondendo qui.`
           : `In alternativa rispondete a questa email allegando ${uno ? 'il documento' : 'i documenti'}, senza cambiare l'oggetto.`]
-      : [`Vi chiediamo di inviarci ${uno ? 'il documento aggiornato' : 'i documenti aggiornati'} rispondendo a questa email, senza cambiare l'oggetto.`]),
+      : [`Potete inviarci ${uno ? 'il documento' : 'i documenti'} rispondendo a questa email, senza cambiare l'oggetto.`]),
     ``,
     `Grazie e buon lavoro.`,
   ].join('\n');
+}
+
+/** Oggetto della mail: «in scadenza» o «scaduto / da inviare». */
+function oggettoPromemoria(impresa, voci) {
+  const tutti = voci.every(inScadenza);
+  const cosa = voci.length === 1
+    ? `${voci[0].nome} ${tutti ? 'in scadenza' : (voci[0].stato.codice === 'mancante' ? 'da inviare' : 'scaduto')}`
+    : `documenti ${tutti ? 'in scadenza' : 'scaduti o da inviare'}`;
+  return `Promemoria: ${cosa} – ${impresa.ragione_sociale}`;
 }
 
 /**
@@ -225,9 +254,7 @@ async function inviaPromemoria(impresa, tipo, invia) {
   if (tipo) voci = voci.filter((v) => v.tipo === tipo);
   if (!voci.length) return { ok: false, motivo: 'Nessun documento da sollecitare: risultano tutti in regola.' };
   const arrivi = require('./arrivi'); // caricato qui per evitare dipendenze circolari
-  const oggetto = (voci.length === 1
-    ? `Promemoria: ${voci[0].nome} da aggiornare – ${impresa.ragione_sociale}`
-    : `Promemoria: documenti da aggiornare – ${impresa.ragione_sociale}`) + ` ${arrivi.riferimento(impresa.id)}`;
+  const oggetto = `${oggettoPromemoria(impresa, voci)} ${arrivi.riferimento(impresa.id)}`;
   const inviata = await invia({ a, oggetto, testo: testoPromemoria(impresa, voci, arrivi.creaLink(impresa.id)) });
   if (!inviata) return { ok: false, motivo: 'Email non inviata: la posta del sito non è configurata.' };
   for (const v of voci) Q.registraPromemoria.run(impresa.id, v.tipo, a);

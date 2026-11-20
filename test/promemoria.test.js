@@ -106,3 +106,26 @@ test('dal pannello: lo studio invia con un clic, il cliente no; email salvata ne
   await cli.go(`/studio/imprese/${id}/promemoria`, { method: 'POST', body: new URLSearchParams({ _csrf: csrf }) });
   assert.strictEqual(posta().length, prima + 1);
 });
+
+test('due messaggi diversi: documento in scadenza (ancora valido) e documento scaduto o mancante', async () => {
+  const id = nuova({ email: 'due@edile.it' });
+  await imprese.salvaDocumento(id, { tipo: 'durc', rilascio: iso(-115) }); // scade tra 5 giorni
+  await imprese.salvaDocumento(id, { tipo: 'visura', rilascio: iso(-10) });
+  await imprese.salvaDocumento(id, { tipo: 'patente', crediti: 30 });
+  const inviate = [];
+  const finto = async (m) => { inviate.push(m); return true; };
+  await imprese.inviaPromemoria(imprese.Q.perId.get(id), 'durc', finto);
+  assert.match(inviate[0].oggetto, /DURC in scadenza/);
+  assert.match(inviate[0].testo, /ancora valido ma sta per scadere/);
+  assert.ok(!/scadut/i.test(inviate[0].testo));
+  // DURC scaduto e patente mancante su un'altra impresa
+  const id2 = nuova({ email: 'tre@edile.it' });
+  await imprese.salvaDocumento(id2, { tipo: 'durc', rilascio: iso(-130) });
+  await imprese.salvaDocumento(id2, { tipo: 'visura', rilascio: iso(-170) }); // in scadenza
+  await imprese.inviaPromemoria(imprese.Q.perId.get(id2), 'durc', finto);
+  assert.match(inviate[1].oggetto, /DURC scaduto/);
+  assert.match(inviate[1].testo, /risulta scaduto o mancante/);
+  await imprese.inviaPromemoria(imprese.Q.perId.get(id2), '', finto);
+  assert.match(inviate[2].oggetto, /documenti scaduti o da inviare/);
+  assert.match(inviate[2].testo, /SCADUTI O MANCANTI[^]*DURC: scaduto[^]*Patente a crediti: non ci risulta[^]*IN SCADENZA[^]*Visura camerale: scade il/);
+});

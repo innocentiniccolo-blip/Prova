@@ -293,3 +293,28 @@ legend small { font-weight: 400; }
 .riassunto { background: var(--azzurro-chiaro); padding: .6rem .9rem; border-radius: 8px; margin: 1rem 0 0; }
 .codice-blocco { background: var(--sfondo); padding: .8rem 1rem; border-radius: 8px; overflow-x: auto; }
 #risposta .box-ai { margin-bottom: 1rem; }
+
+/* ---------- Cartella Google Drive ---------- */
+.albero { list-style: none; margin: 0; padding-left: 0; }
+.albero .albero { padding-left: 1.3rem; border-left: 1px dashed var(--bordo); margin-left: .5rem; }
+.albero li { padding: .2rem 0; }
+.albero summary { cursor: pointer; font-weight: 600; padding: .15rem 0; }
+.albero summary .in-linea { margin-left: .4rem; }
+.file-voce { display: flex; justify-content: space-between; gap: .8rem; align-items: baseline; border-bottom: 1px solid #eef2f6; }
+.nome-file { text-decoration: none !important; text-align: left; overflow-wrap: anywhere; color: var(--testo) !important; }
+.nome-file:hover { color: var(--azzurro) !important; text-decoration: underline !important; }
+.piccolo-link { font-size: .8rem; font-weight: 400; }
+.file-voce small { white-space: nowrap; }
+.percorso-drive { margin-top: -.4rem; }
+#cartella .carica { margin: 1rem 0 0; }
+
+/* ---------- WhatsApp ---------- */
+.chat-wa { margin-top: 1rem; background: #efeae2; border-radius: 8px; padding: 1rem; max-height: 620px; overflow: auto; display: flex; flex-direction: column; gap: .35rem; }
+.msg-wa { align-self: flex-start; max-width: 80%; background: #fff; border-radius: 8px; padding: .4rem .7rem; box-shadow: 0 1px 1px rgba(0,0,0,.08); font-size: .93rem; display: flex; flex-direction: column; }
+.msg-wa.mio { align-self: flex-end; background: #d9fdd3; }
+.msg-wa small { align-self: flex-end; color: var(--muto); font-size: .72rem; }
+.autore-wa { color: var(--verde); font-size: .8rem; }
+.giorno-wa { align-self: center; background: #fff; border-radius: 6px; padding: .1rem .6rem; font-size: .78rem; color: var(--muto); margin: .4rem 0; }
+.guida { padding: 1rem 1.5rem; }
+.guida summary { cursor: pointer; }
+.guida ol { margin: .8rem 0 .4rem; padding-left: 1.3rem; }

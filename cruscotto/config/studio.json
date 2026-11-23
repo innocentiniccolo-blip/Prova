@@ -69,5 +69,17 @@
       "Firma del cliente",
       "Scadenza autorizzazione paesaggistica (5 anni)"
     ]
-  }
+  },
+  "sottocartelle": [
+    "001-Rilievo",
+    "002-Computo",
+    "003-Preventivi",
+    "004-Istanza",
+    "005-Nota Tecnica",
+    "006-Pratiche",
+    "007-Sicurezza",
+    "008-Progetto",
+    "009-Contabilità cantiere",
+    "010-Fatture"
+  ]
 }

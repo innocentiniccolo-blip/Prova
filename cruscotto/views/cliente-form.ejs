@@ -22,6 +22,14 @@
           <%- include('partials/tabella-pratiche', { pratiche, idTabella: 'tabella-pratiche-cliente' }) %>
         <% } %>
       </div>
+      <% if (typeof chatWa !== 'undefined' && chatWa.length) { %>
+        <div class="carta">
+          <h2>WhatsApp</h2>
+          <ul class="semplice">
+            <% chatWa.forEach(c => { %><li><a href="/whatsapp/<%= c.id %>">Chat “<%= c.nome %>”</a> · <%= c.n_messaggi %> messaggi<% if (c.ultimo_msg_il) { %>, ultimo il <%= data(c.ultimo_msg_il.slice(0, 10)) %><% } %><% if (c.stato !== 'gestita') { %> · <span class="badge stato-presentata">da rispondere</span><% } %></li><% }) %>
+          </ul>
+        </div>
+      <% } %>
       <form method="post" action="/clienti/<%= cliente.id %>/elimina" data-conferma="Eliminare il cliente? Le sue pratiche resteranno, senza cliente.">
         <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina cliente</button>
       </form>

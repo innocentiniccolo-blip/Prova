@@ -1,0 +1,69 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>WhatsApp</h1>
+      <% if (stato.attiva) { %>
+        <form method="post" action="/whatsapp/importa" data-attesa="Importo…">
+          <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante">Importa ora</button>
+        </form>
+      <% } %>
+    </div>
+
+    <% if (!stato.attiva) { %>
+      <div class="carta">
+        <h2>Cartella non trovata</h2>
+        <p>Il cruscotto legge le chat dalla cartella <code><%= driveNome %> / <%= stato.cartella %></code> su Google Drive, ma non trova Google Drive su questo PC. Installa <strong>Google Drive per desktop</strong> e accedi: la cartella comparirà da sola (vedi README).</p>
+      </div>
+    <% } else { %>
+      <p class="nota stato-posta">
+        Cartella <strong><%= driveNome %> / <%= stato.cartella %></strong> · controllo automatico ogni <%= stato.minuti %> minuti
+        <% if (stato.ultimoControllo) { %>· ultimo controllo <%= dataOra(stato.ultimoControllo.replace('T', ' ').slice(0, 19)) %><% } %>
+        <% if (stato.mieiNomi.length) { %>· i tuoi messaggi: <%= stato.mieiNomi.join(', ') %><% } %>
+      </p>
+      <% if (stato.errori) { %><div class="avviso errore"><strong>File non letti:</strong> <span class="a-capo"><%= stato.errori %></span></div><% } %>
+
+      <details class="carta guida">
+        <summary><strong>Come esportare una chat dal telefono</strong> (ogni sera, verso le 18:30)</summary>
+        <ol>
+          <li>In WhatsApp apri la chat del cliente.</li>
+          <li><strong>Android:</strong> ⋮ in alto a destra → <em>Altro</em> → <em>Esporta chat</em>. <strong>iPhone:</strong> tocca il nome del contatto → <em>Esporta chat</em>.</li>
+          <li>Scegli <strong>Senza media</strong> (più veloce; le foto restano sul telefono).</li>
+          <li>Scegli <strong>Drive</strong> e salva nella cartella <strong><%= driveNome %> / <%= stato.cartella %></strong>.</li>
+        </ol>
+        <p class="nota">Puoi esportare ogni volta la chat intera: il cruscotto importa solo i messaggi nuovi. Dopo l'importazione il file viene spostato in <em>Importate</em>.</p>
+      </details>
+
+      <div class="carta">
+        <% if (!chat.length) { %>
+          <p class="vuoto">Nessuna chat importata finora.</p>
+        <% } else { %>
+          <ul class="elenco-posta">
+            <% chat.forEach(c => { const daFare = c.stato !== 'gestita'; %>
+              <li class="<%= c.stato === 'bozza' ? 'bozza' : (daFare ? 'nuova' : '') %>">
+                <a href="/whatsapp/<%= c.id %>" class="riga-posta">
+                  <span class="mittente"><strong><%= c.cliente_nome || c.nome %></strong>
+                    <% if (!c.cliente_id) { %><span class="badge stato-da-preparare">da collegare a un cliente</span><% } %></span>
+                  <small class="muto"><%= c.riassunto && daFare ? c.riassunto : String(c.ultimo_testo || '').slice(0, 140) %></small>
+                  <span class="etichette">
+                    <% if (c.stato === 'bozza') { %><span class="badge stato-rilasciata-conclusa">✨ bozza pronta</span><% } %>
+                    <% if (c.stato === 'da_rispondere') { %><span class="badge stato-presentata">da rispondere</span><% } %>
+                    <% if (c.errore_ai) { %><span class="badge stato-integrazioni-richieste">bozza non riuscita</span><% } %>
+                  </span>
+                </a>
+                <span class="data-posta"><%= c.ultimo_msg_il ? data(c.ultimo_msg_il.slice(0, 10)) + ' ' + c.ultimo_msg_il.slice(11) : '' %></span>
+                <% if (daFare) { %>
+                  <form method="post" action="/whatsapp/<%= c.id %>/gestita" class="in-linea">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="torna" value="/whatsapp">
+                    <button class="link" title="Non serve rispondere">Gestita</button>
+                  </form>
+                <% } %>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</section>
+<%- include('partials/piede') %>

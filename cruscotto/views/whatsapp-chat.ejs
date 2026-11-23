@@ -1,0 +1,68 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <a class="indietro" href="/whatsapp">← WhatsApp</a>
+    <div class="layout-lavoro">
+      <div>
+        <div class="carta">
+          <h1 class="titolo-mail"><%= chat.cliente_nome || chat.nome %></h1>
+          <% if (chat.cliente_nome && chat.cliente_nome !== chat.nome) { %><p class="muto">Nome in rubrica del telefono: <%= chat.nome %></p><% } %>
+          <% if (chat.riassunto && chat.stato !== 'gestita') { %><p class="riassunto">✨ <%= chat.riassunto %></p><% } %>
+          <div class="chat-wa" id="chat">
+            <% let giorno = ''; messaggi.forEach(m => { const g = m.data.slice(0, 10); %>
+              <% if (g !== giorno) { giorno = g; %><div class="giorno-wa"><%= data(g) %></div><% } %>
+              <div class="msg-wa <%= m.mio ? 'mio' : '' %>">
+                <% if (!m.mio) { %><strong class="autore-wa"><%= m.autore %></strong><% } %>
+                <span class="a-capo"><%= m.testo %></span>
+                <small><%= m.data.slice(11) %></small>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+
+        <div class="carta" id="risposta">
+          <h2>Risposta</h2>
+          <% if (chat.errore_ai) { %><div class="avviso errore">Bozza automatica non riuscita: <%= chat.errore_ai %></div><% } %>
+          <% if (aiAttiva) { %>
+            <form method="post" action="/whatsapp/<%= chat.id %>/bozza" class="box-ai" data-attesa="Sto scrivendo…">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <label>Indicazioni per la risposta <small>facoltative, es. “dì che passo domani alle 9”</small>
+                <textarea name="istruzioni" rows="2" maxlength="3000"></textarea>
+              </label>
+              <button class="pulsante secondario">✨ <%= chat.bozza_testo ? 'Riscrivi la bozza' : 'Prepara la bozza' %></button>
+            </form>
+          <% } %>
+          <form method="post" action="/whatsapp/<%= chat.id %>/invia" class="modulo" target="_blank" data-ricarica>
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <label>Cellulare <input name="telefono" inputmode="tel" value="<%= telefono %>" placeholder="Es. 339 123 4567"></label>
+            <label>Messaggio <textarea name="testo" rows="7" maxlength="10000"><%= chat.bozza_testo || '' %></textarea></label>
+            <div class="azioni"><button class="pulsante">Apri in WhatsApp</button></div>
+            <p class="nota">Si apre WhatsApp (Web o app) con il messaggio pronto: lo invii da lì. La chat viene segnata come gestita.</p>
+          </form>
+        </div>
+      </div>
+
+      <aside>
+        <div class="carta">
+          <h2>Cliente</h2>
+          <% if (chat.cliente_id) { %><p><a href="/clienti/<%= chat.cliente_id %>"><strong><%= chat.cliente_nome %></strong></a></p><% } else { %><p class="vuoto">Chat non ancora collegata a un cliente.</p><% } %>
+          <form method="post" action="/whatsapp/<%= chat.id %>/collega" class="modulo compatto">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <select name="cliente_id" aria-label="Cliente">
+              <option value="">— nessuno —</option>
+              <% clienti.forEach(c => { %><option value="<%= c.id %>" <%= c.id === chat.cliente_id ? 'selected' : '' %>><%= c.nome %></option><% }) %>
+            </select>
+            <button class="pulsante piccolo">Collega</button>
+          </form>
+          <p class="nota">Il collegamento resta: le prossime esportazioni di questa chat finiranno da sole su questo cliente.</p>
+        </div>
+        <% if (chat.stato === 'gestita') { %>
+          <form method="post" action="/whatsapp/<%= chat.id %>/riapri"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Rimetti tra “da rispondere”</button></form>
+        <% } else { %>
+          <form method="post" action="/whatsapp/<%= chat.id %>/gestita"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Segna come gestita: non serve rispondere</button></form>
+        <% } %>
+      </aside>
+    </div>
+  </div>
+</section>
+<%- include('partials/piede') %>

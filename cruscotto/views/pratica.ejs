@@ -22,6 +22,42 @@
 
     <div class="layout-lavoro">
       <div>
+        <div class="carta" id="cartella">
+          <div class="barra-titolo">
+            <h2>Cartella su Google Drive</h2>
+            <% if (drive.cartellaOk) { %>
+              <form method="post" action="/pratiche/<%= pratica.id %>/cartella/apri" class="in-linea">
+                <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante piccolo">📂 Apri cartella</button>
+              </form>
+            <% } %>
+          </div>
+          <% if (!drive.attivo) { %>
+            <p class="vuoto">Google Drive non trovato su questo PC. Installa Google Drive per desktop e accedi con il tuo account: la cartella “<%= driveNome %>” comparirà da sola (vedi README).</p>
+          <% } else if (!pratica.cartella) { %>
+            <p class="vuoto">Nessuna cartella collegata. <a href="/pratiche/<%= pratica.id %>/modifica">Collegala dalla modifica della pratica</a>.</p>
+          <% } else if (!drive.cartellaOk) { %>
+            <p>La cartella <code><%= pratica.cartella %></code> non esiste ancora in “<%= driveNome %>”.</p>
+            <form method="post" action="/pratiche/<%= pratica.id %>/cartella/crea">
+              <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="pulsante secondario">Crea la cartella con le sottocartelle standard</button>
+            </form>
+          <% } else { %>
+            <p class="nota percorso-drive"><%= driveNome %> › <%= pratica.cartella.split('/').join(' › ') %></p>
+            <% if (!drive.voci.length) { %><p class="vuoto">Cartella vuota.</p><% } else { %>
+              <%- include('partials/albero', { voci: drive.voci, livello: 0, praticaId: pratica.id }) %>
+              <% if (drive.troppi) { %><p class="nota">Ci sono molti file: ne mostro una parte. Usa “Apri cartella” per vederli tutti.</p><% } %>
+            <% } %>
+            <form method="post" action="/pratiche/<%= pratica.id %>/cartella/carica" enctype="multipart/form-data" class="carica">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <select name="sottocartella" aria-label="Sottocartella">
+                <option value="">(cartella principale)</option>
+                <% drive.voci.filter(v => v.cartella).forEach(v => { %><option value="<%= v.percorso %>"><%= v.nome %></option><% }) %>
+              </select>
+              <input type="file" name="file" multiple required>
+              <button class="pulsante">Carica su Drive</button>
+            </form>
+          <% } %>
+        </div>
+
         <div class="carta" id="scadenze">
           <h2>Scadenze</h2>
           <form method="post" action="/pratiche/<%= pratica.id %>/scadenze" class="riga-aggiungi">
@@ -158,6 +194,7 @@
             <% if (pratica.numero_pratica) { %><dt>N. pratica</dt><dd><%= pratica.numero_pratica %></dd><% } %>
             <dt>Cliente</dt><dd><% if (pratica.cliente_id) { %><a href="/clienti/<%= pratica.cliente_id %>"><%= pratica.cliente_nome %></a><% } else { %>—<% } %></dd>
             <% if (pratica.commessa) { %><dt>Commessa</dt><dd><%= pratica.commessa %></dd><% } %>
+            <% if (pratica.cartella) { %><dt>Cartella</dt><dd><a href="#cartella"><%= pratica.cartella %></a></dd><% } %>
             <dt>Aperta il</dt><dd><%= data(pratica.creato_il) %></dd>
           </dl>
           <% if (pratica.oggetto) { %><p class="a-capo"><%= pratica.oggetto %></p><% } %>

@@ -1,0 +1,25 @@
+<ul class="albero">
+  <% voci.forEach(v => { %>
+    <% if (v.cartella) { %>
+      <li class="cartella-voce">
+        <details>
+          <summary><span class="icona">📁</span> <%= v.nome %> <small class="muto"><%= v.figli.length ? '' : '(vuota)' %></small>
+            <form method="post" action="/pratiche/<%= praticaId %>/cartella/apri" class="in-linea">
+              <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="percorso" value="<%= v.percorso %>">
+              <button class="link piccolo-link" title="Apri in Esplora risorse">apri</button>
+            </form>
+          </summary>
+          <% if (v.figli.length) { %><%- include('albero', { voci: v.figli, livello: livello + 1, praticaId }) %><% } %>
+        </details>
+      </li>
+    <% } else { %>
+      <li class="file-voce">
+        <form method="post" action="/pratiche/<%= praticaId %>/cartella/apri" class="in-linea">
+          <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="percorso" value="<%= v.percorso %>">
+          <button class="link nome-file" title="Apri con il programma predefinito"><span class="icona">📄</span> <%= v.nome %></button>
+        </form>
+        <small class="muto"><%= data(v.modificato.toISOString().slice(0, 10)) %> · <%= v.dimensione < 1048576 ? Math.max(1, Math.round(v.dimensione / 1024)) + ' KB' : (v.dimensione / 1048576).toFixed(1).replace('.', ',') + ' MB' %></small>
+      </li>
+    <% } %>
+  <% }) %>
+</ul>

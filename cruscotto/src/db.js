@@ -100,10 +100,39 @@ CREATE TABLE IF NOT EXISTS email_ricevute (
 );
 CREATE INDEX IF NOT EXISTS email_stato ON email_ricevute(stato, data);
 
+CREATE TABLE IF NOT EXISTS whatsapp_chat (
+  id            INTEGER PRIMARY KEY,
+  nome          TEXT NOT NULL UNIQUE,
+  telefono      TEXT,
+  cliente_id    INTEGER REFERENCES clienti(id) ON DELETE SET NULL,
+  stato         TEXT NOT NULL DEFAULT 'gestita' CHECK (stato IN ('da_rispondere','bozza','gestita')),
+  riassunto     TEXT,
+  bozza_testo   TEXT,
+  errore_ai     TEXT,
+  ultimo_msg_il TEXT,
+  importata_il  TEXT,
+  creato_il     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_messaggi (
+  id        INTEGER PRIMARY KEY,
+  chat_id   INTEGER NOT NULL REFERENCES whatsapp_chat(id) ON DELETE CASCADE,
+  data      TEXT NOT NULL,
+  autore    TEXT NOT NULL,
+  mio       INTEGER NOT NULL DEFAULT 0,
+  testo     TEXT NOT NULL,
+  impronta  TEXT NOT NULL UNIQUE
+);
+CREATE INDEX IF NOT EXISTS whatsapp_msg_chat ON whatsapp_messaggi(chat_id, data);
+
 CREATE TABLE IF NOT EXISTS impostazioni (
   chiave TEXT PRIMARY KEY,
   valore TEXT
 );
 `);
+
+// Aggiornamenti dello schema per archivi creati con versioni precedenti
+const colonne = (tabella) => db.prepare(`PRAGMA table_info(${tabella})`).all().map((c) => c.name);
+if (!colonne('pratiche').includes('cartella')) db.exec('ALTER TABLE pratiche ADD COLUMN cartella TEXT');
 
 module.exports = db;

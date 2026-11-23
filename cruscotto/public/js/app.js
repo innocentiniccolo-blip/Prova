@@ -149,3 +149,19 @@ document.querySelectorAll('[data-attesa], [data-attesa-azione]').forEach((form) 
 document.querySelectorAll('[data-conferma-click]').forEach((b) => b.addEventListener('click', (e) => {
   if (!confirm(b.dataset.confermaClick)) e.preventDefault();
 }));
+
+// Modulo pratica: scegliendo un cliente esistente, propongo la cartella con il suo nome (se il campo è vuoto)
+document.querySelectorAll('[data-scelta-cliente]').forEach((sel) => {
+  const campo = document.querySelector('[data-cartella]');
+  const nuovo = document.querySelector('[name="nuovo_cliente_nome"]');
+  if (!campo) return;
+  const proponi = (nome) => { if (!campo.value.trim() || campo.dataset.proposta === campo.value) { campo.value = nome; campo.dataset.proposta = nome; } };
+  sel.addEventListener('change', () => { if (sel.value) proponi(sel.selectedOptions[0].textContent.trim()); });
+  nuovo?.addEventListener('input', () => proponi(nuovo.value.trim()));
+});
+
+// Moduli che aprono WhatsApp in una nuova scheda: la pagina si aggiorna dopo l'invio
+document.querySelectorAll('form[data-ricarica]').forEach((f) => f.addEventListener('submit', () => setTimeout(() => location.reload(), 1500)));
+
+// Chat WhatsApp: parte dagli ultimi messaggi
+document.querySelectorAll('.chat-wa').forEach((c) => { c.scrollTop = c.scrollHeight; });

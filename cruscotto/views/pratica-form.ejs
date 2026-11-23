@@ -20,6 +20,15 @@
           <label>Email <input type="email" name="nuovo_cliente_email" maxlength="200" value="<%= pratica.nuovo_cliente_email || '' %>"></label>
         </div>
       </fieldset>
+      <label>Cartella su Google Drive <small>dentro “<%= driveNome %>”: scegli una cartella esistente o scrivi un nome nuovo</small>
+        <input name="cartella" list="cartelle-studio" maxlength="300" value="<%= pratica.cartella || '' %>" placeholder="Es. Sofia Forzini" data-cartella>
+      </label>
+      <datalist id="cartelle-studio"><% cartelleStudio.forEach(c => { %><option value="<%= c %>"><% }) %></datalist>
+      <% if (driveAttivo) { %>
+        <label class="scelta"><input type="checkbox" name="crea_cartella" value="1" checked> Se non esiste, creala con le sottocartelle standard (<%= (studio.sottocartelle || []).slice(0, 3).join(', ') %>…)</label>
+      <% } else { %>
+        <p class="nota">Google Drive non trovato su questo PC: la cartella viene solo ricordata. Vedi il README per collegarlo.</p>
+      <% } %>
       <div class="riga-campi">
         <label class="stretto-campo">Commessa <input name="commessa" maxlength="40" value="<%= pratica.commessa || '' %>" placeholder="Es. 2026-014"></label>
         <label>Indirizzo dell'immobile <input name="indirizzo" maxlength="300" value="<%= pratica.indirizzo || '' %>" placeholder="Es. Via Roma 12, Montevarchi"></label>

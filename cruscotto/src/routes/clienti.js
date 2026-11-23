@@ -3,7 +3,7 @@
 const express = require('express');
 const { verificaCsrf } = require('../sicurezza');
 const F = require('../formato');
-const { Clienti, Pratiche } = require('../modelli');
+const { Clienti, Pratiche, Whatsapp } = require('../modelli');
 
 const router = express.Router();
 const testo = (v, max = 2000) => String(v ?? '').trim().slice(0, max);
@@ -38,7 +38,7 @@ router.post('/', verificaCsrf, (req, res) => {
 });
 
 router.get('/:id', trova, (req, res) => {
-  res.render('cliente-form', { titolo: req.cliente.nome, cliente: req.cliente, errore: null, pratiche: Pratiche.perCliente.all(req.cliente.id) });
+  res.render('cliente-form', { titolo: req.cliente.nome, cliente: req.cliente, errore: null, pratiche: Pratiche.perCliente.all(req.cliente.id), chatWa: Whatsapp.perCliente.all(req.cliente.id) });
 });
 
 router.post('/:id', trova, verificaCsrf, (req, res) => {

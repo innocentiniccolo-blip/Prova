@@ -5,7 +5,8 @@ const config = require('../config');
 const { verificaCsrf } = require('../sicurezza');
 const ai = require('../ai');
 const F = require('../formato');
-const { Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni, Email } = require('../modelli');
+const cartelle = require('../cartelle');
+const { Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni, Email, Whatsapp } = require('../modelli');
 
 const router = express.Router();
 const P = config.studio.pratiche;
@@ -47,6 +48,7 @@ router.get('/', (req, res) => {
     incassatoAnno: Incassi.totaleAnno.get(oggi.slice(0, 4)).tot,
     anno: oggi.slice(0, 4),
     mailDaRispondere: config.posta.attiva ? Email.daRispondere.all() : null,
+    waDaRispondere: Whatsapp.daRispondere.all(),
   });
 });
 
@@ -61,6 +63,7 @@ function datiPratica(body) {
     cliente_id: Number(body.cliente_id) || null,
     commessa: testo(body.commessa, 40),
     indirizzo: testo(body.indirizzo, 300),
+    cartella: cartelle.normalizza(body.cartella),
     tipo: testo(body.tipo, 120),
     ente: testo(body.ente, 200),
     oggetto: testo(body.oggetto, 2000),
@@ -73,11 +76,23 @@ function datiPratica(body) {
   };
 }
 
-function renderForm(res, pratica, errore) {
+async function renderForm(res, pratica, errore) {
   res.status(errore ? 400 : 200).render('pratica-form', {
     titolo: pratica.id ? `Modifica pratica ${pratica.tipo || ''}` : 'Nuova pratica',
     pratica, errore, clienti: Clienti.tutti.all(),
+    driveAttivo: cartelle.ricarica() !== null, cartelleStudio: await cartelle.cartelleStudio(),
   });
+}
+
+/** Crea su Drive la cartella della pratica, se richiesto e se non esiste già. Ritorna un messaggio per l'utente. */
+async function preparaCartella(body, dati) {
+  if (!dati.cartella || !body.crea_cartella || !cartelle.attiva() || cartelle.esiste(dati.cartella)) return '';
+  try {
+    await cartelle.crea(dati.cartella, true);
+    return ` Cartella "${dati.cartella}" creata su Google Drive con le sottocartelle standard.`;
+  } catch (e) {
+    return ` Attenzione: non sono riuscito a creare la cartella su Drive (${e.message}).`;
+  }
 }
 
 /** Se nel modulo è stato scritto un cliente nuovo, lo crea e lo collega alla pratica. */
@@ -93,26 +108,38 @@ function clienteNuovo(body, dati) {
 function validaPratica(dati) {
   if (dati.cliente_id && !Clienti.perId.get(dati.cliente_id)) return 'Cliente non trovato.';
   if (!dati.tipo) return 'Il tipo di pratica è obbligatorio.';
+  if (dati.cartella === null && dati._cartellaScritta) return 'Nome della cartella non valido (non usare i caratteri < > : " | ? *).';
   return null;
 }
 
-router.get('/pratiche/nuova', (req, res) => {
-  renderForm(res, { cliente_id: Number(req.query.cliente) || '', stato: P.stati[0], onorario: '' }, null);
+router.get('/pratiche/nuova', async (req, res) => {
+  const cliente = Clienti.perId.get(Number(req.query.cliente) || 0);
+  await renderForm(res, { cliente_id: cliente?.id || '', cartella: cliente?.nome || '', stato: P.stati[0], onorario: '' }, null);
 });
 
-router.post('/pratiche', verificaCsrf, (req, res) => {
-  const dati = datiPratica(req.body);
+function datiDaModulo(body) {
+  const dati = datiPratica(body);
+  Object.defineProperty(dati, '_cartellaScritta', { value: Boolean(testo(body.cartella)), enumerable: false });
+  return dati;
+}
+
+router.post('/pratiche', verificaCsrf, async (req, res) => {
+  const dati = datiDaModulo(req.body);
   const errore = validaPratica(dati);
   if (errore) return renderForm(res, { ...req.body }, errore);
   clienteNuovo(req.body, dati);
+  const msgCartella = await preparaCartella(req.body, dati);
   const { lastInsertRowid } = Pratiche.inserisci.run(dati);
-  flash(req, 'ok', 'Pratica creata.');
+  flash(req, msgCartella.includes('Attenzione') ? 'info' : 'ok', `Pratica creata.${msgCartella}`);
   res.redirect(`/pratiche/${lastInsertRowid}`);
 });
 
-router.get('/pratiche/:id', trovaPratica, (req, res) => {
+router.get('/pratiche/:id', trovaPratica, async (req, res) => {
   const p = req.pratica;
+  cartelle.ricarica();
+  const cartellaOk = Boolean(p.cartella && cartelle.esiste(p.cartella));
   res.render('pratica', {
+    drive: { attivo: cartelle.attiva(), radice: cartelle.radice(), cartellaOk, ...(cartellaOk ? await cartelle.contenuto(p.cartella) : { voci: [] }) },
     titolo: `${p.tipo}${p.cliente_nome ? ' – ' + p.cliente_nome : ''}`,
     pratica: p,
     residuo: residuo(p),
@@ -127,17 +154,19 @@ router.get('/pratiche/:id', trovaPratica, (req, res) => {
   });
 });
 
-router.get('/pratiche/:id/modifica', trovaPratica, (req, res) => {
-  renderForm(res, { ...req.pratica, onorario: F.centesimiInTesto(req.pratica.onorario_cent) }, null);
+router.get('/pratiche/:id/modifica', trovaPratica, async (req, res) => {
+  await renderForm(res, { ...req.pratica, onorario: F.centesimiInTesto(req.pratica.onorario_cent) }, null);
 });
 
-router.post('/pratiche/:id', trovaPratica, verificaCsrf, (req, res) => {
-  const dati = { ...datiPratica(req.body), id: req.pratica.id };
+router.post('/pratiche/:id', trovaPratica, verificaCsrf, async (req, res) => {
+  const dati = datiDaModulo(req.body);
+  dati.id = req.pratica.id;
   const errore = validaPratica(dati);
   if (errore) return renderForm(res, { ...req.body, id: req.pratica.id }, errore);
   clienteNuovo(req.body, dati);
+  const msgCartella = await preparaCartella(req.body, dati);
   Pratiche.aggiorna.run(dati);
-  flash(req, 'ok', 'Pratica aggiornata.');
+  flash(req, msgCartella.includes('Attenzione') ? 'info' : 'ok', `Pratica aggiornata.${msgCartella}`);
   res.redirect(`/pratiche/${req.pratica.id}`);
 });
 
@@ -256,6 +285,61 @@ router.post('/pratiche/:id/comunicazioni', trovaPratica, verificaCsrf, (req, res
 router.post('/pratiche/:id/comunicazioni/:cid/elimina', trovaPratica, verificaCsrf, (req, res) => {
   Comunicazioni.elimina.run(Number(req.params.cid), req.pratica.id);
   res.redirect(`/pratiche/${req.pratica.id}#comunicazioni`);
+});
+
+// ---------- Cartella su Google Drive ----------
+const multer = require('multer');
+const tmpUpload = require('node:path').join(config.datiDir, 'tmp');
+require('node:fs').mkdirSync(tmpUpload, { recursive: true });
+const upload = multer({ dest: tmpUpload, limits: { fileSize: 500 * 1024 * 1024, files: 50 } });
+
+/** Percorso dentro la cartella della pratica (es. "006-Pratiche/tavola.pdf"), controllato. */
+function dentroPratica(pratica, sotto) {
+  if (!pratica.cartella) return null;
+  const s = sotto ? cartelle.normalizza(sotto) : '';
+  if (sotto && !s) return null;
+  return s ? `${pratica.cartella}/${s}` : pratica.cartella;
+}
+
+router.post('/pratiche/:id/cartella/apri', trovaPratica, verificaCsrf, (req, res) => {
+  const rel = dentroPratica(req.pratica, testo(req.body.percorso, 1000));
+  if (!rel || !cartelle.apri(rel)) flash(req, 'errore', 'Non riesco ad aprire: controlla che Google Drive sia avviato sul PC.');
+  res.redirect(`/pratiche/${req.pratica.id}#cartella`);
+});
+
+router.post('/pratiche/:id/cartella/crea', trovaPratica, verificaCsrf, async (req, res) => {
+  try {
+    if (!req.pratica.cartella) throw new Error('indica prima il nome della cartella nella pratica');
+    await cartelle.crea(req.pratica.cartella, true);
+    flash(req, 'ok', `Cartella "${req.pratica.cartella}" creata su Google Drive.`);
+  } catch (e) {
+    flash(req, 'errore', `Cartella non creata: ${e.message}`);
+  }
+  res.redirect(`/pratiche/${req.pratica.id}#cartella`);
+});
+
+function pulisciTmp(req, res, next) {
+  res.on('close', () => { for (const f of req.files || []) require('node:fs').rm(f.path, { force: true }, () => {}); });
+  next();
+}
+
+router.post('/pratiche/:id/cartella/carica', trovaPratica, pulisciTmp, upload.array('file'), verificaCsrf, async (req, res, next) => {
+  try {
+    const rel = dentroPratica(req.pratica, testo(req.body.sottocartella, 500));
+    if (!rel || !cartelle.esiste(req.pratica.cartella)) throw new Error('Cartella della pratica non trovata.');
+    const nomi = [];
+    // multer legge i nomi come latin1: li riconverto in UTF-8 (accenti)
+    for (const f of req.files || []) nomi.push(await cartelle.salva(rel, f.path, Buffer.from(f.originalname, 'latin1').toString('utf8')));
+    if (nomi.length) Pratiche.tocca.run(req.pratica.id);
+    flash(req, 'ok', nomi.length ? `Caricati su Drive: ${nomi.join(', ')}` : 'Nessun file scelto.');
+    res.redirect(`/pratiche/${req.pratica.id}#cartella`);
+  } catch (e) {
+    if (e.message.includes('non trovata') || e.message.includes('non valida')) {
+      flash(req, 'errore', e.message);
+      return res.redirect(`/pratiche/${req.pratica.id}#cartella`);
+    }
+    next(e);
+  }
 });
 
 module.exports = router;

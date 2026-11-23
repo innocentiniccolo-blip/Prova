@@ -24,10 +24,10 @@ const Pratiche = {
   perId: db.prepare(`${SELECT_PRATICA} WHERE p.id = ?`),
   perCliente: db.prepare(`${SELECT_PRATICA} WHERE p.cliente_id = ? ORDER BY p.creato_il DESC`),
   inserisci: db.prepare(`
-    INSERT INTO pratiche (cliente_id, commessa, indirizzo, tipo, ente, oggetto, stato, protocollo, data_protocollo, numero_pratica, onorario_cent, note)
-    VALUES (:cliente_id, :commessa, :indirizzo, :tipo, :ente, :oggetto, :stato, :protocollo, :data_protocollo, :numero_pratica, :onorario_cent, :note)`),
+    INSERT INTO pratiche (cliente_id, commessa, indirizzo, cartella, tipo, ente, oggetto, stato, protocollo, data_protocollo, numero_pratica, onorario_cent, note)
+    VALUES (:cliente_id, :commessa, :indirizzo, :cartella, :tipo, :ente, :oggetto, :stato, :protocollo, :data_protocollo, :numero_pratica, :onorario_cent, :note)`),
   aggiorna: db.prepare(`
-    UPDATE pratiche SET cliente_id = :cliente_id, commessa = :commessa, indirizzo = :indirizzo, tipo = :tipo, ente = :ente,
+    UPDATE pratiche SET cliente_id = :cliente_id, commessa = :commessa, indirizzo = :indirizzo, cartella = :cartella, tipo = :tipo, ente = :ente,
       oggetto = :oggetto, stato = :stato, protocollo = :protocollo, data_protocollo = :data_protocollo,
       numero_pratica = :numero_pratica, onorario_cent = :onorario_cent, note = :note, aggiornato_il = datetime('now') WHERE id = :id`),
   cambiaStato: db.prepare("UPDATE pratiche SET stato = ?, aggiornato_il = datetime('now') WHERE id = ?"),
@@ -97,4 +97,30 @@ const Impostazioni = {
   scrivi: (chiave, valore) => db.prepare('INSERT INTO impostazioni (chiave, valore) VALUES (?, ?) ON CONFLICT(chiave) DO UPDATE SET valore = excluded.valore').run(chiave, valore == null ? null : String(valore)),
 };
 
-module.exports = { db, Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni, Email, Impostazioni };
+const SELECT_CHAT = `
+  SELECT w.*, c.nome AS cliente_nome, c.telefono AS cliente_telefono,
+    (SELECT COUNT(*) FROM whatsapp_messaggi m WHERE m.chat_id = w.id) AS n_messaggi,
+    (SELECT testo FROM whatsapp_messaggi m WHERE m.chat_id = w.id ORDER BY data DESC, id DESC LIMIT 1) AS ultimo_testo
+  FROM whatsapp_chat w LEFT JOIN clienti c ON c.id = w.cliente_id`;
+
+const Whatsapp = {
+  perNome: db.prepare('SELECT * FROM whatsapp_chat WHERE nome = ?'),
+  perId: db.prepare(`${SELECT_CHAT} WHERE w.id = ?`),
+  tutte: db.prepare(`${SELECT_CHAT} ORDER BY CASE w.stato WHEN 'gestita' THEN 1 ELSE 0 END, w.ultimo_msg_il DESC`),
+  daRispondere: db.prepare(`${SELECT_CHAT} WHERE w.stato IN ('da_rispondere','bozza') ORDER BY w.ultimo_msg_il DESC`),
+  perCliente: db.prepare(`${SELECT_CHAT} WHERE w.cliente_id = ? ORDER BY w.ultimo_msg_il DESC`),
+  contaDaRispondere: db.prepare("SELECT COUNT(*) AS n FROM whatsapp_chat WHERE stato IN ('da_rispondere','bozza')"),
+  inserisci: db.prepare('INSERT INTO whatsapp_chat (nome, telefono, cliente_id) VALUES (?, ?, ?)'),
+  collega: db.prepare('UPDATE whatsapp_chat SET cliente_id = ? WHERE id = ?'),
+  dopoImport: db.prepare("UPDATE whatsapp_chat SET ultimo_msg_il = :ultimo, importata_il = datetime('now'), stato = :stato, errore_ai = CASE WHEN :stato = 'da_rispondere' THEN NULL ELSE errore_ai END WHERE id = :id"),
+  salvaBozza: db.prepare("UPDATE whatsapp_chat SET riassunto = :riassunto, bozza_testo = :bozza_testo, errore_ai = NULL, stato = CASE WHEN :serve = 1 THEN 'bozza' ELSE stato END WHERE id = :id"),
+  modificaBozza: db.prepare('UPDATE whatsapp_chat SET bozza_testo = ? WHERE id = ?'),
+  erroreAi: db.prepare('UPDATE whatsapp_chat SET errore_ai = ? WHERE id = ?'),
+  cambiaStato: db.prepare('UPDATE whatsapp_chat SET stato = ? WHERE id = ?'),
+  messaggi: db.prepare('SELECT * FROM (SELECT * FROM whatsapp_messaggi WHERE chat_id = ? ORDER BY data DESC, id DESC LIMIT ?) ORDER BY data, id'),
+  inserisciMsg: db.prepare('INSERT OR IGNORE INTO whatsapp_messaggi (chat_id, data, autore, mio, testo, impronta) VALUES (?, ?, ?, ?, ?, ?)'),
+  ricalcolaMio: db.prepare('UPDATE whatsapp_messaggi SET mio = ? WHERE chat_id = ? AND autore = ?'),
+  ultimoMsg: db.prepare('SELECT * FROM whatsapp_messaggi WHERE chat_id = ? ORDER BY data DESC, id DESC LIMIT 1'),
+};
+
+module.exports = { db, Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni, Email, Impostazioni, Whatsapp };

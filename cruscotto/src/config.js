@@ -12,6 +12,18 @@ const config = {
   // Il cruscotto ascolta SOLO sul PC stesso: nessun altro dispositivo può collegarsi.
   host: '127.0.0.1',
   datiDir: path.resolve(process.env.DATI_DIR || path.join(root, 'dati')),
+  drive: {
+    // Cartella dello studio dentro Google Drive per desktop. Vuoto = la cerco da solo (es. G:\Il mio Drive\Studio Innocenti)
+    dir: (process.env.DRIVE_DIR || '').trim(),
+    nomeCartella: (process.env.DRIVE_CARTELLA || 'Studio Innocenti').trim(),
+  },
+  whatsapp: {
+    // Cartella (dentro quella dello studio su Drive) dove salvare le chat esportate da WhatsApp
+    cartella: (process.env.WHATSAPP_CARTELLA || '_WhatsApp da importare').trim(),
+    // Il tuo nome come appare nelle chat esportate (se vuoto lo riconosco da solo). Più nomi separati da virgola.
+    mieiNomi: (process.env.WHATSAPP_MIO_NOME || '').split(',').map((s) => s.trim()).filter(Boolean),
+    minuti: Math.max(Number(process.env.WHATSAPP_CONTROLLO_MINUTI) || 10, 1),
+  },
   posta: {
     indirizzo: (process.env.EMAIL_INDIRIZZO || '').trim(),
     password: process.env.EMAIL_PASSWORD || '',

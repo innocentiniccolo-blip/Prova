@@ -35,6 +35,23 @@
       </div>
     <% } %>
 
+    <% if (waDaRispondere.length) { %>
+      <div class="carta" id="whatsapp">
+        <div class="barra-titolo"><h2>WhatsApp da rispondere (<%= waDaRispondere.length %>)</h2><a href="/whatsapp">Apri WhatsApp →</a></div>
+        <ul class="elenco-posta compatto">
+          <% waDaRispondere.slice(0, 6).forEach(c => { %>
+            <li class="<%= c.stato === 'bozza' ? 'bozza' : 'nuova' %>">
+              <a href="/whatsapp/<%= c.id %>" class="riga-posta">
+                <span class="mittente"><strong><%= c.cliente_nome || c.nome %></strong></span>
+                <small class="muto"><%= c.riassunto || String(c.ultimo_testo || '').slice(0, 120) %></small>
+              </a>
+              <span class="etichette"><% if (c.stato === 'bozza') { %><span class="badge stato-rilasciata-conclusa">✨ bozza pronta</span><% } %></span>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+
     <div class="due-colonne cruscotto">
       <div class="carta" id="scadenze">
         <h2>Scadenze (superate e prossimi 30 giorni)</h2>

@@ -26,8 +26,34 @@ Comodo: fai clic destro su `avvia-cruscotto.bat` → *Invia a* → *Desktop (cre
 - **Email e WhatsApp**: scrivi due righe su cosa dire e premi **✨ Scrivi con AI**. Claude prepara la bozza con i dati della pratica e lascia tra `[parentesi quadre]` quello che non sa. La rileggi e premi **Apri email** / **Apri in WhatsApp**: si apre il programma di posta o WhatsApp (Web o app) con il messaggio già pronto. L'invio finale lo fai tu. Ogni messaggio resta nello storico della pratica.
 - **Clienti**: rubrica con cellulare ed email, e l'elenco delle pratiche di ciascuno.
 - **Posta**: legge la casella dello studio, abbina le mail alle pratiche e prepara le risposte (vedi sotto).
+- **Cartelle Google Drive**: ogni pratica collegata alla sua cartella in "Studio Innocenti" (vedi sotto).
+- **WhatsApp**: le chat esportate ogni sera vengono importate, collegate ai clienti e riassunte, con la bozza di risposta (vedi sotto).
 
 Tipi di pratica, stati, enti (Comuni del Valdarno, Agenzia Entrate, Genio Civile…) e scadenze tipiche sono in `config/studio.json`. Puoi modificarli; nei campi puoi comunque scrivere valori liberi.
+
+## Cartelle su Google Drive
+
+Ogni pratica può essere collegata alla sua cartella dentro **Studio Innocenti** su Google Drive (es. `Sofia Forzini`, oppure `Sofia Forzini/006-SCIA prot.10912`).
+
+- Nel modulo della pratica scegli una cartella esistente o scrivi un nome nuovo: se non esiste, viene creata con le **sottocartelle standard** (001-Rilievo, 002-Computo, 003-Preventivi, 004-Istanza, 005-Nota Tecnica, 006-Pratiche, 007-Sicurezza, 008-Progetto, 009-Contabilità cantiere, 010-Fatture). L'elenco si cambia in `config/studio.json` → `sottocartelle`.
+- Nella scheda della pratica vedi i file della cartella. **Apri cartella** apre Esplora risorse; un clic su un file lo apre con il suo programma (PDF, AutoCAD, Excel…). Puoi anche caricare file in una sottocartella.
+- Tutto passa da **Google Drive per desktop**: quello che fai qui compare su Drive (e al collaboratore con cui condividi le cartelle) e viceversa.
+
+**Installazione:** installa [Google Drive per desktop](https://www.google.com/drive/download/) e accedi con l'account dello studio. Il cruscotto trova da solo la cartella (di solito `G:\Il mio Drive\Studio Innocenti`); nella finestra nera compare "Google Drive: …". Se non la trova, scrivi il percorso nel `.env`: `DRIVE_DIR=G:\Il mio Drive\Studio Innocenti`.
+
+## WhatsApp: chat importate ogni sera
+
+WhatsApp non permette ai programmi di leggere le chat in automatico (e il backup di WhatsApp su Drive è cifrato). Il passaggio è semplice:
+
+1. **Ogni sera** (alle 18:30 ti arriva il promemoria sul telefono) esporti le chat della giornata con i clienti: in WhatsApp apri la chat → ⋮ → *Altro* → **Esporta chat** → **Senza media** → **Drive** → cartella **Studio Innocenti / _WhatsApp da importare**. Su iPhone: tocca il nome del contatto → *Esporta chat*.
+2. Il cruscotto controlla la cartella ogni 10 minuti (o premi **Importa ora** nella sezione WhatsApp):
+   - collega ogni chat al **cliente** (dal nome salvato in rubrica, anche invertito tipo "Rossi Mario", o dal numero di telefono). Se non lo trova, la chat compare "da collegare": scegli il cliente una volta e il collegamento resta per le esportazioni successive;
+   - salva **solo i messaggi nuovi**: puoi esportare ogni volta la chat intera, senza doppioni;
+   - sposta il file in `_WhatsApp da importare/Importate/data`;
+   - se l'ultimo messaggio è del cliente, la chat va tra quelle **da rispondere** e l'AI prepara un **riassunto** e la **bozza di risposta** (che tiene conto delle pratiche del cliente).
+3. Rileggi la bozza e premi **Apri in WhatsApp**: si apre WhatsApp con il messaggio pronto, lo invii tu.
+
+Le chat compaiono anche nel cruscotto e nella scheda del cliente. Vale lo stesso discorso privacy della posta: i messaggi vengono inviati all'AI per riassunto e bozza (con `EMAIL_BOZZE_AUTOMATICHE=no` solo quando la chiedi).
 
 ## Posta: lettura automatica e risposte preparate
 
@@ -100,6 +126,9 @@ src/ai.js              bozze di email/WhatsApp e risposte alle mail con Claude
 src/posta.js           collegamento IMAP/SMTP alla casella (Aruba)
 src/sincronizza.js     controllo periodico della posta e bozze automatiche
 src/abbina.js          abbinamento mail → cliente/pratica
+src/cartelle.js        cartelle delle pratiche su Google Drive
+src/whatsapp.js        importazione delle chat dalla cartella di Drive
+src/whatsapp-lettore.js lettura dei file esportati da WhatsApp
 src/routes/posta.js    sezione Posta
 src/formato.js         importi, date, link WhatsApp/email
 views/                 pagine (EJS)

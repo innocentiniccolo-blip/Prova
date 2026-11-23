@@ -3,3 +3,4 @@ node_modules/
 dati/
 *.sqlite
 *.sqlite-*
+anteprima/

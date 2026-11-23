@@ -6,6 +6,8 @@ const session = require('express-session');
 const config = require('./config');
 const sicurezza = require('./sicurezza');
 const F = require('./formato');
+const sinc = require('./sincronizza');
+const { Email } = require('./modelli');
 
 const app = express();
 app.disable('x-powered-by');
@@ -33,6 +35,8 @@ app.use((req, res, next) => {
   res.locals.studio = config.studio;
   res.locals.percorso = req.path;
   res.locals.flash = req.session.flash || null;
+  res.locals.postaAttiva = config.posta.attiva;
+  res.locals.nPosta = Email.contaDaRispondere.get().n;
   delete req.session.flash;
   next();
 });
@@ -52,6 +56,7 @@ app.locals.urgenza = (d) => F.urgenza(d);
 
 app.use('/', require('./routes/pratiche'));
 app.use('/clienti', require('./routes/clienti'));
+app.use('/posta', require('./routes/posta'));
 
 app.use((req, res) => res.status(404).render('errore', { titolo: 'Pagina non trovata', messaggio: '' }));
 // eslint-disable-next-line no-unused-vars
@@ -66,7 +71,9 @@ if (require.main === module) {
     console.log('  Cruscotto pratiche avviato.');
     console.log(`  Apri nel browser:  http://localhost:${config.port}`);
     console.log(`  Archivio:          ${path.join(config.datiDir, 'cruscotto.sqlite')}`);
+    console.log(config.posta.attiva ? `  Posta:             ${config.posta.indirizzo}, controllo ogni ${config.posta.minuti} minuti` : '  Posta:             non collegata (vedi README)');
     console.log('  Per chiudere: chiudi questa finestra (o premi Ctrl+C).');
+    sinc.avvia();
     console.log('');
   }).on('error', (e) => {
     if (e.code === 'EADDRINUSE') console.error(`La porta ${config.port} è già in uso: forse il cruscotto è già aperto? Prova http://localhost:${config.port}`);

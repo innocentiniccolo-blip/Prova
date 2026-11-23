@@ -25,8 +25,43 @@ Comodo: fai clic destro su `avvia-cruscotto.bat` → *Invia a* → *Desktop (cre
 - **Scadenze**, **attività** e **incassi** per ogni pratica. Il residuo da incassare si calcola da solo.
 - **Email e WhatsApp**: scrivi due righe su cosa dire e premi **✨ Scrivi con AI**. Claude prepara la bozza con i dati della pratica e lascia tra `[parentesi quadre]` quello che non sa. La rileggi e premi **Apri email** / **Apri in WhatsApp**: si apre il programma di posta o WhatsApp (Web o app) con il messaggio già pronto. L'invio finale lo fai tu. Ogni messaggio resta nello storico della pratica.
 - **Clienti**: rubrica con cellulare ed email, e l'elenco delle pratiche di ciascuno.
+- **Posta**: legge la casella dello studio, abbina le mail alle pratiche e prepara le risposte (vedi sotto).
 
 Tipi di pratica, stati, enti (Comuni del Valdarno, Agenzia Entrate, Genio Civile…) e scadenze tipiche sono in `config/studio.json`. Puoi modificarli; nei campi puoi comunque scrivere valori liberi.
+
+## Posta: lettura automatica e risposte preparate
+
+Il cruscotto si collega alla casella dello studio (Aruba) e ogni 5 minuti, mentre è aperto:
+
+1. **legge le mail nuove** della posta in arrivo, **senza segnarle come lette**: in Thunderbird le vedi come sempre;
+2. **le abbina alla pratica**: dal mittente, se è un cliente in rubrica, oppure dal protocollo, dal n. pratica dell'ente o dalla commessa scritti nell'oggetto o nel testo. Così anche la PEC inoltrata o la mail dell'ufficio tecnico che cita il protocollo finisce nella pratica giusta;
+3. **prepara la bozza di risposta** con l'AI, usando i dati della pratica, per le mail dei clienti e quelle legate a una pratica. Per le altre la bozza si chiede con un clic.
+
+Nella sezione **Posta** (e nel cruscotto) trovi le mail da rispondere. Apri la mail, rileggi la bozza (se vuoi la fai riscrivere con due righe di indicazioni), poi scegli:
+
+- **Invia**: parte da info@…, la copia va nella cartella *Inviata* e la mail originale risulta "risposta" anche in Thunderbird. Se la mail è legata a una pratica, la risposta finisce nel suo storico;
+- **Salva nelle Bozze di Thunderbird**: la ritrovi nelle *Bozze* di Thunderbird e la spedisci da lì;
+- **Archivia** se non serve rispondere.
+
+**Niente parte mai da solo:** ogni risposta la approvi tu.
+
+### Collegare la casella Aruba
+
+Nel file `.env`:
+
+```
+EMAIL_INDIRIZZO=info@geometrainnocenti.it
+EMAIL_PASSWORD=la-password-della-casella
+```
+
+I server di Aruba (`imaps.aruba.it` porta 993, `smtps.aruba.it` porta 465) sono già impostati. Chiudi e riapri il cruscotto: nella finestra nera compare "Posta: info@…, controllo ogni 5 minuti".
+
+**Controlla Thunderbird:** apri *Impostazioni account* → *Impostazioni server*. Se il tipo di server è **IMAP**, va tutto bene. Se è **POP3**, deve essere spuntato **"Lascia i messaggi sul server"**, altrimenti Thunderbird scarica e cancella le mail prima che il cruscotto le veda (e le bozze salvate sul server non comparirebbero in Thunderbird). Il consiglio è passare a IMAP.
+
+Note:
+- La password resta nel file `.env` di questo PC: non condividere quel file.
+- Il testo delle mail viene inviato al servizio AI per preparare le bozze (non viene usato per addestrare i modelli). Conviene citarlo nell'informativa privacy dello studio. Con `EMAIL_BOZZE_AUTOMATICHE=no` le bozze si preparano solo quando le chiedi.
+- Le mail vengono mostrate come testo semplice: niente immagini o contenuti esterni.
 
 ## Assistente AI (facoltativo)
 
@@ -61,7 +96,11 @@ src/server.js          avvio e configurazione
 src/sicurezza.js       accesso solo locale e token dei moduli
 src/routes/pratiche.js cruscotto, pratiche, scadenze, incassi, messaggi
 src/routes/clienti.js  rubrica clienti
-src/ai.js              bozze di email/WhatsApp con Claude
+src/ai.js              bozze di email/WhatsApp e risposte alle mail con Claude
+src/posta.js           collegamento IMAP/SMTP alla casella (Aruba)
+src/sincronizza.js     controllo periodico della posta e bozze automatiche
+src/abbina.js          abbinamento mail → cliente/pratica
+src/routes/posta.js    sezione Posta
 src/formato.js         importi, date, link WhatsApp/email
 views/                 pagine (EJS)
 config/studio.json     dati dello studio ed elenchi delle pratiche

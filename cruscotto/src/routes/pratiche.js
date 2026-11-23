@@ -5,7 +5,7 @@ const config = require('../config');
 const { verificaCsrf } = require('../sicurezza');
 const ai = require('../ai');
 const F = require('../formato');
-const { Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni } = require('../modelli');
+const { Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni, Email } = require('../modelli');
 
 const router = express.Router();
 const P = config.studio.pratiche;
@@ -46,6 +46,7 @@ router.get('/', (req, res) => {
     daIncassare,
     incassatoAnno: Incassi.totaleAnno.get(oggi.slice(0, 4)).tot,
     anno: oggi.slice(0, 4),
+    mailDaRispondere: config.posta.attiva ? Email.daRispondere.all() : null,
   });
 });
 
@@ -119,6 +120,7 @@ router.get('/pratiche/:id', trovaPratica, (req, res) => {
     attivita: Attivita.perPratica.all(p.id),
     incassi: Incassi.perPratica.all(p.id),
     comunicazioni: Comunicazioni.perPratica.all(p.id),
+    emailRicevute: Email.perPratica.all(p.id),
     contatti: p.cliente_id ? [{ id: p.cliente_id, nome: p.cliente_nome, email: p.cliente_email, telefono: p.cliente_telefono }] : [],
     aiAttiva: ai.attiva(),
     oggi: F.oggi(),

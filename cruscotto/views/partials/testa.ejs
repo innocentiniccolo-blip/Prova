@@ -18,6 +18,7 @@
     <nav class="menu">
       <a href="/" class="<%= percorso === '/' ? 'attivo' : '' %>">Cruscotto</a>
       <a href="/pratiche" class="<%= percorso.startsWith('/pratiche') ? 'attivo' : '' %>">Pratiche</a>
+      <a href="/posta" class="<%= percorso.startsWith('/posta') ? 'attivo' : '' %>">Posta<% if (nPosta) { %> <span class="conta-menu"><%= nPosta %></span><% } %></a>
       <a href="/clienti" class="<%= percorso.startsWith('/clienti') ? 'attivo' : '' %>">Clienti</a>
     </nav>
   </div>

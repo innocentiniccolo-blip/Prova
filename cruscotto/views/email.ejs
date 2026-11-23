@@ -1,0 +1,76 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <a class="indietro" href="/posta">← Posta</a>
+    <div class="layout-lavoro">
+      <div>
+        <div class="carta">
+          <h1 class="titolo-mail"><%= email.oggetto || '(senza oggetto)' %></h1>
+          <dl class="dati">
+            <dt>Da</dt><dd><%= email.mittente_nome ? email.mittente_nome + ' ' : '' %>&lt;<%= email.mittente_email %>&gt;
+              <% if (email.cliente_id) { %> · <a href="/clienti/<%= email.cliente_id %>"><%= email.cliente_nome %></a><% } %></dd>
+            <dt>Data</dt><dd><%= dataOra(email.data.replace('T', ' ').slice(0, 19)) %></dd>
+          </dl>
+          <% if (email.riassunto) { %><p class="riassunto">✨ <%= email.riassunto %></p><% } %>
+          <div class="testo-mail a-capo"><%= email.testo || '(mail senza testo)' %></div>
+        </div>
+
+        <div class="carta" id="risposta">
+          <h2>Risposta</h2>
+          <% if (email.stato === 'inviata') { %><div class="avviso ok">Risposta inviata il <%= dataOra(email.risposta_il) %>.</div><% } %>
+          <% if (email.errore_ai) { %><div class="avviso errore">Bozza automatica non riuscita: <%= email.errore_ai %></div><% } %>
+          <% if (email.serve_risposta === 0) { %><div class="avviso info">Secondo l'AI questa mail probabilmente non richiede risposta.</div><% } %>
+
+          <% if (aiAttiva) { %>
+            <form method="post" action="/posta/<%= email.id %>/bozza" class="box-ai" data-attesa="Sto scrivendo…">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <label><%= email.bozza_testo ? 'Vuoi una bozza diversa?' : 'Indicazioni per la risposta' %> <small>facoltative, es. “conferma il sopralluogo martedì alle 10” o “dì che i documenti sono arrivati”</small>
+                <textarea name="istruzioni" rows="2" maxlength="3000"></textarea>
+              </label>
+              <button class="pulsante secondario">✨ <%= email.bozza_testo ? 'Riscrivi la bozza' : 'Prepara la bozza' %></button>
+            </form>
+          <% } %>
+
+          <form method="post" action="/posta/<%= email.id %>/risposta" class="modulo" data-attesa-azione>
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <label>A <input type="email" name="a" value="<%= destinatario %>" required></label>
+            <label>Oggetto <input name="oggetto" value="<%= oggettoRisposta %>" maxlength="300"></label>
+            <label>Testo <textarea name="testo" rows="14" maxlength="50000"><%= email.bozza_testo || '' %></textarea></label>
+            <div class="azioni">
+              <button class="pulsante" name="azione" value="invia" data-conferma-click="Inviare la risposta a <%= destinatario %>?">Invia</button>
+              <button class="pulsante secondario" name="azione" value="thunderbird">Salva nelle Bozze di Thunderbird</button>
+              <button class="link" name="azione" value="salva">Salva qui senza inviare</button>
+            </div>
+            <p class="nota">“Invia” spedisce da <%= studio.nomeBreve %> &lt;<%= indirizzoStudio %>&gt;, salva la copia in “Inviata” e segna la mail come risposta anche in Thunderbird.</p>
+          </form>
+        </div>
+      </div>
+
+      <aside>
+        <div class="carta">
+          <h2>Pratica collegata</h2>
+          <% if (email.pratica_id) { %>
+            <p><a href="/pratiche/<%= email.pratica_id %>"><strong><%= email.pratica_tipo %></strong><%= email.pratica_ente ? ' – ' + email.pratica_ente : '' %></a><% if (email.pratica_commessa) { %><br><small class="muto">Commessa <%= email.pratica_commessa %></small><% } %></p>
+          <% } else { %>
+            <p class="vuoto">Nessuna pratica collegata.</p>
+          <% } %>
+          <form method="post" action="/posta/<%= email.id %>/abbina" class="modulo compatto">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <select name="pratica_id" aria-label="Pratica">
+              <option value="">— nessuna —</option>
+              <% pratiche.forEach(p => { %><option value="<%= p.id %>" <%= p.id === email.pratica_id ? 'selected' : '' %>><%= p.tipo %><%= p.cliente_nome ? ' – ' + p.cliente_nome : '' %><%= p.commessa ? ' (' + p.commessa + ')' : '' %></option><% }) %>
+            </select>
+            <button class="pulsante piccolo">Collega</button>
+          </form>
+          <p class="nota">Con la pratica collegata, l'AI usa i suoi dati (stato, protocollo, scadenze, documenti mancanti) e la risposta finisce nello storico della pratica.</p>
+        </div>
+        <% if (email.stato === 'archiviata' || email.stato === 'inviata') { %>
+          <form method="post" action="/posta/<%= email.id %>/riapri"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Rimetti tra “da rispondere”</button></form>
+        <% } else { %>
+          <form method="post" action="/posta/<%= email.id %>/archivia"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Archivia: non serve rispondere</button></form>
+        <% } %>
+      </aside>
+    </div>
+  </div>
+</section>
+<%- include('partials/piede') %>

@@ -73,6 +73,37 @@ CREATE TABLE IF NOT EXISTS comunicazioni (
   testo        TEXT NOT NULL,
   creato_il    TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS email_ricevute (
+  id             INTEGER PRIMARY KEY,
+  uidvalidity    INTEGER NOT NULL,
+  uid            INTEGER NOT NULL,
+  message_id     TEXT,
+  riferimenti    TEXT,
+  mittente_nome  TEXT,
+  mittente_email TEXT,
+  rispondi_a     TEXT,
+  oggetto        TEXT,
+  data           TEXT,
+  testo          TEXT,
+  cliente_id     INTEGER REFERENCES clienti(id) ON DELETE SET NULL,
+  pratica_id     INTEGER REFERENCES pratiche(id) ON DELETE SET NULL,
+  stato          TEXT NOT NULL DEFAULT 'nuova' CHECK (stato IN ('nuova','bozza','inviata','archiviata')),
+  riassunto      TEXT,
+  serve_risposta INTEGER,
+  bozza_oggetto  TEXT,
+  bozza_testo    TEXT,
+  errore_ai      TEXT,
+  risposta_il    TEXT,
+  creato_il      TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (uidvalidity, uid)
+);
+CREATE INDEX IF NOT EXISTS email_stato ON email_ricevute(stato, data);
+
+CREATE TABLE IF NOT EXISTS impostazioni (
+  chiave TEXT PRIMARY KEY,
+  valore TEXT
+);
 `);
 
 module.exports = db;

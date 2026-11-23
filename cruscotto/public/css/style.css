@@ -269,3 +269,27 @@ details summary { cursor: pointer; }
 .stato-archiviata { background: #f1f2f4; color: #555; }
 .piede-interno { padding: 1rem 0; font-size: .85rem; }
 legend small { font-weight: 400; }
+
+/* ---------- Posta ---------- */
+.conta-menu { display: inline-block; min-width: 1.4em; padding: 0 .4em; border-radius: 99px; background: var(--rosso); color: #fff; font-size: .75rem; text-align: center; font-weight: 700; }
+.stato-posta { margin: -.5rem 0 1rem; }
+.schede-link a { text-decoration: none; font-weight: 600; color: var(--muto); padding: .6rem .9rem; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+.schede-link a.attiva { color: var(--blu); border-bottom-color: var(--azzurro); }
+.elenco-posta { list-style: none; margin: 0; padding: 0; }
+.elenco-posta li { display: flex; gap: 1rem; align-items: flex-start; padding: .8rem .4rem; border-bottom: 1px solid var(--bordo); border-left: 4px solid transparent; }
+.elenco-posta li:last-child { border-bottom: 0; }
+.elenco-posta li.nuova { border-left-color: var(--azzurro); }
+.elenco-posta li.bozza { border-left-color: var(--verde); }
+.elenco-posta li.non-serve { opacity: .7; }
+.riga-posta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; text-decoration: none; color: inherit; }
+.riga-posta:hover { color: inherit; }
+.riga-posta:hover .oggetto-posta { text-decoration: underline; }
+.oggetto-posta { color: var(--blu-medio); font-weight: 600; overflow-wrap: anywhere; }
+.etichette { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .2rem; }
+.data-posta { font-size: .85rem; color: var(--muto); white-space: nowrap; }
+.elenco-posta.compatto li { padding: .55rem .4rem; }
+.titolo-mail { font-size: 1.4rem; overflow-wrap: anywhere; }
+.testo-mail { margin-top: 1rem; padding: 1rem; background: var(--sfondo); border-radius: 8px; font-size: .95rem; max-height: 560px; overflow: auto; overflow-wrap: anywhere; }
+.riassunto { background: var(--azzurro-chiaro); padding: .6rem .9rem; border-radius: 8px; margin: 1rem 0 0; }
+.codice-blocco { background: var(--sfondo); padding: .8rem 1rem; border-radius: 8px; overflow-x: auto; }
+#risposta .box-ai { margin-bottom: 1rem; }

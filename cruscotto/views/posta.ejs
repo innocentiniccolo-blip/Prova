@@ -1,0 +1,72 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Posta</h1>
+      <% if (stato.attiva) { %>
+        <form method="post" action="/posta/controlla" data-attesa="Controllo in corso…">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="pulsante">Controlla ora</button>
+        </form>
+      <% } %>
+    </div>
+
+    <% if (!stato.attiva) { %>
+      <div class="carta">
+        <h2>Collega la casella di posta</h2>
+        <p>Apri il file <code>.env</code> nella cartella del cruscotto (con il Blocco note) e compila:</p>
+        <pre class="codice-blocco">EMAIL_INDIRIZZO=info@geometrainnocenti.it
+EMAIL_PASSWORD=la-password-della-casella</pre>
+        <p>Poi chiudi e riapri il cruscotto. I server di Aruba (<code>imaps.aruba.it</code> e <code>smtps.aruba.it</code>) sono già impostati.</p>
+        <p class="nota">Importante: se Thunderbird scarica la posta con POP3, deve essere attiva l'opzione “Lascia i messaggi sul server”, altrimenti il cruscotto non trova le mail. Con IMAP va tutto bene.</p>
+      </div>
+    <% } else { %>
+      <p class="nota stato-posta">
+        Casella <strong><%= stato.indirizzo %></strong> · controllo automatico ogni <%= stato.minuti %> minuti
+        <% if (stato.ultimoControllo) { %>· ultimo controllo <%= dataOra(stato.ultimoControllo.replace('T', ' ').slice(0, 19)) %><% } %>
+        <% if (!aiAttiva) { %>· <span class="pericolo">AI non attiva: le bozze vanno scritte a mano</span><% } %>
+      </p>
+      <% if (stato.errore) { %><div class="avviso errore"><strong>Ultimo controllo non riuscito:</strong> <%= stato.errore %></div><% } %>
+
+      <nav class="schede-titoli schede-link">
+        <% Object.entries(viste).forEach(([k, v]) => { %>
+          <a href="/posta?vista=<%= k %>" class="<%= k === vista ? 'attiva' : '' %>"><%= v.titolo %><% if (k === 'da-rispondere' && nPosta) { %> <span class="conta"><%= nPosta %></span><% } %></a>
+        <% }) %>
+      </nav>
+
+      <div class="carta">
+        <% if (!email.length) { %>
+          <p class="vuoto"><%= vista === 'da-rispondere' ? 'Nessuna mail in attesa di risposta.' : 'Nessuna mail.' %></p>
+        <% } else { %>
+          <ul class="elenco-posta">
+            <% email.forEach(e => { %>
+              <li class="<%= e.stato %> <%= e.serve_risposta === 0 ? 'non-serve' : '' %>">
+                <a href="/posta/<%= e.id %>" class="riga-posta">
+                  <span class="mittente"><strong><%= e.mittente_nome || e.mittente_email %></strong>
+                    <% if (e.cliente_nome) { %><span class="badge stato-presentata">cliente</span><% } %></span>
+                  <span class="oggetto-posta"><%= e.oggetto || '(senza oggetto)' %></span>
+                  <small class="muto"><%= e.riassunto || String(e.testo || '').slice(0, 140) %></small>
+                  <span class="etichette">
+                    <% if (e.pratica_id) { %><span class="badge stato-in-istruttoria"><%= e.pratica_tipo %><%= e.pratica_commessa ? ' · ' + e.pratica_commessa : '' %></span><% } %>
+                    <% if (e.stato === 'bozza') { %><span class="badge stato-rilasciata-conclusa">✨ bozza pronta</span><% } %>
+                    <% if (e.stato === 'inviata') { %><span class="badge stato-rilasciata-conclusa">risposta inviata</span><% } %>
+                    <% if (e.serve_risposta === 0 && e.stato !== 'archiviata') { %><span class="badge">forse non serve risposta</span><% } %>
+                    <% if (e.errore_ai) { %><span class="badge stato-integrazioni-richieste">bozza non riuscita</span><% } %>
+                  </span>
+                </a>
+                <span class="data-posta"><%= dataOra(e.data.replace('T', ' ').slice(0, 19)) %></span>
+                <% if (e.stato === 'nuova' || e.stato === 'bozza') { %>
+                  <form method="post" action="/posta/<%= e.id %>/archivia" class="in-linea">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="torna" value="/posta">
+                    <button class="link" title="Non serve rispondere">Archivia</button>
+                  </form>
+                <% } %>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</section>
+<%- include('partials/piede') %>

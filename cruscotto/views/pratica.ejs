@@ -123,7 +123,13 @@
             <p class="nota">Il messaggio si apre già compilato nel programma di posta o in WhatsApp: controlli e premi “Invia” da lì. Resta comunque registrato qui sotto.</p>
           </form>
 
-          <h3>Storico</h3>
+          <% if (emailRicevute.length) { %>
+            <h3>Mail ricevute</h3>
+            <ul class="semplice piccolo">
+              <% emailRicevute.forEach(e => { %><li><a href="/posta/<%= e.id %>"><%= e.oggetto || '(senza oggetto)' %></a> · <%= e.mittente_nome || e.mittente_email %> · <%= dataOra(e.data.replace('T', ' ').slice(0, 19)) %><% if (e.stato === 'inviata') { %> · <span class="muto">risposta inviata</span><% } %></li><% }) %>
+            </ul>
+          <% } %>
+          <h3>Storico messaggi inviati</h3>
           <% if (!comunicazioni.length) { %><p class="vuoto">Nessun messaggio inviato da questa pratica.</p><% } %>
           <ol class="diario">
             <% comunicazioni.forEach(c => { %>

@@ -18,6 +18,23 @@
       <div class="carta numero"><strong class="importo"><%= euro(incassatoAnno) %></strong><span>Incassato nel <%= anno %></span></div>
     </div>
 
+    <% if (mailDaRispondere && mailDaRispondere.length) { %>
+      <div class="carta" id="posta">
+        <div class="barra-titolo"><h2>Mail da rispondere (<%= mailDaRispondere.length %>)</h2><a href="/posta">Apri la posta →</a></div>
+        <ul class="elenco-posta compatto">
+          <% mailDaRispondere.slice(0, 6).forEach(e => { %>
+            <li class="<%= e.stato %>">
+              <a href="/posta/<%= e.id %>" class="riga-posta">
+                <span class="mittente"><strong><%= e.mittente_nome || e.mittente_email %></strong> · <%= e.oggetto || '(senza oggetto)' %></span>
+                <small class="muto"><%= e.riassunto || '' %></small>
+              </a>
+              <span class="etichette"><% if (e.pratica_id) { %><span class="badge stato-in-istruttoria"><%= e.pratica_tipo %></span><% } %><% if (e.stato === 'bozza') { %><span class="badge stato-rilasciata-conclusa">✨ bozza pronta</span><% } %></span>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+
     <div class="due-colonne cruscotto">
       <div class="carta" id="scadenze">
         <h2>Scadenze (superate e prossimi 30 giorni)</h2>

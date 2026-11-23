@@ -131,3 +131,21 @@ document.querySelectorAll('[data-scelta-cliente]').forEach((sel) => {
   const box = document.querySelector('[data-cliente-nuovo]');
   sel.addEventListener('change', () => { box.hidden = Boolean(sel.value); });
 });
+
+// Moduli lenti (AI, posta): niente doppi invii e un messaggio di attesa
+document.querySelectorAll('[data-attesa], [data-attesa-azione]').forEach((form) => {
+  let inviato = false;
+  form.addEventListener('submit', (e) => {
+    if (inviato) { e.preventDefault(); return; }
+    inviato = true;
+    const btn = e.submitter || form.querySelector('button');
+    if (form.dataset.attesa && btn) btn.textContent = form.dataset.attesa;
+    // disabilita dopo l'invio, così il valore del pulsante premuto (azione) parte comunque
+    setTimeout(() => form.querySelectorAll('button').forEach((b) => { b.disabled = true; }), 0);
+  });
+});
+
+// Conferma su un singolo pulsante (es. "Invia")
+document.querySelectorAll('[data-conferma-click]').forEach((b) => b.addEventListener('click', (e) => {
+  if (!confirm(b.dataset.confermaClick)) e.preventDefault();
+}));

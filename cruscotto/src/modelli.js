@@ -13,6 +13,7 @@ const Clienti = {
     SELECT c.*, COUNT(p.id) AS n_pratiche FROM clienti c LEFT JOIN pratiche p ON p.cliente_id = c.id
     GROUP BY c.id ORDER BY c.nome COLLATE NOCASE`),
   perId: db.prepare('SELECT * FROM clienti WHERE id = ?'),
+  perEmail: db.prepare("SELECT * FROM clienti WHERE lower(email) = lower(?) AND email <> '' ORDER BY id LIMIT 1"),
   inserisci: db.prepare('INSERT INTO clienti (nome, telefono, email, note) VALUES (:nome, :telefono, :email, :note)'),
   aggiorna: db.prepare('UPDATE clienti SET nome = :nome, telefono = :telefono, email = :email, note = :note WHERE id = :id'),
   elimina: db.prepare('DELETE FROM clienti WHERE id = ?'),
@@ -66,4 +67,34 @@ const Comunicazioni = {
   elimina: db.prepare('DELETE FROM comunicazioni WHERE id = ? AND pratica_id = ?'),
 };
 
-module.exports = { db, Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni };
+const SELECT_EMAIL = `
+  SELECT e.*, c.nome AS cliente_nome, p.tipo AS pratica_tipo, p.ente AS pratica_ente, p.commessa AS pratica_commessa
+  FROM email_ricevute e LEFT JOIN clienti c ON c.id = e.cliente_id LEFT JOIN pratiche p ON p.id = e.pratica_id`;
+
+const Email = {
+  esiste: db.prepare('SELECT id FROM email_ricevute WHERE uidvalidity = ? AND uid = ?'),
+  inserisci: db.prepare(`
+    INSERT OR IGNORE INTO email_ricevute (uidvalidity, uid, message_id, riferimenti, mittente_nome, mittente_email, rispondi_a, oggetto, data, testo, cliente_id, pratica_id)
+    VALUES (:uidvalidity, :uid, :message_id, :riferimenti, :mittente_nome, :mittente_email, :rispondi_a, :oggetto, :data, :testo, :cliente_id, :pratica_id)`),
+  perId: db.prepare(`${SELECT_EMAIL} WHERE e.id = ?`),
+  daRispondere: db.prepare(`${SELECT_EMAIL} WHERE e.stato IN ('nuova','bozza') ORDER BY e.data DESC`),
+  perStato: db.prepare(`${SELECT_EMAIL} WHERE e.stato = ? ORDER BY e.data DESC LIMIT 300`),
+  tutte: db.prepare(`${SELECT_EMAIL} ORDER BY e.data DESC LIMIT 300`),
+  perPratica: db.prepare(`${SELECT_EMAIL} WHERE e.pratica_id = ? ORDER BY e.data DESC LIMIT 50`),
+  contaDaRispondere: db.prepare("SELECT COUNT(*) AS n FROM email_ricevute WHERE stato IN ('nuova','bozza')"),
+  senzaBozza: db.prepare("SELECT id FROM email_ricevute WHERE stato = 'nuova' AND bozza_testo IS NULL AND errore_ai IS NULL ORDER BY data DESC LIMIT ?"),
+  salvaBozza: db.prepare(`UPDATE email_ricevute SET bozza_oggetto = :bozza_oggetto, bozza_testo = :bozza_testo, riassunto = :riassunto,
+    serve_risposta = :serve_risposta, errore_ai = NULL, stato = CASE WHEN stato = 'nuova' THEN 'bozza' ELSE stato END WHERE id = :id`),
+  modificaBozza: db.prepare("UPDATE email_ricevute SET bozza_oggetto = ?, bozza_testo = ?, stato = CASE WHEN stato = 'nuova' THEN 'bozza' ELSE stato END WHERE id = ?"),
+  erroreAi: db.prepare('UPDATE email_ricevute SET errore_ai = ? WHERE id = ?'),
+  abbina: db.prepare('UPDATE email_ricevute SET pratica_id = ? WHERE id = ?'),
+  cambiaStato: db.prepare("UPDATE email_ricevute SET stato = ?, risposta_il = CASE WHEN ? = 'inviata' THEN datetime('now') ELSE risposta_il END WHERE id = ?"),
+  ultimoUid: db.prepare('SELECT MAX(uid) AS uid FROM email_ricevute WHERE uidvalidity = ?'),
+};
+
+const Impostazioni = {
+  leggi: (chiave) => db.prepare('SELECT valore FROM impostazioni WHERE chiave = ?').get(chiave)?.valore ?? null,
+  scrivi: (chiave, valore) => db.prepare('INSERT INTO impostazioni (chiave, valore) VALUES (?, ?) ON CONFLICT(chiave) DO UPDATE SET valore = excluded.valore').run(chiave, valore == null ? null : String(valore)),
+};
+
+module.exports = { db, Clienti, Pratiche, Scadenze, Attivita, Incassi, Comunicazioni, Email, Impostazioni };

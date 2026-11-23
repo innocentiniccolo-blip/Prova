@@ -2,74 +2,38 @@
 <section class="sezione">
   <div class="contenitore">
     <div class="barra-titolo">
-      <h1>Cruscotto</h1>
-      <div class="azioni">
-        <a class="pulsante secondario" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
-        <a class="pulsante" href="/studio/pratiche/nuova">+ Nuova pratica</a>
-      </div>
+      <h1>Lavori</h1>
+      <a class="pulsante" href="/studio/lavori/nuovo">+ Nuovo lavoro</a>
     </div>
-
     <div class="riepilogo">
-      <a class="carta numero" href="/studio/pratiche"><strong><%= aperte.length %></strong><span>Pratiche aperte</span></a>
-      <a class="carta numero <%= nScadute ? 'allarme' : '' %>" href="#scadenze"><strong><%= nScadute %></strong><span>Scadenze superate</span></a>
-      <a class="carta numero <%= nEntro15 ? 'attenzione' : '' %>" href="#scadenze"><strong><%= nEntro15 %></strong><span>Scadenze entro 15 giorni</span></a>
-      <a class="carta numero" href="#attivita"><strong><%= attivita.length %></strong><span>Attività da fare</span></a>
-      <div class="carta numero"><strong class="importo"><%= euro(daIncassare) %></strong><span>Da incassare</span></div>
-      <div class="carta numero"><strong class="importo"><%= euro(incassatoAnno) %></strong><span>Incassato nel <%= anno %></span></div>
-    </div>
-
-    <div class="due-colonne cruscotto">
-      <div class="carta" id="scadenze">
-        <h2>Scadenze (superate e prossimi 30 giorni)</h2>
-        <% if (!scadenze.length) { %><p class="vuoto">Nessuna scadenza in vista. 👍</p><% } %>
-        <ul class="elenco-scadenze">
-          <% scadenze.forEach(s => { const u = urgenza(s.data); %>
-            <li class="<%= u.classe %>">
-              <form method="post" action="/studio/pratiche/<%= s.pratica_id %>/scadenze/<%= s.id %>/segna" class="spunta">
-                <input type="hidden" name="_csrf" value="<%= csrf %>">
-                <input type="hidden" name="fatta" value="1">
-                <input type="hidden" name="torna" value="/studio#scadenze">
-                <button class="casella" title="Segna come fatta" aria-label="Segna come fatta"></button>
-              </form>
-              <div>
-                <strong><%= s.descrizione %></strong>
-                <small><a href="/studio/pratiche/<%= s.pratica_id %>"><%= s.tipo %><%= s.ente ? ' – ' + s.ente : '' %></a> · <%= s.lavoro_codice %> <%= s.lavoro_titolo %></small>
-              </div>
-              <span class="quando"><%= data(s.data) %><br><small><%= u.testo %></small></span>
-            </li>
-          <% }) %>
-        </ul>
-      </div>
-
-      <div class="carta" id="attivita">
-        <h2>Attività da fare</h2>
-        <% if (!attivita.length) { %><p class="vuoto">Nessuna attività in sospeso.</p><% } %>
-        <ul class="elenco-scadenze">
-          <% attivita.forEach(a => { %>
-            <li>
-              <form method="post" action="/studio/pratiche/<%= a.pratica_id %>/attivita/<%= a.id %>/segna" class="spunta">
-                <input type="hidden" name="_csrf" value="<%= csrf %>">
-                <input type="hidden" name="fatta" value="1">
-                <input type="hidden" name="torna" value="/studio#attivita">
-                <button class="casella" title="Segna come fatta" aria-label="Segna come fatta"></button>
-              </form>
-              <div>
-                <strong><%= a.testo %></strong>
-                <small><a href="/studio/pratiche/<%= a.pratica_id %>"><%= a.tipo %><%= a.ente ? ' – ' + a.ente : '' %></a> · <%= a.lavoro_codice %> <%= a.lavoro_titolo %></small>
-              </div>
-            </li>
-          <% }) %>
-        </ul>
-      </div>
+      <div class="carta numero"><strong><%= lavori.length %></strong><span>Lavori totali</span></div>
+      <% studio.stati.forEach(s => { %>
+        <div class="carta numero"><strong><%= perStato[s] || 0 %></strong><span><%= s %></span></div>
+      <% }) %>
+      <a class="carta numero" href="/studio/clienti"><strong><%= nClienti %></strong><span>Clienti</span></a>
     </div>
 
     <div class="carta">
-      <div class="barra-titolo"><h2>Pratiche aperte</h2><a href="/studio/pratiche">Tutte le pratiche →</a></div>
-      <% if (!aperte.length) { %>
-        <p class="vuoto"><% if (!nLavori) { %>Crea prima un lavoro, poi aggiungi le sue pratiche.<% } else { %>Nessuna pratica aperta.<% } %></p>
+      <input type="search" class="filtro" placeholder="Cerca per codice, titolo, cliente, indirizzo…" data-filtro="#tabella-lavori tbody tr">
+      <% if (!lavori.length) { %>
+        <p class="vuoto">Nessun lavoro. Inizia creando il primo.</p>
       <% } else { %>
-        <input type="search" class="filtro" placeholder="Cerca per tipo, Comune, lavoro, cliente, protocollo…" data-filtro="#tabella-aperte tbody tr">
-        <%- include('../partials/tabella-pratiche', { pratiche: aperte, idTabella: 'tabella-aperte' }) %>
+      <div class="tabella-scorri">
+      <table id="tabella-lavori" class="tabella">
+        <thead><tr><th>Codice</th><th>Lavoro</th><th>Clienti</th><th>Stato</th><th>Aggiornato</th></tr></thead>
+        <tbody>
+          <% lavori.forEach(l => { %>
+            <tr>
+              <td><a href="/studio/lavori/<%= l.id %>"><%= l.codice %></a></td>
+              <td><a href="/studio/lavori/<%= l.id %>"><%= l.titolo %></a><% if (!l.visibile) { %> <span class="badge stato-sospeso">nascosto</span><% } %><br><small class="muto"><%= l.indirizzo %></small></td>
+              <td><%= l.clienti || '—' %></td>
+              <td><span class="badge <%= classeStato(l.stato) %>"><%= l.stato %></span></td>
+              <td><%= data(l.aggiornato_il) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      </div>
       <% } %>
     </div>
   </div>

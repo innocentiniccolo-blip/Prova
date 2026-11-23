@@ -1,16 +1,16 @@
-<%- include('../partials/testa') %>
+<%- include('partials/testa') %>
 <section class="sezione">
   <div class="contenitore">
     <div class="barra-titolo">
       <h1>Pratiche</h1>
-      <a class="pulsante" href="/studio/pratiche/nuova">+ Nuova pratica</a>
+      <a class="pulsante" href="/pratiche/nuova">+ Nuova pratica</a>
     </div>
     <div class="carta">
       <% if (!pratiche.length) { %>
-        <p class="vuoto">Nessuna pratica. Aprila dalla scheda di un lavoro oppure con “Nuova pratica”.</p>
+        <p class="vuoto">Nessuna pratica. Inizia con “Nuova pratica”.</p>
       <% } else { %>
         <div class="riga-filtri">
-          <input type="search" class="filtro" placeholder="Cerca per tipo, Comune, lavoro, cliente, protocollo…" data-filtro="#tabella-pratiche tbody tr">
+          <input type="search" class="filtro" placeholder="Cerca per tipo, Comune, cliente, commessa, protocollo…" data-filtro="#tabella-pratiche tbody tr">
           <select data-filtro-stato="#tabella-pratiche tbody tr" aria-label="Filtra per stato">
             <option value="">Tutti gli stati</option>
             <option value="__aperte" selected>Solo aperte</option>
@@ -18,9 +18,9 @@
           </select>
         </div>
         <script type="application/json" id="stati-chiusi"><%- JSON.stringify(studio.pratiche.statiChiusi).replace(/</g, '\\u003c') %></script>
-        <%- include('../partials/tabella-pratiche', { pratiche, idTabella: 'tabella-pratiche' }) %>
+        <%- include('partials/tabella-pratiche', { pratiche, idTabella: 'tabella-pratiche' }) %>
       <% } %>
     </div>
   </div>
 </section>
-<%- include('../partials/piede') %>
+<%- include('partials/piede') %>

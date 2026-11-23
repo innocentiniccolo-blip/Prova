@@ -1,0 +1,31 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore medio">
+    <a class="indietro" href="/clienti">← Clienti</a>
+    <h1><%= titolo %></h1>
+    <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+    <form method="post" action="<%= cliente.id ? `/clienti/${cliente.id}` : '/clienti' %>" class="modulo carta">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Nome e cognome / Ragione sociale <input name="nome" value="<%= cliente.nome || '' %>" required maxlength="200"></label>
+      <div class="riga-campi">
+        <label>Cellulare <small>per WhatsApp</small><input name="telefono" inputmode="tel" value="<%= cliente.telefono || '' %>" maxlength="50"></label>
+        <label>Email <input type="email" name="email" value="<%= cliente.email || '' %>" maxlength="200"></label>
+      </div>
+      <label>Note <textarea name="note" rows="3" maxlength="5000"><%= cliente.note || '' %></textarea></label>
+      <button class="pulsante"><%= cliente.id ? 'Salva' : 'Crea cliente' %></button>
+    </form>
+
+    <% if (cliente.id) { %>
+      <div class="carta">
+        <div class="barra-titolo"><h2>Pratiche</h2><a class="pulsante piccolo" href="/pratiche/nuova?cliente=<%= cliente.id %>">+ Nuova pratica</a></div>
+        <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica per questo cliente.</p><% } else { %>
+          <%- include('partials/tabella-pratiche', { pratiche, idTabella: 'tabella-pratiche-cliente' }) %>
+        <% } %>
+      </div>
+      <form method="post" action="/clienti/<%= cliente.id %>/elimina" data-conferma="Eliminare il cliente? Le sue pratiche resteranno, senza cliente.">
+        <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina cliente</button>
+      </form>
+    <% } %>
+  </div>
+</section>
+<%- include('partials/piede') %>

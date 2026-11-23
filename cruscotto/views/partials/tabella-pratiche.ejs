@@ -1,12 +1,13 @@
 <div class="tabella-scorri">
 <table id="<%= idTabella %>" class="tabella">
-  <thead><tr><th>Pratica</th><th>Lavoro</th><th>Stato</th><th>Protocollo</th><th>Prossima scadenza</th><th class="destra">Da incassare</th></tr></thead>
+  <thead><tr><th>Pratica</th><th>Cliente</th><th>Stato</th><th>Protocollo</th><th>Prossima scadenza</th><th class="destra">Da incassare</th></tr></thead>
   <tbody>
     <% pratiche.forEach(p => { const res = Math.max((p.onorario_cent || 0) - (p.incassato_cent || 0), 0); %>
       <tr data-stato="<%= p.stato %>">
-        <td><a href="/studio/pratiche/<%= p.id %>"><%= p.tipo %></a><br><small class="muto"><%= p.ente || '' %></small>
+        <td><a href="/pratiche/<%= p.id %>"><%= p.tipo %></a><br><small class="muto"><%= p.ente || '' %></small>
           <% if (p.n_attivita) { %><br><small class="muto"><%= p.n_attivita %> attività da fare</small><% } %></td>
-        <td><a href="/studio/lavori/<%= p.lavoro_id %>"><%= p.lavoro_codice %></a> <%= p.lavoro_titolo %><br><small class="muto"><%= p.clienti || '' %></small></td>
+        <td><% if (p.cliente_id) { %><a href="/clienti/<%= p.cliente_id %>"><%= p.cliente_nome %></a><% } else { %>—<% } %>
+          <% if (p.commessa || p.indirizzo) { %><br><small class="muto"><%= [p.commessa, p.indirizzo].filter(Boolean).join(' · ') %></small><% } %></td>
         <td><span class="badge <%= classeStato(p.stato) %>"><%= p.stato %></span></td>
         <td><%= p.protocollo || '—' %><% if (p.data_protocollo) { %><br><small class="muto"><%= data(p.data_protocollo) %></small><% } %></td>
         <td><% if (p.prossima_scadenza) { const u = urgenza(p.prossima_scadenza); %><span class="data-scadenza <%= u.classe %>"><%= data(p.prossima_scadenza) %></span><br><small class="muto"><%= u.testo %></small><% } else { %>—<% } %></td>

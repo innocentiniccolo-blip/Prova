@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= titolo ? titolo + ' · ' : '' %>Cruscotto pratiche</title>
+  <meta name="csrf" content="<%= csrf %>">
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="pannello">
+<header class="testata">
+  <div class="contenitore testata-riga">
+    <a class="marchio" href="/">
+      <img src="/img/logo.webp" alt="" width="44" height="41">
+      <span><strong><%= studio.nomeBreve %></strong><small>Cruscotto pratiche</small></span>
+    </a>
+    <nav class="menu">
+      <a href="/" class="<%= percorso === '/' ? 'attivo' : '' %>">Cruscotto</a>
+      <a href="/pratiche" class="<%= percorso.startsWith('/pratiche') ? 'attivo' : '' %>">Pratiche</a>
+      <a href="/clienti" class="<%= percorso.startsWith('/clienti') ? 'attivo' : '' %>">Clienti</a>
+    </nav>
+  </div>
+</header>
+<main>
+<% if (flash) { %>
+  <div class="contenitore"><div class="avviso <%= flash.tipo %>"><%= flash.msg %></div></div>
+<% } %>

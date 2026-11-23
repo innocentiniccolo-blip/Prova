@@ -1,0 +1,32 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <div class="barra-titolo">
+      <h1>Clienti</h1>
+      <a class="pulsante" href="/clienti/nuovo">+ Nuovo cliente</a>
+    </div>
+    <div class="carta">
+      <% if (!clienti.length) { %>
+        <p class="vuoto">Nessun cliente. Puoi aggiungerli qui o direttamente quando apri una pratica.</p>
+      <% } else { %>
+        <input type="search" class="filtro" placeholder="Cerca per nome, telefono, email…" data-filtro="#tabella-clienti tbody tr">
+        <div class="tabella-scorri">
+        <table id="tabella-clienti" class="tabella">
+          <thead><tr><th>Nome</th><th>Cellulare</th><th>Email</th><th>Pratiche</th></tr></thead>
+          <tbody>
+            <% clienti.forEach(c => { %>
+              <tr>
+                <td><a href="/clienti/<%= c.id %>"><%= c.nome %></a></td>
+                <td><%= c.telefono || '—' %></td>
+                <td><%= c.email || '—' %></td>
+                <td><%= c.n_pratiche || '—' %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</section>
+<%- include('partials/piede') %>

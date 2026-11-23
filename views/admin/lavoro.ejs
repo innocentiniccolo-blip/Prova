@@ -1,7 +1,7 @@
 <%- include('../partials/testa') %>
 <section class="sezione">
   <div class="contenitore">
-    <a class="indietro" href="/studio/lavori">← Tutti i lavori</a>
+    <a class="indietro" href="/studio">← Tutti i lavori</a>
     <div class="intestazione-lavoro">
       <div>
         <small class="codice"><%= lavoro.codice %></small>
@@ -26,14 +26,6 @@
 
     <div class="layout-lavoro">
       <div>
-        <div class="carta" id="pratiche">
-          <div class="barra-titolo"><h2>Pratiche</h2><a class="pulsante piccolo" href="/studio/pratiche/nuova?lavoro=<%= lavoro.id %>">+ Nuova pratica</a></div>
-          <% if (!pratiche.length) { %><p class="vuoto">Nessuna pratica per questo lavoro (es. SCIA, DOCFA, APE…).</p><% } else { %>
-            <%- include('../partials/tabella-pratiche', { pratiche, idTabella: 'tabella-pratiche-lavoro' }) %>
-          <% } %>
-          <p class="nota">Le pratiche sono visibili solo allo studio.</p>
-        </div>
-
         <div class="carta" id="documenti">
           <h2>Documenti</h2>
           <p class="muto">Cartella NAS: <code><%= lavoro.cartella %></code> — puoi aggiungere file anche direttamente dalla rete dello studio; qui compaiono subito.</p>
@@ -94,7 +86,7 @@
             <% accessi.forEach(a => { %><li><strong><%= a.nome || 'utente eliminato' %></strong> · <%= dataOra(a.creato_il) %><br><small class="muto"><%= a.file %></small></li><% }) %>
           </ul>
         </div>
-        <form method="post" action="/studio/lavori/<%= lavoro.id %>/elimina" data-conferma="Eliminare il lavoro dall'app, con le sue pratiche? I file sul NAS resteranno intatti.">
+        <form method="post" action="/studio/lavori/<%= lavoro.id %>/elimina" data-conferma="Eliminare il lavoro dall'app? I file sul NAS resteranno intatti.">
           <input type="hidden" name="_csrf" value="<%= csrf %>">
           <button class="link pericolo">Elimina lavoro dall'app</button>
         </form>

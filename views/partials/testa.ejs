@@ -22,9 +22,7 @@
         <a href="/#contatti">Contatti</a>
         <a class="pulsante piccolo" href="/accedi">Area clienti</a>
       <% } else if (utente.ruolo === 'admin') { %>
-        <a href="/studio" class="<%= percorso === '/studio' || percorso === '/studio/' ? 'attivo' : '' %>">Cruscotto</a>
-        <a href="/studio/pratiche" class="<%= percorso.startsWith('/studio/pratiche') ? 'attivo' : '' %>">Pratiche</a>
-        <a href="/studio/lavori" class="<%= percorso.startsWith('/studio/lavori') ? 'attivo' : '' %>">Lavori</a>
+        <a href="/studio" class="<%= percorso === '/studio' || percorso.startsWith('/studio/lavori') ? 'attivo' : '' %>">Lavori</a>
         <a href="/studio/clienti" class="<%= percorso.startsWith('/studio/clienti') ? 'attivo' : '' %>">Clienti</a>
         <form method="post" action="/esci" class="in-linea"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link">Esci</button></form>
       <% } else { %>

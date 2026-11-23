@@ -1,0 +1,11 @@
+<%- include('partials/testa') %>
+<section class="sezione">
+  <div class="contenitore stretto">
+    <div class="carta">
+      <h1><%= titolo %></h1>
+      <% if (messaggio) { %><p><%= messaggio %></p><% } %>
+      <a class="pulsante" href="/">Torna al cruscotto</a>
+    </div>
+  </div>
+</section>
+<%- include('partials/piede') %>

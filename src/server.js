@@ -62,9 +62,6 @@ app.locals.dataOra = (d) => {
   const dt = typeof d === 'string' ? new Date(d.replace(' ', 'T') + 'Z') : new Date(d);
   return dt.toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: process.env.TZ || 'Europe/Rome' });
 };
-const F = require('./formato');
-app.locals.euro = F.euro;
-app.locals.urgenza = (d) => F.urgenza(d);
 app.locals.classeStato = (s) => 'stato-' + String(s).toLowerCase().replace(/[^a-z]+/g, '-');
 
 app.use('/', require('./routes/pubblico'));

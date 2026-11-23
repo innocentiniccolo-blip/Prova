@@ -1,20 +1,29 @@
-<%- include('../partials/testa') %>
+<%- include('partials/testa') %>
 <section class="sezione">
   <div class="contenitore medio">
-    <a class="indietro" href="<%= pratica.id ? `/studio/pratiche/${pratica.id}` : (pratica.lavoro_id ? `/studio/lavori/${pratica.lavoro_id}` : '/studio') %>">← Indietro</a>
+    <a class="indietro" href="<%= pratica.id ? `/pratiche/${pratica.id}` : (pratica.cliente_id ? `/clienti/${pratica.cliente_id}` : '/') %>">← Indietro</a>
     <h1><%= titolo %></h1>
     <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
-    <% if (!lavori.length) { %>
-      <div class="avviso info">Per aprire una pratica serve prima un lavoro. <a href="/studio/lavori/nuovo">Crea il lavoro</a>.</div>
-    <% } %>
-    <form method="post" action="<%= pratica.id ? `/studio/pratiche/${pratica.id}` : '/studio/pratiche' %>" class="modulo carta">
+    <form method="post" action="<%= pratica.id ? `/pratiche/${pratica.id}` : '/pratiche' %>" class="modulo carta">
       <input type="hidden" name="_csrf" value="<%= csrf %>">
-      <label>Lavoro
-        <select name="lavoro_id" required>
-          <option value="">— scegli —</option>
-          <% lavori.forEach(l => { %><option value="<%= l.id %>" <%= Number(pratica.lavoro_id) === l.id ? 'selected' : '' %>><%= l.codice %> – <%= l.titolo %></option><% }) %>
+      <label>Cliente
+        <select name="cliente_id" data-scelta-cliente>
+          <option value="">— nessuno / cliente nuovo —</option>
+          <% clienti.forEach(c => { %><option value="<%= c.id %>" <%= Number(pratica.cliente_id) === c.id ? 'selected' : '' %>><%= c.nome %></option><% }) %>
         </select>
       </label>
+      <fieldset data-cliente-nuovo <%= pratica.cliente_id ? 'hidden' : '' %>>
+        <legend>Cliente nuovo <small class="muto">(facoltativo: lo aggiungo alla rubrica)</small></legend>
+        <div class="riga-campi">
+          <label>Nome e cognome <input name="nuovo_cliente_nome" maxlength="200" value="<%= pratica.nuovo_cliente_nome || '' %>"></label>
+          <label>Cellulare <input name="nuovo_cliente_telefono" inputmode="tel" maxlength="50" value="<%= pratica.nuovo_cliente_telefono || '' %>"></label>
+          <label>Email <input type="email" name="nuovo_cliente_email" maxlength="200" value="<%= pratica.nuovo_cliente_email || '' %>"></label>
+        </div>
+      </fieldset>
+      <div class="riga-campi">
+        <label class="stretto-campo">Commessa <input name="commessa" maxlength="40" value="<%= pratica.commessa || '' %>" placeholder="Es. 2026-014"></label>
+        <label>Indirizzo dell'immobile <input name="indirizzo" maxlength="300" value="<%= pratica.indirizzo || '' %>" placeholder="Es. Via Roma 12, Montevarchi"></label>
+      </div>
       <div class="riga-campi">
         <label>Tipo di pratica
           <input name="tipo" list="tipi-pratica" value="<%= pratica.tipo || '' %>" required maxlength="120" placeholder="Es. SCIA, DOCFA, APE…">
@@ -43,9 +52,8 @@
         <small>Gli acconti e i saldi si registrano dalla scheda della pratica.</small>
       </label>
       <label>Note interne <textarea name="note" rows="4" maxlength="5000"><%= pratica.note || '' %></textarea></label>
-      <p class="nota">Le pratiche sono visibili solo allo studio, non ai clienti.</p>
-      <button class="pulsante"><%= pratica.id ? 'Salva' : 'Crea pratica' %></button>
+            <button class="pulsante"><%= pratica.id ? 'Salva' : 'Crea pratica' %></button>
     </form>
   </div>
 </section>
-<%- include('../partials/piede') %>
+<%- include('partials/piede') %>

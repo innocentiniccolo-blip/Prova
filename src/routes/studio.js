@@ -7,7 +7,7 @@ const multer = require('multer');
 const config = require('../config');
 const auth = require('../auth');
 const archivio = require('../archivio');
-const { db, Lavori, Utenti, Aggiornamenti, Accessi, Pratiche } = require('../modelli');
+const { db, Lavori, Utenti, Aggiornamenti, Accessi } = require('../modelli');
 const { inviaFile, anteprimaPossibile } = require('../invio-file');
 
 const router = express.Router();
@@ -28,17 +28,16 @@ function trovaLavoro(req, res, next) {
   next();
 }
 
-// ---------- Cruscotto e pratiche (vedi routes/pratiche.js) ----------
-router.use(require('./pratiche'));
-
-// ---------- Lavori ----------
-router.get('/lavori', (req, res) => {
+// ---------- Cruscotto ----------
+router.get('/', (req, res) => {
   const lavori = Lavori.tutti.all();
   const perStato = {};
   for (const l of lavori) perStato[l.stato] = (perStato[l.stato] || 0) + 1;
-  res.render('admin/lavori', { titolo: 'Lavori', lavori, perStato, nClienti: Utenti.clienti.all().length });
+  const clienti = Utenti.clienti.all();
+  res.render('admin/cruscotto', { titolo: 'Studio', lavori, perStato, nClienti: clienti.length });
 });
 
+// ---------- Lavori ----------
 function datiLavoro(body) {
   return {
     codice: testo(body.codice, 40),
@@ -112,7 +111,6 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       clienti: Lavori.clienti.all(lavoro.id),
       aggiornamenti: Aggiornamenti.perLavoro.all(lavoro.id),
       accessi: Accessi.perLavoro.all(lavoro.id),
-      pratiche: Pratiche.perLavoro.all(lavoro.id),
       anteprimaPossibile,
     });
   } catch (e) { next(e); }
@@ -152,7 +150,7 @@ router.post('/lavori/:id/crea-cartelle', trovaLavoro, auth.verificaCsrf, async (
 router.post('/lavori/:id/elimina', trovaLavoro, auth.verificaCsrf, (req, res) => {
   Lavori.elimina.run(req.lavoro.id);
   flash(req, 'ok', `Lavoro ${req.lavoro.codice} eliminato dall'app. I file sul NAS NON sono stati toccati.`);
-  res.redirect('/studio/lavori');
+  res.redirect('/studio');
 });
 
 // ---------- Documenti ----------

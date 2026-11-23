@@ -1,7 +1,7 @@
 <%- include('../partials/testa') %>
 <section class="sezione">
   <div class="contenitore medio">
-    <a class="indietro" href="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio' %>">← Indietro</a>
+    <a class="indietro" href="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio/lavori' %>">← Indietro</a>
     <h1><%= titolo %></h1>
     <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
     <form method="post" action="<%= lavoro.id ? `/studio/lavori/${lavoro.id}` : '/studio/lavori' %>" class="modulo carta">

@@ -5,8 +5,29 @@ L'app ha tre parti:
 1. **Sito di presentazione** dello studio: servizi, chi siamo, contatti.
 2. **Area clienti**: ogni cliente accede con email e password e vede i propri lavori. Per ogni lavoro trova i documenti divisi per categoria (Progetti, Computi, Contratti, Pratiche, Foto cantiere), lo stato e il diario degli aggiornamenti.
 3. **Pannello dello studio** (`/studio`): qui crei clienti e lavori, carichi documenti, pubblichi aggiornamenti e vedi quando il cliente ha aperto un file.
+4. **Cruscotto pratiche** (`/studio`, solo per lo studio): pratiche edilizie e catastali con scadenze, attività da fare, onorari e incassi, più email e messaggi WhatsApp scritti con l'AI.
 
 I file **restano sul NAS QNAP**, nelle normali cartelle condivise. L'app non li copia altrove: legge direttamente la cartella del lavoro. Puoi quindi continuare a salvare i file dal PC dello studio (rete/SMB) e il cliente li vede subito.
+
+## Cruscotto pratiche
+
+Ogni **lavoro** può avere più **pratiche** (es. "Ristrutturazione Rossi" → SCIA + DOCFA + APE). Le pratiche **non sono mai visibili ai clienti**.
+
+- **Cruscotto** (`/studio`): scadenze superate (in rosso) e dei prossimi 30 giorni, attività da fare, pratiche aperte ordinate per scadenza, totale da incassare e incassato dell'anno. Le scadenze e le attività si spuntano direttamente da qui.
+- **Scheda pratica**: tipo, Comune/ente, oggetto, stato, n. e data di protocollo, n. pratica dell'ente, note interne. Ci sono poi:
+  - **Scadenze**: con suggerimenti (integrazioni, inizio/fine lavori, agibilità…);
+  - **Attività da fare**: una lista con le spunte;
+  - **Onorario e incassi**: registri acconti e saldi, il residuo si calcola da solo;
+  - **Email e WhatsApp**: scegli il destinatario (i clienti del lavoro sono già proposti), scrivi due righe su cosa dire e premi **✨ Scrivi con AI**. Claude prepara la bozza con i dati della pratica e lascia tra `[parentesi quadre]` quello che non sa. La rileggi, la correggi e premi **Apri email** / **Apri in WhatsApp**: si apre il programma di posta o WhatsApp con il messaggio già pronto, e l'invio finale lo fai tu. Ogni messaggio resta nello storico della pratica.
+- Tipi di pratica, stati, enti (Comuni del Valdarno, Agenzia Entrate, Genio Civile…) e scadenze tipiche sono in `config/studio.json` → `pratiche`. Puoi modificarli; nei campi puoi comunque scrivere valori liberi.
+
+### Attivare l'assistente AI
+
+1. Crea una chiave API su [platform.claude.com](https://platform.claude.com) (sezione API keys) e imposta un limite di spesa mensile. Ogni bozza costa una frazione di centesimo.
+2. Nel `.env` del NAS scrivi `ANTHROPIC_API_KEY=la-tua-chiave` e riavvia: `docker compose up -d`.
+3. Il NAS deve poter uscire su Internet verso `api.anthropic.com`.
+
+Al servizio AI vengono inviati solo i dati della pratica (tipo, ente, protocollo, scadenze, attività, importi) e il nome del destinatario. I documenti del NAS non vengono mai inviati. Senza chiave tutto il resto funziona e i messaggi si scrivono a mano.
 
 ## Come sono organizzati i file sul NAS
 
@@ -86,7 +107,7 @@ In entrambi i casi tieni QTS e Container Station aggiornati e attiva la verifica
 
 Includi nei backup del NAS (Hybrid Backup Sync):
 - la cartella lavori (`ARCHIVIO_NAS`);
-- la cartella dati (`DATI_NAS`), che contiene `studio.sqlite` con clienti, lavori, aggiornamenti e log degli accessi.
+- la cartella dati (`DATI_NAS`), che contiene `studio.sqlite` con clienti, lavori, pratiche, scadenze, incassi, aggiornamenti e log degli accessi.
 
 ## Personalizzazione
 
@@ -120,7 +141,10 @@ src/archivio.js        lettura/scrittura delle cartelle sul NAS (con controlli s
 src/auth.js            login, permessi, CSRF, limite tentativi
 src/routes/pubblico.js sito pubblico e login
 src/routes/area.js     area clienti
-src/routes/studio.js   pannello dello studio
+src/routes/studio.js   pannello dello studio (lavori, clienti, documenti)
+src/routes/pratiche.js cruscotto, pratiche, scadenze, incassi, messaggi
+src/ai.js              bozze di email/WhatsApp con Claude
+src/formato.js         importi, date, link WhatsApp/email
 views/                 pagine (EJS)
 public/                CSS, JS, logo
 config/studio.json     dati e testi dello studio

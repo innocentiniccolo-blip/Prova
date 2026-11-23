@@ -1,0 +1,196 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore">
+    <a class="indietro" href="/studio/lavori/<%= pratica.lavoro_id %>#pratiche">← <%= pratica.lavoro_codice %> <%= pratica.lavoro_titolo %></a>
+    <div class="intestazione-lavoro">
+      <div>
+        <small class="codice"><%= pratica.lavoro_codice %></small>
+        <h1><%= pratica.tipo %></h1>
+        <p class="muto"><%= pratica.ente || 'Ente non indicato' %><%= pratica.lavoro_indirizzo ? ' · ' + pratica.lavoro_indirizzo : '' %></p>
+      </div>
+      <div class="azioni">
+        <form method="post" action="/studio/pratiche/<%= pratica.id %>/stato" class="cambio-stato">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <select name="stato" aria-label="Stato della pratica" data-invia-al-cambio>
+            <% studio.pratiche.stati.forEach(s => { %><option <%= s === pratica.stato ? 'selected' : '' %>><%= s %></option><% }) %>
+          </select>
+          <noscript><button class="pulsante piccolo">Aggiorna</button></noscript>
+        </form>
+        <a class="pulsante" href="/studio/pratiche/<%= pratica.id %>/modifica">Modifica</a>
+      </div>
+    </div>
+
+    <div class="layout-lavoro">
+      <div>
+        <div class="carta" id="scadenze">
+          <h2>Scadenze</h2>
+          <form method="post" action="/studio/pratiche/<%= pratica.id %>/scadenze" class="riga-aggiungi">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <input name="descrizione" list="scadenze-tipiche" required maxlength="300" placeholder="Es. Presentare integrazioni" aria-label="Descrizione scadenza">
+            <input type="date" name="data" required value="" min="2000-01-01" aria-label="Data scadenza">
+            <button class="pulsante">Aggiungi</button>
+          </form>
+          <datalist id="scadenze-tipiche"><% studio.pratiche.scadenzeTipiche.forEach(t => { %><option value="<%= t %>"><% }) %></datalist>
+          <% if (!scadenze.length) { %><p class="vuoto">Nessuna scadenza.</p><% } %>
+          <ul class="elenco-scadenze">
+            <% scadenze.forEach(s => { const u = s.fatta ? { classe: 'fatta', testo: 'fatta' } : urgenza(s.data); %>
+              <li class="<%= u.classe %>">
+                <form method="post" action="/studio/pratiche/<%= pratica.id %>/scadenze/<%= s.id %>/segna" class="spunta">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <input type="hidden" name="fatta" value="<%= s.fatta ? 0 : 1 %>">
+                  <button class="casella <%= s.fatta ? 'piena' : '' %>" title="<%= s.fatta ? 'Riapri' : 'Segna come fatta' %>" aria-label="<%= s.fatta ? 'Riapri' : 'Segna come fatta' %>"></button>
+                </form>
+                <div><strong><%= s.descrizione %></strong></div>
+                <span class="quando"><%= data(s.data) %><br><small><%= u.testo %></small></span>
+                <form method="post" action="/studio/pratiche/<%= pratica.id %>/scadenze/<%= s.id %>/elimina" class="in-linea" data-conferma="Eliminare questa scadenza?">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo" aria-label="Elimina">✕</button>
+                </form>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+
+        <div class="carta" id="attivita">
+          <h2>Attività da fare</h2>
+          <form method="post" action="/studio/pratiche/<%= pratica.id %>/attivita" class="riga-aggiungi">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <input name="testo" required maxlength="500" placeholder="Es. Richiedere visura catastale aggiornata" aria-label="Nuova attività">
+            <button class="pulsante">Aggiungi</button>
+          </form>
+          <% if (!attivita.length) { %><p class="vuoto">Nessuna attività.</p><% } %>
+          <ul class="elenco-scadenze">
+            <% attivita.forEach(a => { %>
+              <li class="<%= a.fatta ? 'fatta' : '' %>">
+                <form method="post" action="/studio/pratiche/<%= pratica.id %>/attivita/<%= a.id %>/segna" class="spunta">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <input type="hidden" name="fatta" value="<%= a.fatta ? 0 : 1 %>">
+                  <button class="casella <%= a.fatta ? 'piena' : '' %>" title="<%= a.fatta ? 'Riapri' : 'Segna come fatta' %>" aria-label="<%= a.fatta ? 'Riapri' : 'Segna come fatta' %>"></button>
+                </form>
+                <div><strong><%= a.testo %></strong><% if (a.fatta_il) { %><small>fatta il <%= data(a.fatta_il) %></small><% } %></div>
+                <form method="post" action="/studio/pratiche/<%= pratica.id %>/attivita/<%= a.id %>/elimina" class="in-linea" data-conferma="Eliminare questa attività?">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo" aria-label="Elimina">✕</button>
+                </form>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+
+        <div class="carta" id="comunicazioni">
+          <h2>Email e WhatsApp</h2>
+          <form method="post" action="/studio/pratiche/<%= pratica.id %>/comunicazioni" class="modulo compositore" data-compositore data-genera="/studio/pratiche/<%= pratica.id %>/genera-messaggio">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="canali" role="radiogroup" aria-label="Canale">
+              <label class="scelta"><input type="radio" name="canale" value="email" checked> Email</label>
+              <label class="scelta"><input type="radio" name="canale" value="whatsapp"> WhatsApp</label>
+            </div>
+            <div class="riga-campi">
+              <label>Destinatario
+                <select data-contatto>
+                  <option value="">— altro destinatario —</option>
+                  <% contatti.forEach((c, i) => { %><option value="<%= c.id %>" data-nome="<%= c.nome %>" data-email="<%= c.email %>" data-telefono="<%= c.telefono || '' %>" <%= i === 0 ? 'selected' : '' %>><%= c.nome %></option><% }) %>
+                </select>
+              </label>
+              <label>Nome <input name="destinatario_nome" maxlength="200" value="<%= contatti[0] ? contatti[0].nome : '' %>" placeholder="Es. Ufficio Edilizia"></label>
+              <label data-solo="email">Email <input type="email" name="email" value="<%= contatti[0] ? contatti[0].email : '' %>"></label>
+              <label data-solo="whatsapp" hidden>Cellulare <input name="telefono" inputmode="tel" value="<%= contatti[0] ? (contatti[0].telefono || '') : '' %>" placeholder="Es. 339 123 4567"></label>
+            </div>
+
+            <div class="box-ai">
+              <label>Cosa vuoi dire? <small>scrivi due righe di istruzioni: l'AI prepara il messaggio con i dati della pratica</small>
+                <textarea name="istruzioni" rows="2" maxlength="3000" data-istruzioni placeholder="Es. chiedi al cliente copia del documento d'identità e l'atto di provenienza entro venerdì"></textarea>
+              </label>
+              <div class="suggerimenti">
+                <button type="button" class="chip" data-suggerimento="Aggiorna il cliente sullo stato della pratica e sui prossimi passi.">Stato della pratica</button>
+                <button type="button" class="chip" data-suggerimento="Chiedi al cliente i documenti che mancano per procedere (elenca quelli delle attività da fare).">Richiesta documenti</button>
+                <button type="button" class="chip" data-suggerimento="Proponi un appuntamento per il sopralluogo, lasciando da completare giorno e ora.">Sopralluogo</button>
+                <button type="button" class="chip" data-suggerimento="Ricorda con garbo il saldo dell'onorario ancora da versare, indicando l'importo.">Promemoria pagamento</button>
+                <button type="button" class="chip" data-suggerimento="Scrivi all'ufficio tecnico dell'ente per chiedere informazioni sullo stato dell'istruttoria, citando protocollo e data.">Sollecito all'ente</button>
+              </div>
+              <% if (aiAttiva) { %>
+                <button type="button" class="pulsante secondario" data-genera-btn>✨ Scrivi con AI</button>
+              <% } else { %>
+                <p class="nota">Assistente AI non attivo: aggiungi <code>ANTHROPIC_API_KEY</code> nel file <code>.env</code> (vedi README). Puoi comunque scrivere il messaggio a mano.</p>
+              <% } %>
+              <p class="nota" data-esito-ai hidden></p>
+            </div>
+
+            <label data-solo="email">Oggetto <input name="oggetto" maxlength="300"></label>
+            <label>Messaggio <textarea name="testo" rows="9" maxlength="10000" required data-testo></textarea></label>
+            <div class="azioni">
+              <button class="pulsante" data-invia-btn>Apri email</button>
+              <button type="button" class="pulsante secondario" data-copia-testo>Copia testo</button>
+            </div>
+            <p class="nota">Il messaggio si apre già compilato nel programma di posta o in WhatsApp: controlli e premi “Invia” da lì. Resta comunque registrato qui sotto.</p>
+          </form>
+
+          <h3>Storico</h3>
+          <% if (!comunicazioni.length) { %><p class="vuoto">Nessun messaggio inviato da questa pratica.</p><% } %>
+          <ol class="diario">
+            <% comunicazioni.forEach(c => { %>
+              <li>
+                <time><%= dataOra(c.creato_il) %> · <%= c.canale === 'whatsapp' ? 'WhatsApp' : 'Email' %> a <%= c.destinatario %></time>
+                <details>
+                  <summary><%= c.oggetto || c.testo.slice(0, 80) + (c.testo.length > 80 ? '…' : '') %></summary>
+                  <p class="a-capo"><%= c.testo %></p>
+                  <form method="post" action="/studio/pratiche/<%= pratica.id %>/comunicazioni/<%= c.id %>/elimina" class="in-linea" data-conferma="Eliminare dallo storico?">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo">Elimina dallo storico</button>
+                  </form>
+                </details>
+              </li>
+            <% }) %>
+          </ol>
+        </div>
+      </div>
+
+      <aside>
+        <div class="carta">
+          <h2>Dati della pratica</h2>
+          <dl class="dati">
+            <dt>Stato</dt><dd><span class="badge <%= classeStato(pratica.stato) %>"><%= pratica.stato %></span></dd>
+            <dt>Ente</dt><dd><%= pratica.ente || '—' %></dd>
+            <dt>Protocollo</dt><dd><%= pratica.protocollo || '—' %><%= pratica.data_protocollo ? ' del ' + data(pratica.data_protocollo) : '' %></dd>
+            <% if (pratica.numero_pratica) { %><dt>N. pratica</dt><dd><%= pratica.numero_pratica %></dd><% } %>
+            <dt>Clienti</dt><dd><%= pratica.clienti || '—' %></dd>
+            <dt>Aperta il</dt><dd><%= data(pratica.creato_il) %></dd>
+          </dl>
+          <% if (pratica.oggetto) { %><p class="a-capo"><%= pratica.oggetto %></p><% } %>
+          <% if (pratica.note) { %><h3>Note interne</h3><p class="a-capo nota"><%= pratica.note %></p><% } %>
+        </div>
+
+        <div class="carta" id="incassi">
+          <h2>Onorario e incassi</h2>
+          <dl class="dati soldi">
+            <dt>Onorario</dt><dd><%= pratica.onorario_cent ? euro(pratica.onorario_cent) : '—' %></dd>
+            <dt>Incassato</dt><dd><%= euro(pratica.incassato_cent) %></dd>
+            <dt>Da incassare</dt><dd class="<%= residuo ? 'da-incassare' : '' %>"><%= euro(residuo) %></dd>
+          </dl>
+          <form method="post" action="/studio/pratiche/<%= pratica.id %>/incassi" class="modulo compatto">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="riga-campi">
+              <label>Importo € <input name="importo" inputmode="decimal" required placeholder="500,00"></label>
+              <label>Data <input type="date" name="data" value="<%= oggi %>"></label>
+            </div>
+            <label>Descrizione <input name="descrizione" list="descr-incassi" maxlength="200" placeholder="Acconto, saldo, n. fattura…"></label>
+            <datalist id="descr-incassi"><option value="Acconto"><option value="Saldo"><option value="Rimborso diritti di segreteria"></datalist>
+            <button class="pulsante piccolo">Registra incasso</button>
+          </form>
+          <ul class="semplice piccolo">
+            <% incassi.forEach(i => { %>
+              <li class="riga-incasso"><span><strong><%= euro(i.importo_cent) %></strong> · <%= data(i.data) %><% if (i.descrizione) { %><br><small class="muto"><%= i.descrizione %></small><% } %></span>
+                <form method="post" action="/studio/pratiche/<%= pratica.id %>/incassi/<%= i.id %>/elimina" class="in-linea" data-conferma="Eliminare questo incasso?">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>"><button class="link pericolo" aria-label="Elimina">✕</button>
+                </form>
+              </li>
+            <% }) %>
+          </ul>
+        </div>
+
+        <form method="post" action="/studio/pratiche/<%= pratica.id %>/elimina" data-conferma="Eliminare la pratica con scadenze, attività, incassi e storico messaggi?">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="link pericolo">Elimina pratica</button>
+        </form>
+      </aside>
+    </div>
+  </div>
+</section>
+<%- include('../partials/piede') %>

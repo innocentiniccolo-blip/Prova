@@ -1,0 +1,51 @@
+<%- include('../partials/testa') %>
+<section class="sezione">
+  <div class="contenitore medio">
+    <a class="indietro" href="<%= pratica.id ? `/studio/pratiche/${pratica.id}` : (pratica.lavoro_id ? `/studio/lavori/${pratica.lavoro_id}` : '/studio') %>">← Indietro</a>
+    <h1><%= titolo %></h1>
+    <% if (errore) { %><div class="avviso errore"><%= errore %></div><% } %>
+    <% if (!lavori.length) { %>
+      <div class="avviso info">Per aprire una pratica serve prima un lavoro. <a href="/studio/lavori/nuovo">Crea il lavoro</a>.</div>
+    <% } %>
+    <form method="post" action="<%= pratica.id ? `/studio/pratiche/${pratica.id}` : '/studio/pratiche' %>" class="modulo carta">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <label>Lavoro
+        <select name="lavoro_id" required>
+          <option value="">— scegli —</option>
+          <% lavori.forEach(l => { %><option value="<%= l.id %>" <%= Number(pratica.lavoro_id) === l.id ? 'selected' : '' %>><%= l.codice %> – <%= l.titolo %></option><% }) %>
+        </select>
+      </label>
+      <div class="riga-campi">
+        <label>Tipo di pratica
+          <input name="tipo" list="tipi-pratica" value="<%= pratica.tipo || '' %>" required maxlength="120" placeholder="Es. SCIA, DOCFA, APE…">
+        </label>
+        <label>Comune / ente
+          <input name="ente" list="enti" value="<%= pratica.ente || '' %>" maxlength="200" placeholder="Es. Comune di Montevarchi">
+        </label>
+      </div>
+      <datalist id="tipi-pratica"><% studio.pratiche.tipi.forEach(t => { %><option value="<%= t %>"><% }) %></datalist>
+      <datalist id="enti"><% studio.pratiche.enti.forEach(e => { %><option value="<%= e %>"><% }) %></datalist>
+      <label>Oggetto <small>cosa riguarda la pratica</small>
+        <textarea name="oggetto" rows="2" maxlength="2000" placeholder="Es. Frazionamento unità immobiliare e diversa distribuzione interna"><%= pratica.oggetto || '' %></textarea>
+      </label>
+      <div class="riga-campi">
+        <label>Stato
+          <select name="stato">
+            <% studio.pratiche.stati.forEach(s => { %><option <%= s === pratica.stato ? 'selected' : '' %>><%= s %></option><% }) %>
+          </select>
+        </label>
+        <label>N. protocollo <input name="protocollo" value="<%= pratica.protocollo || '' %>" maxlength="80"></label>
+        <label>Data protocollo <input type="date" name="data_protocollo" value="<%= pratica.data_protocollo || '' %>"></label>
+        <label>N. pratica dell'ente <input name="numero_pratica" value="<%= pratica.numero_pratica || '' %>" maxlength="80" placeholder="Es. SCIA 145/2026"></label>
+      </div>
+      <label class="stretto-campo">Onorario concordato (€)
+        <input name="onorario" inputmode="decimal" value="<%= pratica.onorario || '' %>" placeholder="Es. 1.500,00">
+        <small>Gli acconti e i saldi si registrano dalla scheda della pratica.</small>
+      </label>
+      <label>Note interne <textarea name="note" rows="4" maxlength="5000"><%= pratica.note || '' %></textarea></label>
+      <p class="nota">Le pratiche sono visibili solo allo studio, non ai clienti.</p>
+      <button class="pulsante"><%= pratica.id ? 'Salva' : 'Crea pratica' %></button>
+    </form>
+  </div>
+</section>
+<%- include('../partials/piede') %>

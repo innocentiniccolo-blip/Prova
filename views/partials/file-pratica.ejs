@@ -19,17 +19,15 @@
           <% if (admin) { %>
             <% if (f.sensibile) { %>
               <span class="badge doc-scaduto" title="Il nome indica <%= f.sensibile %>: non può essere pubblicato">Sensibile: sempre privato</span>
-            <% } else if (f.automatico) { %>
-              <span class="badge visibile" title="È nella cartella Presentazione: per nasconderlo spostalo fuori">Visibile (Presentazione)</span>
             <% } else { %>
               <form method="post" action="<%= base %>/documenti/visibilita" class="in-linea">
                 <input type="hidden" name="_csrf" value="<%= csrf %>">
                 <input type="hidden" name="p" value="<%= p.id %>">
                 <input type="hidden" name="f" value="<%= f.percorso %>">
                 <% if (f.pubblicato) { %>
-                  <span class="badge visibile"><%= f.visuraAuto ? 'Visibile (visura automatica)' : 'Visibile al cliente' %></span> <button class="link" name="azione" value="nascondi">Nascondi</button>
+                  <span class="badge visibile"><%= f.automatico ? 'Visibile (Presentazione)' : f.visuraAuto ? 'Visibile (visura automatica)' : 'Visibile al cliente' %></span> <button class="link" name="azione" value="nascondi">Nascondi</button>
                 <% } else { %>
-                  <span class="badge privata"><%= f.cambiato ? 'Modificato: di nuovo privato' : 'Privato' %></span> <button class="link" name="azione" value="pubblica">Pubblica</button>
+                  <span class="badge privata"><%= f.autoNascosto ? 'Nascosto da te (in Presentazione)' : f.cambiato ? 'Modificato: di nuovo privato' : 'Privato' %></span> <button class="link" name="azione" value="pubblica"><%= f.autoNascosto ? 'Mostra di nuovo' : 'Pubblica' %></button>
                 <% } %>
               </form>
             <% } %>

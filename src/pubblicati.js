@@ -22,7 +22,19 @@ db.exec(`CREATE TABLE IF NOT EXISTS file_pubblicati (
   PRIMARY KEY (pratica_id, percorso)
 )`);
 
+// File che lo studio ha nascosto anche se sono nella cartella Presentazione
+db.exec(`CREATE TABLE IF NOT EXISTS file_nascosti (
+  pratica_id  INTEGER NOT NULL REFERENCES pratiche(id) ON DELETE CASCADE,
+  percorso    TEXT NOT NULL,
+  nascosto_il TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (pratica_id, percorso)
+)`);
+
 const q = {
+  nascosti: db.prepare('SELECT percorso FROM file_nascosti WHERE pratica_id = ?'),
+  eNascosto: db.prepare('SELECT 1 FROM file_nascosti WHERE pratica_id = ? AND percorso = ?'),
+  metteNascosto: db.prepare('INSERT OR IGNORE INTO file_nascosti (pratica_id, percorso) VALUES (?, ?)'),
+  togliNascosto: db.prepare('DELETE FROM file_nascosti WHERE pratica_id = ? AND percorso = ?'),
   perPratica: db.prepare('SELECT * FROM file_pubblicati WHERE pratica_id = ?'),
   uno: db.prepare('SELECT * FROM file_pubblicati WHERE pratica_id = ? AND percorso = ?'),
   metti: db.prepare(`INSERT INTO file_pubblicati (pratica_id, percorso, dimensione, modificato) VALUES (?, ?, ?, ?)
@@ -78,16 +90,18 @@ const stessoFile = (riga, f) => Boolean(riga) && riga.dimensione === f.dimension
 function annota(pratica, file) {
   const righe = new Map(q.perPratica.all(pratica.id).map((r) => [r.percorso, r]));
   const visure = new Map(q.visure.all(pratica.id).map((r) => [r.percorso, r]));
+  const nascosti = new Set(q.nascosti.all(pratica.id).map((r) => r.percorso));
   return file.map((f) => {
     const riga = righe.get(f.percorso);
     const v = visure.get(f.percorso);
     const sensibile = sembraSensibile(f.percorso) || (v && v.tipo === 'soggetto' ? SOGGETTO : null);
-    const auto = automatico(f.percorso);
+    const autoNascosto = automatico(f.percorso) && nascosti.has(f.percorso);
+    const auto = automatico(f.percorso) && !autoNascosto;
     const visuraAuto = !auto && visuraAttiva(v, f.dimensione, new Date(f.modificato).getTime());
     return {
-      ...f, sensibile, automatico: auto, visuraAuto,
+      ...f, sensibile, automatico: auto, autoNascosto, visuraAuto,
       notaVisura: v && v.tipo && !auto ? (v.escluso && v.esito === 'pubblica' ? 'Nascosta da te (il programma l\'avrebbe pubblicata)' : v.motivo) : null,
-      pubblicato: !sensibile && (auto || visuraAuto || stessoFile(riga, f)),
+      pubblicato: !sensibile && (auto || visuraAuto || (!autoNascosto && stessoFile(riga, f))),
       cambiato: !auto && Boolean(riga) && !stessoFile(riga, f),
     };
   });
@@ -96,7 +110,7 @@ function annota(pratica, file) {
 /** Il file (percorso relativo alla pratica) è visibile al cliente in questo momento? */
 function visibile(lavoro, pratica, rel) {
   if (!pratica || !pratica.visibile || sembraSensibile(rel)) return false;
-  if (automatico(rel)) return Boolean(archivio.fileDocumento(lavoro, pratica.cartella, rel));
+  if (automatico(rel)) return !q.eNascosto.get(pratica.id, rel) && Boolean(archivio.fileDocumento(lavoro, pratica.cartella, rel));
   const v = q.visura.get(pratica.id, rel);
   if (v && v.tipo === 'soggetto') return false;
   if (v && v.esito === 'pubblica' && !v.escluso) {
@@ -117,6 +131,7 @@ function pubblica(lavoro, pratica, rel) {
   const v = q.visura.get(pratica.id, rel);
   if (v && v.tipo === 'soggetto') return { ok: false, motivo: `è ${SOGGETTO}` };
   if (v) q.escludi.run(0, pratica.id, rel);
+  if (automatico(rel)) { q.togliNascosto.run(pratica.id, rel); return { ok: true }; }
   const abs = archivio.fileDocumento(lavoro, pratica.cartella, rel);
   if (!abs) return { ok: false, motivo: 'file non trovato' };
   const st = fs.statSync(abs);
@@ -128,6 +143,7 @@ const nascondi = (pratica, rel) => {
   const v = q.visura.get(pratica.id, rel);
   const visura = Boolean(v && v.esito === 'pubblica' && !v.escluso);
   if (v) q.escludi.run(1, pratica.id, rel);
+  if (automatico(rel)) { q.metteNascosto.run(pratica.id, rel); return true; }
   return q.togli.run(pratica.id, rel).changes === 1 || visura;
 };
 

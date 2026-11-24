@@ -502,6 +502,16 @@ test('cartella Presentazione: i file sono visibili in automatico, i documenti d\
   // I file nascosti (che iniziano con _) restano fuori anche lì
   fs.writeFileSync(path.join(pres, '_appunti.pdf'), 'x');
   assert.strictEqual(await apri('Presentazione/_appunti.pdf'), 404);
+  // Lo studio può nascondere un file di Presentazione e poi mostrarlo di nuovo
+  const lavoro = db.prepare('SELECT * FROM lavori WHERE id = ?').get(lavoroA);
+  pubblicati.nascondi(pr, buoni[1]);
+  assert.strictEqual(await apri(buoni[1]), 404);
+  assert.ok(!(await a.go(`/area/lavori/${lavoroA}`)).text.includes('Relazione tecnica.pdf'));
+  const ann = pubblicati.annota(pr, [{ percorso: buoni[1], dimensione: 10, modificato: new Date() }])[0];
+  assert.deepStrictEqual([ann.pubblicato, ann.autoNascosto], [false, true]);
+  assert.strictEqual(await apri(buoni[0]), 200); // gli altri restano visibili
+  assert.ok(pubblicati.pubblica(lavoro, pr, buoni[1]).ok);
+  assert.strictEqual(await apri(buoni[1]), 200);
 });
 
 test('caso reale: integrazioni, doppioni firmati, email salvate e documento del geometra', async () => {

@@ -5,9 +5,12 @@ const fs = require('node:fs');
 const root = path.resolve(__dirname, '..');
 
 // Legge il file .env accanto al programma (comodo su Windows: niente variabili di sistema da impostare)
-try { process.loadEnvFile(path.join(root, '.env')); } catch { /* .env facoltativo */ }
+const env = require('./env').caricaEnv(root);
 
 const config = {
+  root,
+  fileEnv: env.file,
+  filesEnv: env.files,
   port: Number(process.env.PORTA || process.env.PORT) || 3100,
   // Il cruscotto ascolta SOLO sul PC stesso: nessun altro dispositivo può collegarsi.
   host: '127.0.0.1',

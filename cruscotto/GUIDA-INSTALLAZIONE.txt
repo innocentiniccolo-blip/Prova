@@ -39,7 +39,10 @@ Il cruscotto funziona solo sul PC su cui lo installi. Ci vogliono circa 10 minut
        EMAIL_PASSWORD=la-password-della-casella
 
    - Salva, chiudi la finestra nera e riapri "avvia-cruscotto.bat".
-   - Nella finestra nera devono comparire: Posta, Assistente AI: Google Gemini, Google Drive.
+   - Nella finestra nera devono comparire:
+       File .env:      ...\cruscotto\.env
+       Chiave Gemini:  AIzaSy...xxxx (39 caratteri)
+       Assistente AI:  Google Gemini (gemini-3.8-flash)
 
 
 6) THUNDERBIRD (controllo da fare una volta)
@@ -50,6 +53,18 @@ Il cruscotto funziona solo sul PC su cui lo installi. Ci vogliono circa 10 minut
 7) COMODITA'
    - Tasto destro su "avvia-cruscotto.bat" > Invia a > Desktop (crea collegamento).
    - Se il browser non si apre da solo, vai su http://localhost:3100
+
+
+SE L'AI RISULTA "NON ATTIVA"
+   Guarda cosa dice la finestra nera all'avvio:
+   - "File .env: NON TROVATO": il file non c'è o è in un'altra cartella. Deve stare dentro
+     "cruscotto", accanto ad "avvia-cruscotto.bat".
+   - Nessuna riga "Chiave Gemini": la riga GEMINI_API_KEY= è vuota o scritta male.
+     Deve essere esattamente  GEMINI_API_KEY=AIza...  (tutto attaccato, una sola volta).
+   - "Chiave Gemini: ... (meno di 39 caratteri)" o non inizia con "AIza": la chiave è
+     incompleta. Ricopiala da https://aistudio.google.com/apikey con l'icona Copia.
+   - Dopo ogni modifica al file .env chiudi la finestra nera e riavvia il cruscotto.
+   Il programma legge il file anche se si chiama ".env.txt" o è salvato in Unicode.
 
 
 BACKUP

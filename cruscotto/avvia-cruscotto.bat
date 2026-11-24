@@ -15,7 +15,7 @@ if not exist node_modules (
   call npm install --omit=dev
   if errorlevel 1 ( pause & exit /b 1 )
 )
-if not exist .env copy .env.example .env >nul
+if not exist .env if not exist .env.txt copy .env.example .env >nul
 start "" /b cmd /c "timeout /t 2 /nobreak >nul & start http://localhost:3100"
 node --disable-warning=ExperimentalWarning src\server.js
 pause

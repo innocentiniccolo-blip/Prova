@@ -1,0 +1,63 @@
+CRUSCOTTO PRATICHE - GUIDA RAPIDA DI INSTALLAZIONE
+Studio Tecnico Geom. Niccolò Innocenti
+===================================================
+
+Il cruscotto funziona solo sul PC su cui lo installi. Ci vogliono circa 10 minuti.
+
+
+1) INSTALLA NODE.JS (una volta sola)
+   - Vai su https://nodejs.org e scarica la versione "LTS".
+   - Installala lasciando tutte le opzioni predefinite (Avanti, Avanti, Installa).
+
+
+2) INSTALLA GOOGLE DRIVE PER DESKTOP (se non c'è già)
+   - Scaricalo da https://www.google.com/drive/download/ e accedi con il tuo account.
+   - Deve comparire in Esplora risorse un disco "Google Drive" (di solito G:)
+     con dentro "Il mio Drive\Studio Innocenti".
+
+
+3) COPIA LA CARTELLA DEL CRUSCOTTO
+   - Estrai lo zip (tasto destro > "Estrai tutto").
+   - Sposta la cartella "cruscotto" in Documenti (es. C:\Users\TuoNome\Documents\cruscotto).
+   - Non metterla dentro Google Drive: l'archivio del cruscotto non va sincronizzato.
+
+
+4) PRIMO AVVIO
+   - Apri la cartella "cruscotto" e fai doppio clic su "avvia-cruscotto.bat".
+   - Se Windows mostra "Windows ha protetto il PC": clicca "Ulteriori informazioni" > "Esegui comunque".
+   - La prima volta scarica i componenti (serve internet, 1-2 minuti), poi si apre il browser.
+   - Lascia aperta la finestra nera finché usi il cruscotto. Per chiudere, chiudi la finestra.
+
+
+5) INSERISCI CHIAVE E POSTA
+   - Nella cartella "cruscotto" ora c'è il file ".env": aprilo con il Blocco note
+     (tasto destro > Apri con > Blocco note).
+   - Compila queste righe (senza spazi dopo l'uguale):
+
+       GEMINI_API_KEY=la-tua-chiave-google
+       EMAIL_INDIRIZZO=info@geometrainnocenti.it
+       EMAIL_PASSWORD=la-password-della-casella
+
+   - Salva, chiudi la finestra nera e riapri "avvia-cruscotto.bat".
+   - Nella finestra nera devono comparire: Posta, Assistente AI: Google Gemini, Google Drive.
+
+
+6) THUNDERBIRD (controllo da fare una volta)
+   - Impostazioni account > Impostazioni server.
+   - Se c'è scritto POP3, spunta "Lascia i messaggi sul server" (con IMAP va già bene).
+
+
+7) COMODITA'
+   - Tasto destro su "avvia-cruscotto.bat" > Invia a > Desktop (crea collegamento).
+   - Se il browser non si apre da solo, vai su http://localhost:3100
+
+
+BACKUP
+   - Tutto l'archivio è nel file "dati\cruscotto.sqlite": copialo ogni tanto sul NAS
+     o su una chiavetta (a cruscotto chiuso).
+
+
+IMPORTANTE
+   - Il file ".env" contiene password e chiavi: non inviarlo e non condividerlo.
+
+Le istruzioni complete sono nel file README.md.

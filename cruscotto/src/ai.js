@@ -94,42 +94,62 @@ function chiedi(system, contenuto, schema) {
 function getGemini() {
   if (!clientGemini) {
     const { GoogleGenAI } = require('@google/genai');
-    const httpOptions = { timeout: 90_000 };
+    const httpOptions = {
+      timeout: 90_000,
+      // Errori temporanei dei server Google (es. 503 "modello sovraccarico"): ritenta da solo con attese crescenti
+      retryOptions: { attempts: 3, initialDelay: Number(process.env.GEMINI_RITENTA_SECONDI) || 2, maxDelay: 10, httpStatusCodes: [500, 502, 503, 504] },
+    };
     if (process.env.GEMINI_BASE_URL) httpOptions.baseUrl = process.env.GEMINI_BASE_URL; // solo per i test
     clientGemini = new GoogleGenAI({ apiKey: chiaveGemini(), httpOptions });
   }
   return clientGemini;
 }
 
-async function chiediGemini(system, contenuto, schema, modello = MODELLO_GEMINI) {
+/** Modelli da provare in ordine: se uno è sovraccarico o non disponibile si passa al successivo. */
+function modelliGemini() {
+  return [...new Set([MODELLO_GEMINI, 'gemini-flash-latest', 'gemini-flash-lite-latest'])];
+}
+
+async function chiediGemini(system, contenuto, schema) {
   const { ApiError } = require('@google/genai');
-  let risposta;
-  try {
-    risposta = await getGemini().models.generateContent({
-      model: modello,
-      contents: contenuto,
-      config: { systemInstruction: system, responseMimeType: 'application/json', responseJsonSchema: schema, maxOutputTokens: 8000 },
-    });
-  } catch (e) {
-    if (e instanceof ApiError) {
-      // Modello non disponibile per questa chiave: riprovo con l'ultimo "flash" indicato da Google
-      if (e.status === 404 && modello !== 'gemini-flash-latest' && !process.env.GEMINI_MODELLO) return chiediGemini(system, contenuto, schema, 'gemini-flash-latest');
-      if (e.status === 400 && /api key/i.test(e.message)) throw new ErroreAI('Chiave GEMINI_API_KEY non valida: controlla di averla copiata per intero.');
-      if (e.status === 401 || e.status === 403) throw new ErroreAI('Chiave GEMINI_API_KEY non valida o senza permessi.');
-      if (e.status === 429) throw new ErroreAI('Limite gratuito di Gemini raggiunto per ora: riprova tra qualche minuto.');
-      if (e.status === 404) throw new ErroreAI(`Modello Gemini "${modello}" non disponibile: cambia GEMINI_MODELLO nel file .env.`);
-      throw new ErroreAI(`Errore del servizio Gemini (${e.status ?? 'sconosciuto'}).`);
+  const modelli = modelliGemini();
+  let ultimoErrore = null;
+  for (const modello of modelli) {
+    let risposta;
+    try {
+      risposta = await getGemini().models.generateContent({
+        model: modello,
+        contents: contenuto,
+        config: { systemInstruction: system, responseMimeType: 'application/json', responseJsonSchema: schema, maxOutputTokens: 8000 },
+      });
+    } catch (e) {
+      if (e instanceof ApiError) {
+        const temporaneo = [500, 502, 503, 504].includes(e.status);
+        // Modello sovraccarico o non disponibile: provo il prossimo (un modello scritto a mano che non esiste va segnalato)
+        if (temporaneo || (e.status === 404 && !(process.env.GEMINI_MODELLO && modello === MODELLO_GEMINI))) {
+          ultimoErrore = e;
+          console.warn(`[gemini] ${modello}: errore ${e.status}, provo il modello successivo`);
+          continue;
+        }
+        if (e.status === 400 && /api key/i.test(e.message)) throw new ErroreAI('Chiave GEMINI_API_KEY non valida: controlla di averla copiata per intero.');
+        if (e.status === 401 || e.status === 403) throw new ErroreAI('Chiave GEMINI_API_KEY non valida o senza permessi.');
+        if (e.status === 429) throw new ErroreAI('Limite gratuito di Gemini raggiunto per ora: riprova tra qualche minuto.');
+        if (e.status === 404) throw new ErroreAI(`Modello Gemini "${modello}" non disponibile: cambia GEMINI_MODELLO nel file .env (o lascialo vuoto).`);
+        throw new ErroreAI(`Errore del servizio Gemini (${e.status ?? 'sconosciuto'}).`);
+      }
+      if (/fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|aborted/i.test(String(e?.message) + String(e?.cause?.code))) {
+        throw new ErroreAI('Impossibile contattare Gemini: controlla la connessione.');
+      }
+      throw e;
     }
-    if (/fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|aborted/i.test(String(e?.message) + String(e?.cause?.code))) {
-      throw new ErroreAI('Impossibile contattare Gemini: controlla la connessione.');
-    }
-    throw e;
+    if (risposta.promptFeedback?.blockReason) throw new ErroreAI('Gemini non ha scritto questo messaggio: riformula le istruzioni.');
+    const fine = risposta.candidates?.[0]?.finishReason;
+    if (fine === 'SAFETY' || fine === 'PROHIBITED_CONTENT' || fine === 'BLOCKLIST') throw new ErroreAI('Gemini non ha scritto questo messaggio: riformula le istruzioni.');
+    if (fine === 'MAX_TOKENS') throw new ErroreAI('Testo troppo lungo: chiedi una risposta più breve.');
+    try { return JSON.parse(risposta.text || ''); } catch { throw new ErroreAI("Risposta dell'AI non leggibile: riprova."); }
   }
-  if (risposta.promptFeedback?.blockReason) throw new ErroreAI("Gemini non ha scritto questo messaggio: riformula le istruzioni.");
-  const fine = risposta.candidates?.[0]?.finishReason;
-  if (fine === 'SAFETY' || fine === 'PROHIBITED_CONTENT' || fine === 'BLOCKLIST') throw new ErroreAI("Gemini non ha scritto questo messaggio: riformula le istruzioni.");
-  if (fine === 'MAX_TOKENS') throw new ErroreAI('Testo troppo lungo: chiedi una risposta più breve.');
-  try { return JSON.parse(risposta.text || ''); } catch { throw new ErroreAI("Risposta dell'AI non leggibile: riprova."); }
+  if (ultimoErrore?.status === 404) throw new ErroreAI('Nessun modello Gemini disponibile per questa chiave: controlla la chiave su AI Studio.');
+  throw new ErroreAI(`Gemini è sovraccarico in questo momento (errore ${ultimoErrore?.status ?? 503}, è un problema dei server Google): riprova tra qualche minuto.`);
 }
 
 // ---------- Anthropic Claude ----------

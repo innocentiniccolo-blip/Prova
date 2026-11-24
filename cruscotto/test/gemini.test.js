@@ -11,6 +11,7 @@ process.env.DATI_DIR = tmp;
 delete process.env.ANTHROPIC_API_KEY;
 delete process.env.GEMINI_MODELLO;
 process.env.GEMINI_API_KEY = 'chiave-finta';
+process.env.GEMINI_RITENTA_SECONDI = '0.05';
 
 // Server finto che risponde come l'API di Gemini
 const richieste = [];
@@ -25,6 +26,9 @@ const server = http.createServer((req, res) => {
     if (comportamento === 'chiave') return errore(400, 'API key not valid. Please pass a valid API key.');
     if (comportamento === 'quota') return errore(429, 'Resource has been exhausted');
     if (comportamento === 'modello' && req.url.includes('gemini-3.8-flash')) return errore(404, 'models/gemini-3.8-flash is not found');
+    if (comportamento === 'sovraccarico' && !req.url.includes('flash-lite')) return errore(503, 'The model is overloaded. Please try again later.');
+    if (comportamento === 'sempre503') return errore(503, 'The model is overloaded. Please try again later.');
+    if (comportamento === 'una-volta-503') { comportamento = 'ok'; return errore(503, 'The model is overloaded.'); }
     res.end(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify({ oggetto: 'SCIA – aggiornamento', testo: 'Gentile Sig. Rossi, ...' }) }] }, finishReason: 'STOP' }] }));
   });
 });
@@ -58,6 +62,30 @@ test('modello non disponibile: ripiega su gemini-flash-latest', async () => {
   assert.strictEqual(r.oggetto, ''); // WhatsApp: niente oggetto
   assert.match(richieste[0].url, /gemini-3\.8-flash/);
   assert.match(richieste.at(-1).url, /gemini-flash-latest/);
+});
+
+test('errore 503 passeggero: ritenta da solo sullo stesso modello', async () => {
+  comportamento = 'una-volta-503';
+  richieste.length = 0;
+  const r = await ai.generaMessaggio({ pratica, canale: 'email' });
+  assert.strictEqual(r.oggetto, 'SCIA – aggiornamento');
+  assert.strictEqual(richieste.length, 2);
+  assert.ok(richieste.every((q) => q.url.includes('gemini-3.8-flash')));
+});
+
+test('modello sovraccarico: dopo i tentativi passa ad altri modelli', async () => {
+  comportamento = 'sovraccarico';
+  richieste.length = 0;
+  const r = await ai.generaMessaggio({ pratica, canale: 'email' });
+  assert.strictEqual(r.oggetto, 'SCIA – aggiornamento');
+  const modelli = richieste.map((q) => q.url.match(/models\/([^:]+)/)[1]);
+  assert.deepStrictEqual([...new Set(modelli)], ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest']);
+  assert.strictEqual(modelli.filter((m) => m === 'gemini-3.8-flash').length, 3); // 3 tentativi prima di cambiare
+});
+
+test('tutti i modelli sovraccarichi: messaggio chiaro', async () => {
+  comportamento = 'sempre503';
+  await assert.rejects(ai.generaMessaggio({ pratica, canale: 'email' }), (e) => e instanceof ai.ErroreAI && /sovraccarico/.test(e.message) && /503/.test(e.message));
 });
 
 test('errori spiegati in italiano', async () => {

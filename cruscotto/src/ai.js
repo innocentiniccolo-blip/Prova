@@ -8,9 +8,26 @@ const config = require('./config');
 const { euro, oggi } = require('./formato');
 
 const MODELLO = process.env.AI_MODELLO || 'claude-opus-5-5';
+const MODELLO_GEMINI = process.env.GEMINI_MODELLO || 'gemini-3.8-flash';
 let client = null;
+let clientGemini = null;
 
-const attiva = () => Boolean(process.env.ANTHROPIC_API_KEY);
+const chiaveGemini = () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+
+/**
+ * Quale servizio AI usare: AI_FORNITORE=gemini|claude nel .env, altrimenti quello di cui c'è la chiave
+ * (se ci sono entrambe, Claude).
+ */
+function fornitore() {
+  const scelto = String(process.env.AI_FORNITORE || '').toLowerCase();
+  if (scelto === 'gemini' && chiaveGemini()) return 'gemini';
+  if (scelto === 'claude' && process.env.ANTHROPIC_API_KEY) return 'claude';
+  if (process.env.ANTHROPIC_API_KEY) return 'claude';
+  if (chiaveGemini()) return 'gemini';
+  return null;
+}
+const attiva = () => Boolean(fornitore());
+const NON_CONFIGURATA = "L'assistente AI non è configurato: aggiungi GEMINI_API_KEY o ANTHROPIC_API_KEY nel file .env e riavvia.";
 
 function getClient() {
   if (!client) client = new Anthropic({ timeout: 90_000, maxRetries: 2 });
@@ -68,8 +85,55 @@ function schedaPratica({ pratica, scadenze = [], attivita = [], destinatario, ca
 
 class ErroreAI extends Error {}
 
-/** Chiamata a Claude con risposta JSON vincolata allo schema. */
-async function chiedi(system, contenuto, schema) {
+/** Chiamata al servizio AI configurato, con risposta JSON vincolata allo schema. */
+function chiedi(system, contenuto, schema) {
+  return fornitore() === 'gemini' ? chiediGemini(system, contenuto, schema) : chiediClaude(system, contenuto, schema);
+}
+
+// ---------- Google Gemini ----------
+function getGemini() {
+  if (!clientGemini) {
+    const { GoogleGenAI } = require('@google/genai');
+    const httpOptions = { timeout: 90_000 };
+    if (process.env.GEMINI_BASE_URL) httpOptions.baseUrl = process.env.GEMINI_BASE_URL; // solo per i test
+    clientGemini = new GoogleGenAI({ apiKey: chiaveGemini(), httpOptions });
+  }
+  return clientGemini;
+}
+
+async function chiediGemini(system, contenuto, schema, modello = MODELLO_GEMINI) {
+  const { ApiError } = require('@google/genai');
+  let risposta;
+  try {
+    risposta = await getGemini().models.generateContent({
+      model: modello,
+      contents: contenuto,
+      config: { systemInstruction: system, responseMimeType: 'application/json', responseJsonSchema: schema, maxOutputTokens: 8000 },
+    });
+  } catch (e) {
+    if (e instanceof ApiError) {
+      // Modello non disponibile per questa chiave: riprovo con l'ultimo "flash" indicato da Google
+      if (e.status === 404 && modello !== 'gemini-flash-latest' && !process.env.GEMINI_MODELLO) return chiediGemini(system, contenuto, schema, 'gemini-flash-latest');
+      if (e.status === 400 && /api key/i.test(e.message)) throw new ErroreAI('Chiave GEMINI_API_KEY non valida: controlla di averla copiata per intero.');
+      if (e.status === 401 || e.status === 403) throw new ErroreAI('Chiave GEMINI_API_KEY non valida o senza permessi.');
+      if (e.status === 429) throw new ErroreAI('Limite gratuito di Gemini raggiunto per ora: riprova tra qualche minuto.');
+      if (e.status === 404) throw new ErroreAI(`Modello Gemini "${modello}" non disponibile: cambia GEMINI_MODELLO nel file .env.`);
+      throw new ErroreAI(`Errore del servizio Gemini (${e.status ?? 'sconosciuto'}).`);
+    }
+    if (/fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|aborted/i.test(String(e?.message) + String(e?.cause?.code))) {
+      throw new ErroreAI('Impossibile contattare Gemini: controlla la connessione.');
+    }
+    throw e;
+  }
+  if (risposta.promptFeedback?.blockReason) throw new ErroreAI("Gemini non ha scritto questo messaggio: riformula le istruzioni.");
+  const fine = risposta.candidates?.[0]?.finishReason;
+  if (fine === 'SAFETY' || fine === 'PROHIBITED_CONTENT' || fine === 'BLOCKLIST') throw new ErroreAI("Gemini non ha scritto questo messaggio: riformula le istruzioni.");
+  if (fine === 'MAX_TOKENS') throw new ErroreAI('Testo troppo lungo: chiedi una risposta più breve.');
+  try { return JSON.parse(risposta.text || ''); } catch { throw new ErroreAI("Risposta dell'AI non leggibile: riprova."); }
+}
+
+// ---------- Anthropic Claude ----------
+async function chiediClaude(system, contenuto, schema) {
   let risposta;
   try {
     risposta = await getClient().beta.messages.create({
@@ -99,7 +163,7 @@ async function chiedi(system, contenuto, schema) {
  * @param {object} p  { pratica, scadenze, attivita, destinatario, canale, istruzioni }
  */
 async function generaMessaggio(p) {
-  if (!attiva()) throw new ErroreAI("L'assistente AI non è configurato: aggiungi ANTHROPIC_API_KEY nel file .env e riavvia.");
+  if (!attiva()) throw new ErroreAI(NON_CONFIGURATA);
   const richiesta = `<scheda_pratica>\n${schedaPratica(p)}\n</scheda_pratica>\n\n` +
     `Cosa deve dire il messaggio (istruzioni del geometra):\n${p.istruzioni || 'Aggiorna il destinatario sullo stato della pratica.'}`;
 
@@ -138,7 +202,7 @@ Ora devi preparare la BOZZA DI RISPOSTA a una mail ricevuta dallo studio. Il geo
  * @param {object} p { email, pratica, scadenze, attivita, praticheCliente, istruzioni }
  */
 async function generaRisposta(p) {
-  if (!attiva()) throw new ErroreAI("L'assistente AI non è configurato: aggiungi ANTHROPIC_API_KEY nel file .env e riavvia.");
+  if (!attiva()) throw new ErroreAI(NON_CONFIGURATA);
   const e = p.email;
   let contesto;
   if (p.pratica) {
@@ -179,7 +243,7 @@ const SCHEMA_WHATSAPP = {
  * @param {object} p { chat, messaggi, pratica, scadenze, attivita, pratiche, istruzioni }
  */
 async function generaRispostaWhatsapp(p) {
-  if (!attiva()) throw new ErroreAI("L'assistente AI non è configurato: aggiungi ANTHROPIC_API_KEY nel file .env e riavvia.");
+  if (!attiva()) throw new ErroreAI(NON_CONFIGURATA);
   const chi = p.chat.cliente_nome || p.chat.nome;
   let contesto;
   if (p.pratica) contesto = schedaPratica({ pratica: p.pratica, scadenze: p.scadenze, attivita: p.attivita, destinatario: chi, canale: 'whatsapp' });
@@ -202,4 +266,4 @@ Ora devi leggere una chat WhatsApp tra lo studio e ${chi} (i messaggi dello stud
   return { riassunto: String(r.riassunto || '').trim().slice(0, 400), serve_risposta: r.serve_risposta !== false, testo: String(r.testo || '').trim() };
 }
 
-module.exports = { attiva, generaMessaggio, generaRisposta, generaRispostaWhatsapp, schedaPratica, ErroreAI, MODELLO };
+module.exports = { attiva, fornitore, generaMessaggio, generaRisposta, generaRispostaWhatsapp, schedaPratica, ErroreAI, MODELLO, MODELLO_GEMINI };

@@ -76,6 +76,9 @@ if (require.main === module) {
     console.log(`  Apri nel browser:  http://localhost:${config.port}`);
     console.log(`  Archivio:          ${path.join(config.datiDir, 'cruscotto.sqlite')}`);
     console.log(config.posta.attiva ? `  Posta:             ${config.posta.indirizzo}, controllo ogni ${config.posta.minuti} minuti` : '  Posta:             non collegata (vedi README)');
+    const ai = require('./ai');
+    const f = ai.fornitore();
+    console.log(`  Assistente AI:     ${f === 'gemini' ? `Google Gemini (${ai.MODELLO_GEMINI})` : f === 'claude' ? `Claude (${ai.MODELLO})` : 'non attivo (manca la chiave nel file .env)'}`);
     const st = whatsapp.stato();
     console.log(st.attiva ? `  Google Drive:      ${require('./cartelle').radice()}` : '  Google Drive:      non trovato (vedi README)');
     if (st.attiva) console.log(`  WhatsApp:          controllo di "${st.cartella}" ogni ${st.minuti} minuti`);

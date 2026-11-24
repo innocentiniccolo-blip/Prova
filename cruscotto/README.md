@@ -91,11 +91,20 @@ Note:
 
 ## Assistente AI (facoltativo)
 
-1. Crea una chiave su [platform.claude.com](https://platform.claude.com) (sezione *API keys*) e imposta un limite di spesa mensile. Ogni bozza costa una frazione di centesimo.
-2. Apri il file `.env` nella cartella del cruscotto (si crea al primo avvio; si apre con il Blocco note) e scrivi `ANTHROPIC_API_KEY=la-tua-chiave`.
+Il cruscotto può usare **Google Gemini** oppure **Claude** (Anthropic). Basta una delle due chiavi nel file `.env`; nella finestra nera all'avvio compare quale servizio è attivo ("Assistente AI: Google Gemini…").
+
+**Gemini (piano gratuito):**
+1. Vai su [aistudio.google.com](https://aistudio.google.com), accedi con il tuo account Google e premi **Get API key** → **Crea chiave API**.
+2. Apri il file `.env` nella cartella del cruscotto (con il Blocco note) e scrivi `GEMINI_API_KEY=la-tua-chiave` (inizia con `AIza…`).
 3. Chiudi e riapri il cruscotto.
 
-Al servizio AI vengono inviati solo i dati della pratica (tipo, ente, protocollo, scadenze, attività, importi) e il nome del destinatario. Senza chiave tutto il resto funziona e i messaggi si scrivono a mano.
+Il piano gratuito ha un limite di richieste al minuto e al giorno: se lo raggiungi compare "Limite gratuito di Gemini raggiunto", basta riprovare più tardi. **Privacy:** con il piano gratuito Google può usare i testi inviati per migliorare i suoi servizi. Per gli utenti europei dovrebbe valere un'eccezione (stesso trattamento del piano a pagamento), ma va verificata nelle condizioni attuali (ai.google.dev/gemini-api/terms, sezione "How Google Uses Your Data"). Mail e chat dei clienti contengono dati personali: tienine conto nell'informativa privacy dello studio, oppure attiva la fatturazione su Google AI Studio o usa Claude.
+
+**Claude (a pagamento):** crea la chiave su [platform.claude.com](https://platform.claude.com) (sezione *API keys*), imposta un limite di spesa mensile e scrivi `ANTHROPIC_API_KEY=la-tua-chiave` nel `.env`. Con le API di Anthropic i dati non vengono usati per addestrare i modelli.
+
+Se nel `.env` ci sono entrambe le chiavi, il cruscotto usa Claude; per usare Gemini aggiungi `AI_FORNITORE=gemini`.
+
+All'AI vengono inviati solo i dati della pratica (tipo, ente, protocollo, scadenze, attività, importi), il nome del destinatario e, per posta e WhatsApp, il testo dei messaggi da rispondere. I documenti delle cartelle non vengono mai inviati.
 
 ## Backup
 

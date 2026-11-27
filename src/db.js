@@ -174,6 +174,7 @@ if (!colonne('utenti').includes('informativa_il')) db.exec('ALTER TABLE utenti A
 if (!colonne('lavori_clienti').includes('ruolo')) db.exec("ALTER TABLE lavori_clienti ADD COLUMN ruolo TEXT NOT NULL DEFAULT 'proprietario'");
 if (!colonne('lavori_clienti').includes('consenso_il')) db.exec('ALTER TABLE lavori_clienti ADD COLUMN consenso_il TEXT');
 if (!colonne('pratiche').includes('visibile_agenzia')) db.exec('ALTER TABLE pratiche ADD COLUMN visibile_agenzia INTEGER NOT NULL DEFAULT 0');
+if (!colonne('pratiche').includes('scartata')) db.exec('ALTER TABLE pratiche ADD COLUMN scartata INTEGER NOT NULL DEFAULT 0');
 if (!colonne('pratiche').includes('visibile_impresa')) db.exec('ALTER TABLE pratiche ADD COLUMN visibile_impresa INTEGER NOT NULL DEFAULT 0');
 // Aziende clienti (agenzie immobiliari, imprese) con più persone che accedono
 db.exec(`CREATE TABLE IF NOT EXISTS aziende (

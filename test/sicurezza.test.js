@@ -512,6 +512,30 @@ test('cartella Presentazione: i file sono visibili in automatico, i documenti d\
   assert.strictEqual(await apri(buoni[0]), 200); // gli altri restano visibili
   assert.ok(pubblicati.pubblica(lavoro, pr, buoni[1]).ok);
   assert.strictEqual(await apri(buoni[1]), 200);
+  // «Non pubblicare» nel nome del file o di una sottocartella: mai visibile, nemmeno in Presentazione
+  fs.mkdirSync(path.join(pres, 'Non pubblicare'), { recursive: true });
+  fs.writeFileSync(path.join(pres, 'Non pubblicare', 'Bozza.pdf'), '%PDF-1.4 b');
+  fs.writeFileSync(path.join(pres, 'Tavola - NON PUBBLICARE.pdf'), '%PDF-1.4 c');
+  assert.strictEqual(await apri('Presentazione/Non pubblicare/Bozza.pdf'), 404);
+  assert.strictEqual(await apri('Presentazione/Tavola - NON PUBBLICARE.pdf'), 404);
+  assert.strictEqual(pubblicati.pubblica(lavoro, pr, 'Presentazione/Tavola - NON PUBBLICARE.pdf').ok, false);
+  // Studio: «Nascondi tutti» toglie anche la Presentazione; «Scarta» toglie la cartella al cliente e all'elenco
+  const st = browser();
+  await st.accedi('studio@esempio.it', PW);
+  const c = await st.csrf(`/studio/lavori/${lavoroA}`);
+  await st.go(`/studio/lavori/${lavoroA}/documenti/visibilita`, { method: 'POST', body: new URLSearchParams({ _csrf: c, p: String(pr.id), azione: 'nascondiTutti' }) });
+  assert.strictEqual(await apri(buoni[0]), 404);
+  assert.ok(pubblicati.pubblica(lavoro, pr, buoni[0]).ok);
+  assert.strictEqual(await apri(buoni[0]), 200);
+  await st.go(`/studio/lavori/${lavoroA}/pratiche/${pr.id}/scarta`, { method: 'POST', body: new URLSearchParams({ _csrf: c }) });
+  assert.strictEqual(await apri(buoni[0]), 404);
+  const pag = (await st.go(`/studio/lavori/${lavoroA}`)).text;
+  assert.match(pag, /id="scartate"[^]*CILA/);
+  assert.ok(!new RegExp(`id="pratica-${pr.id}"`).test(pag));
+  await st.go(`/studio/lavori/${lavoroA}/pratiche/${pr.id}/scarta`, { method: 'POST', body: new URLSearchParams({ _csrf: c, azione: 'ripristina' }) });
+  const dopo = db.prepare('SELECT scartata, visibile FROM pratiche WHERE id = ?').get(pr.id);
+  assert.deepStrictEqual([dopo.scartata, dopo.visibile], [0, 0]); // ripristinata ma privata
+  db.prepare('UPDATE pratiche SET visibile = 1 WHERE id = ?').run(pr.id);
 });
 
 test('caso reale: integrazioni, doppioni firmati, email salvate e documento del geometra', async () => {

@@ -60,6 +60,7 @@ const SENSIBILI = [
   ['dati bancari o reddituali', /\b(iban|estratto conto|coordinate bancarie|busta paga|buste paga|cedolino|redditi|modello 730|mod 730|isee|cud|unico pf|mutuo)\b/],
   ['stato civile e famiglia', /\b(stato di famiglia|certificato di residenza|certificato residenza|stato civile|atto di nascita|atto di morte|certificato di morte|testamento|separazione|divorzio)\b/],
   ['dati giudiziari', /\b(casellario|carichi pendenti|sentenza|decreto penale)\b/],
+  ['la scritta «Non pubblicare»', /\bnon pubblicare\b/],
   ['procura o delega con documenti allegati', /\b(procura|delega|conferimento)\b/],
 ];
 
@@ -109,7 +110,7 @@ function annota(pratica, file) {
 
 /** Il file (percorso relativo alla pratica) è visibile al cliente in questo momento? */
 function visibile(lavoro, pratica, rel) {
-  if (!pratica || !pratica.visibile || sembraSensibile(rel)) return false;
+  if (!pratica || !pratica.visibile || pratica.scartata || sembraSensibile(rel)) return false;
   if (automatico(rel)) return !q.eNascosto.get(pratica.id, rel) && Boolean(archivio.fileDocumento(lavoro, pratica.cartella, rel));
   const v = q.visura.get(pratica.id, rel);
   if (v && v.tipo === 'soggetto') return false;

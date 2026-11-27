@@ -94,6 +94,8 @@ const Pratiche = {
     UPDATE pratiche SET stato = :stato, data = :data, protocollo = :protocollo, nota = :nota,
       visibile = :visibile, aggiornato_il = datetime('now') WHERE id = :id AND lavoro_id = :lavoro_id`),
   elimina: db.prepare('DELETE FROM pratiche WHERE id = ? AND lavoro_id = ?'),
+  // Cartella scartata: sparisce dall'elenco delle pratiche e non è mai visibile a nessuno
+  scarta: db.prepare('UPDATE pratiche SET scartata = ?, visibile = CASE WHEN ? THEN 0 ELSE visibile END, visibile_agenzia = CASE WHEN ? THEN 0 ELSE visibile_agenzia END, visibile_impresa = CASE WHEN ? THEN 0 ELSE visibile_impresa END WHERE id = ? AND lavoro_id = ?'),
   visibilitaRuoli: db.prepare('UPDATE pratiche SET visibile = ?, visibile_agenzia = ?, visibile_impresa = ? WHERE id = ? AND lavoro_id = ?'),
   // Tappe: integrazioni, inizio e fine lavori
   tappeLavoro: db.prepare("SELECT t.* FROM pratiche_tappe t JOIN pratiche p ON p.id = t.pratica_id WHERE p.lavoro_id = ? ORDER BY COALESCE(t.data, t.creato_il), t.id"),

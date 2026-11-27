@@ -255,7 +255,7 @@ router.get('/lavori/:id', trovaLavoro, async (req, res, next) => {
       titolo: `${lavoro.codice} – ${lavoro.titolo}`,
       lavoro,
       cartellaEsiste,
-      pratiche: await pratiche.conDocumenti(lavoro),
+      ...(await (async () => { const tutte = await pratiche.conDocumenti(lavoro); return { pratiche: tutte.filter((p) => !p.scartata), scartate: tutte.filter((p) => p.scartata) }; })()),
       tappe: tappe.perPratica(Pratiche.tappeLavoro.all(lavoro.id)), FASI: tappe.FASI,
       statoVisure: require('../visure').stato(lavoro.id),
       tipiPratica: archivio.tipiPratica,
@@ -421,6 +421,11 @@ router.post('/lavori/:id/documenti/visibilita', trovaLavoro, auth.verificaCsrf, 
     if (req.body.azione === 'nascondi') {
       pubblicati.nascondi(pratica, rel);
       flash(req, 'ok', 'Documento nascosto al cliente.');
+    } else if (req.body.azione === 'nascondiTutti') {
+      const file = await archivio.documentiPratica(req.lavoro, pratica.cartella);
+      let n = 0;
+      for (const f of pubblicati.annota(pratica, file)) if (f.pubblicato) { pubblicati.nascondi(pratica, f.percorso); n++; }
+      flash(req, 'ok', n ? `Nascosti ${n} documenti: il cliente non vede più nulla di questa pratica.` : 'Nessun documento era visibile.');
     } else if (req.body.azione === 'tutti') {
       const file = await archivio.documentiPratica(req.lavoro, pratica.cartella);
       let n = 0; let saltati = 0;
@@ -432,6 +437,15 @@ router.post('/lavori/:id/documenti/visibilita', trovaLavoro, auth.verificaCsrf, 
     }
     res.redirect(`/studio/lavori/${req.lavoro.id}#pratica-${pratica.id}`);
   } catch (e) { next(e); }
+});
+
+router.post('/lavori/:id/pratiche/:pid/scarta', trovaLavoro, auth.verificaCsrf, (req, res) => {
+  const p = Pratiche.perId.get(Number(req.params.pid), req.lavoro.id);
+  if (!p) { flash(req, 'errore', 'Cartella non trovata.'); return res.redirect(`/studio/lavori/${req.lavoro.id}`); }
+  const scarta = req.body.azione !== 'ripristina' ? 1 : 0;
+  Pratiche.scarta.run(scarta, scarta, scarta, scarta, p.id, req.lavoro.id);
+  flash(req, 'ok', scarta ? `«${p.cartella}» scartata: non compare più tra le pratiche e il cliente non la vede. La ritrovi in fondo, in «Cartelle scartate».` : `«${p.cartella}» ripristinata (privata: decidi tu chi la vede).`);
+  res.redirect(`/studio/lavori/${req.lavoro.id}${scarta ? '#scartate' : `#pratica-${p.id}`}`);
 });
 
 router.post('/lavori/:id/documenti/elimina', soloScrittura, trovaLavoro, auth.verificaCsrf, async (req, res, next) => {

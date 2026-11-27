@@ -414,3 +414,5 @@ details.visibili > summary { cursor: pointer; } details.visibili > summary h3 { 
 @keyframes logo-s { to { transform: scaleY(1); } }
 @keyframes logo-d { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .logo-compone .logo-ni * { animation: none !important; clip-path: none !important; transform: none !important; opacity: 1 !important; } }
+.scarta-cartella { margin-top: .8rem; padding-top: .5rem; border-top: 1px dashed var(--bordo); text-align: right; }
+.scarta-cartella .link.muto { color: var(--muto); font-size: .88rem; }
